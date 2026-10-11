@@ -185,15 +185,18 @@ Point centroid_of(const Geometry& g) {
     return Point{lon / n, lat / n};
   }
   if (g.kind == GeometryKind::Polygon && !g.polygon.empty() && !g.polygon.front().points.empty()) {
-    // Average of exterior ring vertices (contract).
+    // Average of exterior ring vertices EXCLUDING the repeated closing vertex (contract).
     const auto& pts = g.polygon.front().points;
+    std::size_t n = pts.size();
+    if (n >= 2 && pts.front().lon == pts.back().lon && pts.front().lat == pts.back().lat) --n;
+    if (n == 0) return {};
     double lon = 0, lat = 0;
-    for (const auto& p : pts) {
-      lon += p.lon;
-      lat += p.lat;
+    for (std::size_t i = 0; i < n; ++i) {
+      lon += pts[i].lon;
+      lat += pts[i].lat;
     }
-    const double n = static_cast<double>(pts.size());
-    return Point{lon / n, lat / n};
+    const double dn = static_cast<double>(n);
+    return Point{lon / dn, lat / dn};
   }
   return {};
 }

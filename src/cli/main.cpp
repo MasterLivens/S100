@@ -1,8 +1,10 @@
 #include "s100/s100.hpp"
 #include <cctype>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <sstream>
 
 #ifndef S100_DEFAULT_FC
 #define S100_DEFAULT_FC ""
@@ -13,9 +15,11 @@
 
 static const char* kUsage =
     "usage: s100_cli <file.000|.h5|.gml> [--fc <FC.xml>] [--layers]\n"
-    "                [--s124 <path.gml>] [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
+    "                [--s102 <path.h5>] [--s104 <path.h5>] [--s111 <path.h5>] [--s124 <path.gml>]\n"
+    "                [--session-pick <lon> <lat>]\n"
+    "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
     "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
-    "                [--fc <FC.xml>] [--layers]\n"
+    "                [--fc <FC.xml>] [--layers] [--session-pick <lon> <lat>]\n"
     "  note: lone .001 updates are rejected; use exchange set / with_updates\n";
 
 static long long ms_since(std::chrono::steady_clock::time_point t0) {
@@ -35,10 +39,84 @@ static bool looks_like_exchange_set(const std::filesystem::path& path) {
   return lower == "catalog.xml";
 }
 
+static const char* kind_name(s100::SessionPickHit::Kind k) {
+  using K = s100::SessionPickHit::Kind;
+  switch (k) {
+    case K::Feature: return "Feature";
+    case K::CoverageSample: return "CoverageSample";
+    case K::WaterLevel: return "WaterLevel";
+    case K::Current: return "Current";
+    case K::NavWarning: return "NavWarning";
+  }
+  return "?";
+}
+
+static void print_session_pick(const s100::SessionPickResult& r) {
+  std::cout << "session-pick lon=" << r.lon << " lat=" << r.lat << " hits=" << r.hits.size() << "\n";
+  for (const auto& h : r.hits) {
+    std::cout << "  " << kind_name(h.kind) << " key=" << h.member_key
+              << " product=" << s100::product_name(h.product) << " feature_id=" << h.feature_id
+              << " type=" << h.feature_type << " label=" << h.label
+              << " numeric_valid=" << (h.numeric_valid ? "true" : "false");
+    if (h.numeric_valid) {
+      if (h.kind == s100::SessionPickHit::Kind::Current)
+        std::cout << " speed_ms=" << h.speed_ms << " direction_deg=" << h.direction_deg;
+      else
+        std::cout << " depth_or_level=" << h.depth_or_level;
+    }
+    std::cout << "\n";
+  }
+}
+
+static int run_session_pick_on(s100::ChartSession& session, double lon, double lat) {
+  s100::SessionPickResult pr;
+  std::string perr;
+  if (!s100::chart_session_pick(session, lon, lat, pr, &perr)) {
+    std::cerr << "session-pick failed: " << perr << "\n";
+    return 1;
+  }
+  print_session_pick(pr);
+  return 0;
+}
+
 static int run_single_cell(const std::filesystem::path& path, const std::filesystem::path& fc_path,
                            const std::filesystem::path& pc_path, bool list_layers, bool do_portray,
                            bool show_errors,
-                           const std::vector<std::pair<std::string, std::string>>& settings) {
+                           const std::vector<std::pair<std::string, std::string>>& settings,
+                           const std::vector<std::filesystem::path>& overlay_paths, bool do_session_pick,
+                           double pick_lon, double pick_lat) {
+  // Session path: primary + overlays (used for --session-pick and multi-product loads).
+  const bool use_session = do_session_pick || !overlay_paths.empty();
+  if (use_session) {
+    s100::ChartSession session;
+    s100::LoadError err;
+    const auto t0 = std::chrono::steady_clock::now();
+    std::string key;
+    if (!path.empty()) {
+      if (!session.open_and_insert(path, &err, &key)) {
+        std::cerr << "load failed: " << err.message << "\n";
+        return 1;
+      }
+      std::cout << "loaded " << key << " product="
+                << s100::product_name(session.find(key)->product) << " ms=" << ms_since(t0) << "\n";
+    }
+    for (const auto& ov : overlay_paths) {
+      std::string ok;
+      if (!session.open_and_insert(ov, &err, &ok)) {
+        std::cerr << "overlay load failed: " << err.message << "\n";
+        return 1;
+      }
+      std::cout << "loaded " << ok << " product=" << s100::product_name(session.find(ok)->product)
+                << "\n";
+    }
+    if (session.datasets().empty()) {
+      std::cerr << "no members loaded\n";
+      return 1;
+    }
+    if (do_session_pick) return run_session_pick_on(session, pick_lon, pick_lat);
+    // Fall through to single-dataset report on primary when overlays were loaded without pick.
+  }
+
   s100::Dataset ds;
   s100::LoadError err;
   const auto t0 = std::chrono::steady_clock::now();
@@ -132,7 +210,7 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
 
 static int run_exchange_set(const std::filesystem::path& path, const std::filesystem::path& fc_path,
                             bool list_only, bool load_all, const std::string& load_one,
-                            bool list_layers) {
+                            bool list_layers, bool do_session_pick, double pick_lon, double pick_lat) {
   s100::ChartSession session;
   s100::LoadError err;
   const auto t0 = std::chrono::steady_clock::now();
@@ -155,7 +233,7 @@ static int run_exchange_set(const std::filesystem::path& path, const std::filesy
     std::cout << "\n";
   }
 
-  if (list_only && load_one.empty() && !load_all) return 0;
+  if (list_only && load_one.empty() && !load_all && !do_session_pick) return 0;
 
   s100::FeatureCatalogue fc;
   std::string fc_err;
@@ -176,12 +254,13 @@ static int run_exchange_set(const std::filesystem::path& path, const std::filesy
         std::cout << "  " << code << " [" << li.use_type << "] " << li.feature_count << "\n";
   };
 
-  if (load_all) {
+  if (load_all || (do_session_pick && load_one.empty())) {
     s100::LoadError first;
     const auto n = session.load_all_members(&first);
     std::cout << "load-all ok=" << n << "/" << session.member_keys().size() << "\n";
     for (const auto& key : session.member_keys())
       if (auto* ds = session.find(key)) after_load(key, *ds);
+    if (do_session_pick) return run_session_pick_on(session, pick_lon, pick_lat);
     return n > 0 ? 0 : 1;
   }
 
@@ -191,6 +270,7 @@ static int run_exchange_set(const std::filesystem::path& path, const std::filesy
       return 1;
     }
     after_load(load_one, *session.find(load_one));
+    if (do_session_pick) return run_session_pick_on(session, pick_lon, pick_lat);
     return 0;
   }
 
@@ -204,6 +284,7 @@ static int run_exchange_set(const std::filesystem::path& path, const std::filesy
     return 1;
   }
   after_load(keys.front(), *session.find(keys.front()));
+  if (do_session_pick) return run_session_pick_on(session, pick_lon, pick_lat);
   return 0;
 }
 
@@ -217,6 +298,9 @@ int main(int argc, char** argv) {
   bool list_only = false, load_all = false;
   std::string load_one;
   std::vector<std::pair<std::string, std::string>> settings;
+  std::vector<std::filesystem::path> overlay_paths;
+  bool do_session_pick = false;
+  double pick_lon = 0, pick_lat = 0;
   for (int i = 1; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--fc") && i + 1 < argc)
       fc_path = argv[++i];
@@ -234,9 +318,24 @@ int main(int argc, char** argv) {
       load_all = true;
     else if (!std::strcmp(argv[i], "--load") && i + 1 < argc)
       load_one = argv[++i];
-    else if (!std::strcmp(argv[i], "--s124") && i + 1 < argc)
-      path = argv[++i];
-    else if (!std::strcmp(argv[i], "--set") && i + 1 < argc) {
+    else if (!std::strcmp(argv[i], "--session-pick") && i + 2 < argc) {
+      do_session_pick = true;
+      pick_lon = std::atof(argv[++i]);
+      pick_lat = std::atof(argv[++i]);
+    } else if (!std::strcmp(argv[i], "--s102") && i + 1 < argc)
+      overlay_paths.push_back(argv[++i]);
+    else if (!std::strcmp(argv[i], "--s104") && i + 1 < argc)
+      overlay_paths.push_back(argv[++i]);
+    else if (!std::strcmp(argv[i], "--s111") && i + 1 < argc)
+      overlay_paths.push_back(argv[++i]);
+    else if (!std::strcmp(argv[i], "--s124") && i + 1 < argc) {
+      // Preserve prior behaviour: --s124 alone sets primary path; with an existing
+      // primary it becomes an overlay member for session pick.
+      if (path.empty())
+        path = argv[++i];
+      else
+        overlay_paths.push_back(argv[++i]);
+    } else if (!std::strcmp(argv[i], "--set") && i + 1 < argc) {
       const std::string kv = argv[++i];
       const auto eq = kv.find('=');
       if (eq == std::string::npos) {
@@ -248,7 +347,19 @@ int main(int argc, char** argv) {
       path = argv[i];
   }
 
-  if (looks_like_exchange_set(path))
-    return run_exchange_set(path, fc_path, list_only, load_all, load_one, list_layers);
-  return run_single_cell(path, fc_path, pc_path, list_layers, do_portray, show_errors, settings);
+  if (path.empty() && overlay_paths.empty()) {
+    std::cerr << kUsage;
+    return 2;
+  }
+
+  if (!path.empty() && looks_like_exchange_set(path))
+    return run_exchange_set(path, fc_path, list_only, load_all, load_one, list_layers, do_session_pick,
+                            pick_lon, pick_lat);
+  if (path.empty() && !overlay_paths.empty()) {
+    // e.g. s100_cli --s124 file.gml --session-pick ...
+    path = overlay_paths.front();
+    overlay_paths.erase(overlay_paths.begin());
+  }
+  return run_single_cell(path, fc_path, pc_path, list_layers, do_portray, show_errors, settings,
+                         overlay_paths, do_session_pick, pick_lon, pick_lat);
 }

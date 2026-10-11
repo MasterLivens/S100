@@ -73,6 +73,7 @@ add_executable(s100_tests
   tests/test_s104.cpp
   tests/test_s111.cpp
   tests/test_s124.cpp
+  tests/test_session_pick.cpp
   tests/test_associations.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
@@ -83,6 +84,7 @@ add_test(NAME s102_deepen_multigrid COMMAND s100_tests s102_deepen_multigrid)
 add_test(NAME s104_open_frame COMMAND s100_tests s104_open_frame)
 add_test(NAME s111_open_frame COMMAND s100_tests s111_open_frame)
 add_test(NAME s124_open_list COMMAND s100_tests s124_open_list)
+add_test(NAME session_pick_unified COMMAND s100_tests session_pick_unified)
 add_test(NAME third_party_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_third_party.cmake)
 add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_catalogues.cmake)
 add_executable(s100_portrayal_tests tests/test_portrayal.cpp)
