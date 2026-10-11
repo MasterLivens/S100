@@ -1,5 +1,36 @@
-# Host* functions referenced by official PC Rules (static scan, tests must keep this in sync)
-# generated: rg -o '\bHost[A-Za-z]+\b' catalogues/*/PC_*/Rules -g '*.lua'
+# Host* functions referenced by official PC Rules, per product (registries are per product).
+# regenerate: rg -o --no-filename '\bHost[A-Za-z]+\b' <PC>/Rules -g '*.lua' | sort -u
+[S-101 PC 2.0.0]
+HostDebuggerEntry
+HostFeatureGetAssociatedFeatureIDs
+HostFeatureGetAssociatedInformationIDs
+HostFeatureGetCode
+HostFeatureGetComplexAttributeCount
+HostFeatureGetSimpleAttribute
+HostFeatureGetSpatialAssociations
+HostGetComplexAttributeCount
+HostGetComplexAttributeTypeCodes
+HostGetComplexAttributeTypeInfo
+HostGetFeatureAssociationTypeCodes
+HostGetFeatureIDs
+HostGetFeatureTypeCodes
+HostGetFeatureTypeInfo
+HostGetInformationAssociationTypeCodes
+HostGetInformationTypeCodes
+HostGetInformationTypeInfo
+HostGetRoleTypeCodes
+HostGetSimpleAttribute
+HostGetSimpleAttributeTypeCodes
+HostGetSimpleAttributeTypeInfo
+HostGetSpatial
+HostInformationTypeGetCode
+HostInformationTypeGetComplexAttributeCount
+HostInformationTypeGetSimpleAttribute
+HostPortrayalEmit
+HostSpatialGetAssociatedFeatureIDs
+HostSpatialGetAssociatedInformationIDs
+
+[S-102 PC 3.0.0]
 HostDebuggerEntry
 HostFeatureGetAssociatedFeatureIDs
 HostFeatureGetAssociatedInformationIDs
