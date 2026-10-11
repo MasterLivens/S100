@@ -29,6 +29,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -788,17 +789,13 @@ class MapWidget : public QWidget {
         continue;
       order.push_back(&di);
     }
-    auto plane_order = [&](const std::string& plane) -> int {
-      if (!pc_) return plane == "OverRadar" ? 1 : 0;
-      const auto it = pc_->display_planes.find(plane);
-      return it == pc_->display_planes.end() ? 0 : it->second;
-    };
+    // Core draw order (docs/display-priority-contract.md): SCAMIN already filtered above.
+    const std::map<std::string, int>* pc_planes =
+        pc_ ? &pc_->display_planes : nullptr;
     std::stable_sort(order.begin(), order.end(),
-                     [&](const s100::DrawingInstruction* a, const s100::DrawingInstruction* b) {
-                       const int pa = plane_order(a->display_plane);
-                       const int pb = plane_order(b->display_plane);
-                       if (pa != pb) return pa < pb;
-                       return a->drawing_priority < b->drawing_priority;
+                     [pc_planes](const s100::DrawingInstruction* a,
+                                 const s100::DrawingInstruction* b) {
+                       return s100::draw_order_less(*a, *b, pc_planes);
                      });
 
     std::vector<TextJob> texts;
@@ -877,7 +874,7 @@ class MapWidget : public QWidget {
         case s100::DrawingInstruction::Kind::Text: {
           TextJob job;
           if (!prepare_text_job(r, f, di, job)) break;
-          job.plane_order = plane_order(di.display_plane);
+          job.plane_order = s100::display_plane_rank(di.display_plane, pc_planes);
           job.drawing_priority = di.drawing_priority;
           texts.push_back(std::move(job));
           break;

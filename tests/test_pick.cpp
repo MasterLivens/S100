@@ -42,6 +42,7 @@ void run_s124_tests();
 void test_pc_wire_111_124();
 void test_s102_deepen_multigrid();
 void test_scamin_filter();
+void test_display_priority_order();
 void test_association_faui_merge();
 
 int main(int argc, char** argv) {
@@ -99,6 +100,15 @@ int main(int argc, char** argv) {
     std::cout << "scamin_filter ok\n";
     return 0;
   }
+  if (argc >= 2 && std::string(argv[1]) == "display_priority_order") {
+    test_display_priority_order();
+    if (failures) {
+      std::cerr << failures << " failure(s)\n";
+      return 1;
+    }
+    std::cout << "display_priority_order ok\n";
+    return 0;
+  }
   if (argc >= 2 && std::string(argv[1]) == "session_pick_unified") {
     test_session_pick_unified();
     if (failures) {
@@ -127,6 +137,7 @@ int main(int argc, char** argv) {
   test_session_pick_unified();
   test_association_faui_merge();
   test_scamin_filter();
+  test_display_priority_order();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;
