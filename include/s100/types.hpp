@@ -42,11 +42,37 @@ struct Attribute {
   std::uint8_t instruction{1}; // ATIN: 1 insert (update files may use 2 delete / 3 modify)
 };
 
+/** Reference from a record to a spatial record (SPAS on features, CUCO on composite curves,
+ *  RIAS on surfaces). rcnm: 110 point, 115 multi point, 120 curve, 125 composite curve,
+ *  130 surface. Kept for the portrayal host (S-100 Part 13 spatial access + shared topology). */
+struct SpatialRef {
+  std::uint8_t rcnm{0};
+  std::uint32_t rcid{0};
+  bool reverse{false};         // ORNT == 2
+  std::uint8_t usage{0};       // RIAS USAG: 1 exterior, 2 interior (0 = n/a)
+  std::uint32_t scale_min{0};  // SPAS SMIN (0 = none)
+  std::uint32_t scale_max{0};  // SPAS SMAX (0 = none)
+};
+
+/** FASC (feature->feature) or INAS (->information) association, codes resolved via
+ *  FACS/IACS and ARCS. `role` is the role played by the referenced record. */
+struct AssociationRef {
+  std::uint8_t rcnm{0};   // 100 feature, 150 information
+  std::uint32_t rcid{0};
+  std::string association;
+  std::string role;
+  std::vector<Attribute> attributes;
+};
+
 struct Feature {
   std::uint64_t id{0};
   std::string feature_type;  // FC feature type code; also the layer key (classify_layers)
   Geometry geometry;
   std::vector<Attribute> attributes;
+  std::uint32_t record_id{0};                       // FRID RCID (target of FASC)
+  std::vector<SpatialRef> spatial;                  // SPAS, in record order
+  std::vector<AssociationRef> feature_associations;      // FASC
+  std::vector<AssociationRef> information_associations;  // INAS
 
   /** First top-level attribute value for `code`, or nullptr. */
   const std::string* attribute(const std::string& code) const {

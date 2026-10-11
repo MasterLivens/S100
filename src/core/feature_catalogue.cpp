@@ -1,101 +1,210 @@
 #include "s100/feature_catalogue.hpp"
 
+#include <pugixml.hpp>
+
 #include <algorithm>
-#include <fstream>
-#include <sstream>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
 
 namespace s100 {
 namespace {
 
-// The FC is machine-generated XML with a fixed S100FC: prefix, so a small tag scanner is
-// enough here and keeps s100_core free of an XML dependency. Swap for a real parser if
-// catalogues from other producers need it.
-std::string unescape(std::string s) {
-  const std::pair<const char*, const char*> ents[] = {
-      {"&amp;", "&"}, {"&lt;", "<"}, {"&gt;", ">"}, {"&quot;", "\""}, {"&apos;", "'"}};
-  for (const auto& [from, to] : ents) {
-    std::size_t pos = 0;
-    const std::string f(from), t(to);
-    while ((pos = s.find(f, pos)) != std::string::npos) {
-      s.replace(pos, f.size(), t);
-      pos += t.size();
-    }
+// Match on local names so the S100FC: / S100Base: prefixes don't matter.
+const char* local(const pugi::xml_node& n) {
+  const char* name = n.name();
+  const char* c = std::strchr(name, ':');
+  return c ? c + 1 : name;
+}
+
+pugi::xml_node child(const pugi::xml_node& n, const char* name) {
+  for (auto c : n.children())
+    if (std::strcmp(local(c), name) == 0) return c;
+  return {};
+}
+
+std::vector<pugi::xml_node> children(const pugi::xml_node& n, const char* name) {
+  std::vector<pugi::xml_node> v;
+  for (auto c : n.children())
+    if (std::strcmp(local(c), name) == 0) v.push_back(c);
+  return v;
+}
+
+std::string text(const pugi::xml_node& n, const char* name) {
+  return child(n, name).text().as_string();
+}
+
+std::vector<std::string> texts(const pugi::xml_node& n, const char* name) {
+  std::vector<std::string> v;
+  for (auto c : children(n, name)) v.emplace_back(c.text().as_string());
+  return v;
+}
+
+std::string ref(const pugi::xml_node& n, const char* name) {
+  return child(n, name).attribute("ref").as_string();
+}
+
+void multiplicity(const pugi::xml_node& b, int& lower, int& upper) {
+  const auto m = child(b, "multiplicity");
+  lower = child(m, "lower").text().as_int(0);
+  const auto u = child(m, "upper");
+  const bool inf = u.attribute("infinite").as_bool(false) || u.attribute("xsi:nil").as_bool(false);
+  upper = inf || !u ? -1 : u.text().as_int(-1);
+}
+
+FcAttributeBinding attribute_binding(const pugi::xml_node& b) {
+  FcAttributeBinding ab;
+  ab.attribute = ref(b, "attribute");
+  ab.sequential = b.attribute("sequential").as_bool(false);
+  multiplicity(b, ab.lower, ab.upper);
+  for (auto v : children(child(b, "permittedValues"), "value")) ab.permitted_values.push_back(v.text().as_int());
+  return ab;
+}
+
+FcTypeBinding type_binding(const pugi::xml_node& b, const char* target) {
+  FcTypeBinding tb;
+  multiplicity(b, tb.lower, tb.upper);
+  tb.role_type = b.attribute("roleType").as_string();
+  tb.role = ref(b, "role");
+  tb.association = ref(b, "association");
+  for (auto t : children(b, target)) tb.types.emplace_back(t.attribute("ref").as_string());
+  return tb;
+}
+
+template <class T>
+void item(const pugi::xml_node& n, T& t) {
+  t.code = text(n, "code");
+  t.name = text(n, "name");
+  t.definition = text(n, "definition");
+}
+
+/** Prepend supertype bindings (recursively) so a subtype answers for inherited attributes. */
+template <class Map, class Get>
+void inherit(Map& m, Get bindings_of) {
+  std::map<std::string, bool> done;
+  std::function<void(const std::string&)> resolve = [&](const std::string& code) {
+    if (done[code]) return;
+    done[code] = true;
+    auto& t = m.at(code);
+    if (t.super_type.empty() || !m.count(t.super_type)) return;
+    resolve(t.super_type);
+    const auto& sup = m.at(t.super_type);
+    bindings_of(t, sup);
+    m[t.super_type].sub_types.push_back(code);
+  };
+  for (auto& [code, t] : m) resolve(code);
+}
+
+template <class V>
+void prepend_missing(std::vector<V>& own, const std::vector<V>& inherited,
+                     std::function<std::string(const V&)> key) {
+  std::vector<V> merged;
+  for (const auto& v : inherited) {
+    const auto k = key(v);
+    if (std::none_of(own.begin(), own.end(), [&](const V& o) { return key(o) == k; })) merged.push_back(v);
   }
-  return s;
-}
-
-/** Text of the first <S100FC:tag>…</S100FC:tag> inside [begin,end), searching from `from`. */
-bool child_text(const std::string& xml, std::size_t begin, std::size_t end, const std::string& tag,
-                std::string& out, std::size_t* next = nullptr) {
-  const std::string open = "<S100FC:" + tag + ">";
-  const std::string close = "</S100FC:" + tag + ">";
-  const std::size_t a = xml.find(open, begin);
-  if (a == std::string::npos || a >= end) return false;
-  const std::size_t b = xml.find(close, a);
-  if (b == std::string::npos || b > end) return false;
-  out = unescape(xml.substr(a + open.size(), b - a - open.size()));
-  if (next) *next = b + close.size();
-  return true;
-}
-
-/** Same, but only at the top level of a block: skips text nested inside child elements we
- *  don't want (attribute bindings also carry <S100FC:name>-like tags deeper down). */
-std::size_t first_binding(const std::string& xml, std::size_t begin, std::size_t end) {
-  std::size_t p = xml.find("<S100FC:attributeBinding", begin);
-  std::size_t q = xml.find("<S100FC:featureBinding", begin);
-  std::size_t r = xml.find("<S100FC:informationBinding", begin);
-  std::size_t m = std::min({p, q, r});
-  return m < end ? m : end;
+  merged.insert(merged.end(), own.begin(), own.end());
+  own = std::move(merged);
 }
 
 }  // namespace
 
 bool load_feature_catalogue(const std::filesystem::path& path, FeatureCatalogue& out,
                             std::string* error) {
-  std::ifstream in(path, std::ios::binary);
-  if (!in) {
-    if (error) *error = "cannot open " + path.string();
+  pugi::xml_document doc;
+  const auto res = doc.load_file(path.c_str());
+  if (!res) {
+    if (error) *error = "cannot parse " + path.string() + ": " + res.description();
     return false;
   }
-  std::stringstream ss;
-  ss << in.rdbuf();
-  const std::string xml = ss.str();
-
+  const auto root = doc.document_element();
   out = FeatureCatalogue{};
-  const std::size_t types_at = xml.find("<S100FC:S100_FC_FeatureTypes");
-  const std::size_t header_end = types_at == std::string::npos ? xml.size() : types_at;
-  child_text(xml, 0, header_end, "productId", out.product);
-  child_text(xml, 0, header_end, "versionNumber", out.version);
-  child_text(xml, 0, header_end, "versionDate", out.date);
+  out.product = text(root, "productId");
+  out.version = text(root, "versionNumber");
+  out.date = text(root, "versionDate");
 
-  const std::string open = "<S100FC:S100_FC_FeatureType";
-  const std::string close = "</S100FC:S100_FC_FeatureType>";
-  std::size_t pos = types_at == std::string::npos ? 0 : types_at;
-  while ((pos = xml.find(open, pos)) != std::string::npos) {
-    // Skip the plural container tag.
-    if (xml.compare(pos, open.size() + 1, open + "s") == 0) {
-      pos += open.size();
-      continue;
+  for (auto n : children(child(root, "S100_FC_SimpleAttributes"), "S100_FC_SimpleAttribute")) {
+    FcSimpleAttribute a;
+    item(n, a);
+    a.alias = texts(n, "alias");
+    a.value_type = text(n, "valueType");
+    a.uom = text(child(n, "uom"), "name");
+    a.quantity_specification = text(n, "quantitySpecification");
+    for (auto lv : children(child(n, "listedValues"), "listedValue")) {
+      FcListedValue v;
+      v.label = text(lv, "label");
+      v.definition = text(lv, "definition");
+      v.code = child(lv, "code").text().as_int();
+      a.listed_values.push_back(std::move(v));
     }
-    const std::size_t tag_end = xml.find('>', pos);
-    const std::size_t end = xml.find(close, pos);
-    if (tag_end == std::string::npos || end == std::string::npos) break;
-
-    FcFeatureType ft;
-    const std::string open_tag = xml.substr(pos, tag_end - pos);
-    ft.is_abstract = open_tag.find("isAbstract=\"true\"") != std::string::npos;
-    const std::size_t own_end = first_binding(xml, tag_end, end);  // header part only
-    child_text(xml, tag_end, own_end, "name", ft.name);
-    child_text(xml, tag_end, own_end, "code", ft.code);
-    child_text(xml, tag_end, end, "featureUseType", ft.use_type);
-    child_text(xml, tag_end, end, "superType", ft.super_type);
-    std::size_t p = tag_end;
-    std::string prim;
-    while (child_text(xml, p, end, "permittedPrimitives", prim, &p)) ft.primitives.push_back(prim);
-
-    if (!ft.code.empty()) out.feature_types[ft.code] = std::move(ft);
-    pos = end + close.size();
+    if (!a.code.empty()) out.simple_attributes[a.code] = std::move(a);
   }
+  for (auto n : children(child(root, "S100_FC_ComplexAttributes"), "S100_FC_ComplexAttribute")) {
+    FcComplexAttribute a;
+    item(n, a);
+    a.alias = texts(n, "alias");
+    for (auto b : children(n, "subAttributeBinding")) a.sub_attribute_bindings.push_back(attribute_binding(b));
+    if (!a.code.empty()) out.complex_attributes[a.code] = std::move(a);
+  }
+  for (auto n : children(child(root, "S100_FC_Roles"), "S100_FC_Role")) {
+    FcNamedItem r;
+    item(n, r);
+    if (!r.code.empty()) out.roles[r.code] = std::move(r);
+  }
+  auto assocs = [&](const char* group, const char* one, std::map<std::string, FcNamedItem>& m) {
+    for (auto n : children(child(root, group), one)) {
+      FcNamedItem a;
+      item(n, a);
+      a.is_abstract = n.attribute("isAbstract").as_bool(false);
+      a.super_type = text(n, "superType");
+      for (auto r : children(n, "role")) a.roles.emplace_back(r.attribute("ref").as_string());
+      if (!a.code.empty()) m[a.code] = std::move(a);
+    }
+  };
+  assocs("S100_FC_InformationAssociations", "S100_FC_InformationAssociation", out.information_associations);
+  assocs("S100_FC_FeatureAssociations", "S100_FC_FeatureAssociation", out.feature_associations);
+
+  for (auto n : children(child(root, "S100_FC_InformationTypes"), "S100_FC_InformationType")) {
+    FcInformationType t;
+    item(n, t);
+    t.alias = texts(n, "alias");
+    t.is_abstract = n.attribute("isAbstract").as_bool(false);
+    t.super_type = text(n, "superType");
+    for (auto b : children(n, "attributeBinding")) t.attribute_bindings.push_back(attribute_binding(b));
+    for (auto b : children(n, "informationBinding")) t.information_bindings.push_back(type_binding(b, "informationType"));
+    if (!t.code.empty()) out.information_types[t.code] = std::move(t);
+  }
+  for (auto n : children(child(root, "S100_FC_FeatureTypes"), "S100_FC_FeatureType")) {
+    FcFeatureType ft;
+    item(n, ft);
+    ft.alias = texts(n, "alias");
+    ft.is_abstract = n.attribute("isAbstract").as_bool(false);
+    ft.use_type = text(n, "featureUseType");
+    ft.super_type = text(n, "superType");
+    ft.primitives = texts(n, "permittedPrimitives");
+    for (auto b : children(n, "attributeBinding")) ft.attribute_bindings.push_back(attribute_binding(b));
+    for (auto b : children(n, "informationBinding")) ft.information_bindings.push_back(type_binding(b, "informationType"));
+    for (auto b : children(n, "featureBinding")) ft.feature_bindings.push_back(type_binding(b, "featureType"));
+    if (!ft.code.empty()) out.feature_types[ft.code] = std::move(ft);
+  }
+
+  using AB = FcAttributeBinding;
+  using TB = FcTypeBinding;
+  const std::function<std::string(const AB&)> akey = [](const AB& b) { return b.attribute; };
+  const std::function<std::string(const TB&)> tkey = [](const TB& b) {
+    std::string k = b.association + "|" + b.role;
+    for (const auto& t : b.types) k += "|" + t;
+    return k;
+  };
+  inherit(out.feature_types, [&](FcFeatureType& t, const FcFeatureType& sup) {
+    prepend_missing(t.attribute_bindings, sup.attribute_bindings, akey);
+    prepend_missing(t.information_bindings, sup.information_bindings, tkey);
+    prepend_missing(t.feature_bindings, sup.feature_bindings, tkey);
+  });
+  inherit(out.information_types, [&](FcInformationType& t, const FcInformationType& sup) {
+    prepend_missing(t.attribute_bindings, sup.attribute_bindings, akey);
+    prepend_missing(t.information_bindings, sup.information_bindings, tkey);
+  });
 
   if (out.feature_types.empty()) {
     if (error) *error = "no S100_FC_FeatureType entries in " + path.string();

@@ -160,6 +160,27 @@ std::vector<Attribute> parse_attributes(const std::vector<std::uint8_t>& b,
 }
 
 
+/** FASC / INAS field: RRNM(u8) RRID(u32) NFAC|NIAC(u16) NARC(u16) FAUI|IUIN(u8), then ATTR-like
+ *  repeating attributes (Part 10a). One association per field; the field itself repeats. */
+AssociationRef parse_association(const std::vector<std::uint8_t>& b,
+                                 const std::unordered_map<std::uint16_t, std::string>& assoc_codes,
+                                 const std::unordered_map<std::uint16_t, std::string>& role_codes,
+                                 const std::unordered_map<std::uint16_t, std::string>& atcs) {
+  AssociationRef a;
+  if (b.size() < 10) return a;
+  a.rcnm = b[0];
+  a.rcid = read_u32(b.data() + 1);
+  const std::uint16_t nac = read_u16(b.data() + 5);
+  const std::uint16_t narc = read_u16(b.data() + 7);
+  auto it = assoc_codes.find(nac);
+  a.association = it != assoc_codes.end() ? it->second : ("assoc" + std::to_string(nac));
+  auto rt = role_codes.find(narc);
+  a.role = rt != role_codes.end() ? rt->second : ("role" + std::to_string(narc));
+  std::vector<std::uint8_t> rest(b.begin() + 10, b.end());
+  a.attributes = parse_attributes(rest, atcs);
+  return a;
+}
+
 struct SpatialKey {
   std::uint8_t rcnm{0};
   std::uint32_t rcid{0};
@@ -294,6 +315,7 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
   Dssi dssi;
   std::unordered_map<std::uint16_t, std::string> ftcs;
   std::unordered_map<std::uint16_t, std::string> atcs;
+  std::unordered_map<std::uint16_t, std::string> itcs, iacs, facs, arcs;
   // Topology primitives keyed by (RCNM, RCID): 110 point, 120 curve, 125 composite, 130 surface.
   std::unordered_map<SpatialKey, Point, SpatialKeyHash> points;
   std::unordered_map<SpatialKey, std::vector<Point>, SpatialKeyHash> curves;
@@ -310,6 +332,14 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
       if (auto* f = rec.find("FTCS")) ftcs = parse_ftcs(f->data);
     if (atcs.empty())
       if (auto* f = rec.find("ATCS")) atcs = parse_ftcs(f->data);  // same name/code layout
+    if (itcs.empty())
+      if (auto* f = rec.find("ITCS")) itcs = parse_ftcs(f->data);
+    if (iacs.empty())
+      if (auto* f = rec.find("IACS")) iacs = parse_ftcs(f->data);
+    if (facs.empty())
+      if (auto* f = rec.find("FACS")) facs = parse_ftcs(f->data);
+    if (arcs.empty())
+      if (auto* f = rec.find("ARCS")) arcs = parse_ftcs(f->data);
 
     if (auto* c2it = rec.find("C2IT")) {
       if (auto* id = rec.find("PRID")) {
@@ -405,6 +435,70 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
   out.path = path;
   out.product = ProductId::S101;
 
+  // Keep topology + information records for the portrayal host (Part 13 spatial access).
+  auto inas_of = [&](const Iso8211Record& rec) {
+    std::vector<AssociationRef> v;
+    for (const auto& f : rec.fields)
+      if (f.tag == "INAS") v.push_back(parse_association(f.data, iacs, arcs, atcs));
+    return v;
+  };
+  for (const auto& rec : records) {
+    if (rec.leader_id != 'D') continue;
+    if (auto* irid = rec.find("IRID")) {
+      InformationRecord ir;
+      if (irid->data.size() >= 7) {
+        ir.record_id = read_u32(irid->data.data() + 1);
+        const std::uint16_t nitc = read_u16(irid->data.data() + 5);
+        auto it = itcs.find(nitc);
+        ir.information_type = it != itcs.end() ? it->second : ("info" + std::to_string(nitc));
+      }
+      if (auto* attr = rec.find("ATTR")) ir.attributes = parse_attributes(attr->data, atcs);
+      ir.information_associations = inas_of(rec);
+      out.information.push_back(std::move(ir));
+      continue;
+    }
+    const Iso8211Field* id = nullptr;
+    for (const char* t : {"PRID", "MRID", "CRID", "CCID", "SRID"})
+      if ((id = rec.find(t))) break;
+    if (!id) continue;
+    const SpatialKey k = key_from_name_id(id->data);
+    SpatialRecord sr;
+    sr.rcnm = k.rcnm;
+    sr.rcid = k.rcid;
+    if (k.rcnm == 110) {
+      auto it = points.find(k);
+      if (it != points.end()) sr.coords.push_back(Point3{it->second.lon, it->second.lat, 0});
+    } else if (k.rcnm == 115) {
+      auto it = multipoints.find(k);
+      if (it != multipoints.end()) sr.coords = it->second;
+    } else if (k.rcnm == 120) {
+      auto it = curves.find(k);
+      if (it != curves.end())
+        for (const auto& p : it->second) sr.coords.push_back(Point3{p.lon, p.lat, 0});
+      if (auto* ptas = rec.find("PTAS")) {
+        // PTAS repeating: RRNM(u8) RRID(u32) TOPI(u8): 1 begin, 2 end, 3 begin and end
+        for (std::size_t i = 0; i + 6 <= ptas->data.size(); i += 6) {
+          const std::uint32_t pid = read_u32(ptas->data.data() + i + 1);
+          const std::uint8_t topi = ptas->data[i + 5];
+          if (topi == 1 || topi == 3) sr.start_point = pid;
+          if (topi == 2 || topi == 3) sr.end_point = pid;
+        }
+      }
+    } else if (k.rcnm == 125) {
+      auto it = composites.find(k);
+      if (it != composites.end())
+        for (const auto& r : it->second)
+          sr.parts.push_back(SpatialRef{r.key.rcnm, r.key.rcid, r.reverse, 0, 0, 0});
+    } else if (k.rcnm == 130) {
+      auto it = surfaces.find(k);
+      if (it != surfaces.end())
+        for (const auto& r : it->second)
+          sr.parts.push_back(SpatialRef{r.key.rcnm, r.key.rcid, r.reverse, r.usage, 0, 0});
+    }
+    sr.information_associations = inas_of(rec);
+    out.spatial.records[SpatialStore::key(k.rcnm, k.rcid)] = std::move(sr);
+  }
+
   std::uint64_t next_id = 1;
   for (const auto& rec : records) {
     if (rec.leader_id != 'D') continue;
@@ -420,9 +514,24 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
     feat.feature_type = fname;
     feat.geometry.kind = GeometryKind::Empty;
     if (auto* attr = rec.find("ATTR")) feat.attributes = parse_attributes(attr->data, atcs);
+    if (frid->data.size() >= 5) feat.record_id = read_u32(frid->data.data() + 1);
+    for (const auto& f : rec.fields) {
+      if (f.tag == "FASC") feat.feature_associations.push_back(parse_association(f.data, facs, arcs, atcs));
+      else if (f.tag == "INAS")
+        feat.information_associations.push_back(parse_association(f.data, iacs, arcs, atcs));
+    }
 
     // SPAS repeating: RRNM(u8) RRID(u32) ORNT(u8) SMIN(u32) SMAX(u32) SAUI(u8) = 15 bytes
     if (auto* spas = rec.find("SPAS")) {
+      for (std::size_t i = 0; i + 15 <= spas->data.size(); i += 15) {
+        SpatialRef ref;
+        ref.rcnm = spas->data[i];
+        ref.rcid = read_u32(spas->data.data() + i + 1);
+        ref.reverse = spas->data[i + 5] == 2;
+        ref.scale_min = read_u32(spas->data.data() + i + 6);
+        ref.scale_max = read_u32(spas->data.data() + i + 10);
+        feat.spatial.push_back(ref);
+      }
       for (std::size_t i = 0; i + 5 <= spas->data.size(); i += 15) {
         SpatialKey k{spas->data[i], read_u32(spas->data.data() + i + 1)};
         const bool rev = i + 5 < spas->data.size() && spas->data[i + 5] == 2;

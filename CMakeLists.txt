@@ -16,14 +16,19 @@ add_library(s100_core
   src/core/load.cpp
   src/core/hdf5_product.cpp
   src/core/feature_catalogue.cpp
+  src/core/portrayal_catalogue.cpp
+  src/core/drawing_instructions.cpp
+  src/core/host_adapter.cpp
+  src/core/portrayal_engine.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(s100_core PRIVATE s100_pugixml)
+target_link_libraries(s100_core PRIVATE s100_pugixml s100_lua)  # Qt-free (contract rule 4)
 
 add_executable(s100_cli src/cli/main.cpp)
 target_link_libraries(s100_cli PRIVATE s100_core)
 target_compile_definitions(s100_cli PRIVATE
-  S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml")
+  S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
+  S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0")
 
 enable_testing()
 add_executable(s100_tests

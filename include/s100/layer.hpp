@@ -15,7 +15,11 @@ struct LayerInfo {
   std::string name;      // FC human name
   std::string use_type;  // geographic | meta | cartographic | theme
   std::size_t feature_count{0};
-  // Reserved for portrayal (PC): display_category, drawing_priority, viewing_group.
+  // Filled by apply_portrayal_to_layers() after a portrayal run (PC-driven, empty before):
+  std::string viewing_group;     // dominant viewing group, e.g. "13030"
+  int drawing_priority{0};       // dominant drawing priority
+  std::string display_plane;     // dominant display plane, e.g. "UnderRadar"
+  std::string display_category;  // PC display mode: DisplayBase | StandardDisplay | OtherInformation
 };
 
 /** Per Dataset, built by classify_layers(). */
