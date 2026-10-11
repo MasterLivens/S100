@@ -48,3 +48,16 @@ void test_soundings() {
   }
   CHECK(cells > 0);
 }
+
+// bounds() must include MultiPoint so a soundings-only dataset still has a valid envelope.
+void test_bounds_multipoint_only() {
+  s100::Dataset ds;
+  s100::Feature f;
+  f.feature_type = "Sounding";
+  f.geometry.kind = s100::GeometryKind::MultiPoint;
+  f.geometry.multipoint = {{-71.2, 46.8, 5.0}, {-71.1, 46.9, 12.0}};
+  ds.features.push_back(f);
+  const auto b = ds.bounds();
+  CHECK(b.valid);
+  CHECK(b.west == -71.2 && b.east == -71.1 && b.south == 46.8 && b.north == 46.9);
+}
