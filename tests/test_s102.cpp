@@ -6,6 +6,7 @@
 #include "s100/portrayal_engine.hpp"
 #include "s100/session.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -163,6 +164,21 @@ void test_s102_session_overlay() {
   CHECK(session.find(k102)->product == s100::ProductId::S102);
   CHECK(session.find(k102)->coverage.has_value());
   CHECK(session.datasets().size() >= 2);
+  // View Dataset for overlay: S-101 features + S-102 coverage → bounds is the union.
+  {
+    s100::Dataset view = *session.find(k101);
+    const auto b101 = view.bounds();
+    const auto b102 = session.find(k102)->bounds();
+    view.coverage = session.find(k102)->coverage;
+    const auto bu = view.bounds();
+    CHECK(b101.valid && b102.valid && bu.valid);
+    CHECK(bu.west <= std::min(b101.west, b102.west) + 1e-9);
+    CHECK(bu.east >= std::max(b101.east, b102.east) - 1e-9);
+    CHECK(bu.south <= std::min(b101.south, b102.south) + 1e-9);
+    CHECK(bu.north >= std::max(b101.north, b102.north) - 1e-9);
+    std::cout << "overlay bounds union [" << bu.west << "," << bu.south << "]-["
+              << bu.east << "," << bu.north << "]\n";
+  }
   std::cout << "session overlay keys " << k101 << " + " << k102
             << " n=" << session.datasets().size() << "\n";
 

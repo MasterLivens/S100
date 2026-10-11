@@ -57,7 +57,7 @@ struct Dataset {
   /** Coverage payload for S-102+ (grids are never flattened into features). */
   std::optional<CoverageDataset> coverage;
   DatasetStats stats() const;
-  /** WGS84 envelope: coverage geographic bounds when present, else feature envelope. */
+  /** WGS84 envelope: union of feature geometries and coverage geographic bounds (overlay). */
   Bounds bounds() const;
 };
 

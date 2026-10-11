@@ -1157,11 +1157,15 @@ int main(int argc, char** argv) {
           msg = QString("portray failed: %1").arg(QString::fromStdString(perr));
         }
 
-        // Optional S-102 overlay: attach coverage + append CoverageFill instructions.
+        // S-102 overlay via one ChartSession (contract): S-101 + S-102 keys, union bounds.
         if (portrayed && !s102_path.isEmpty()) {
-          s100::Dataset cov_ds;
+          s100::ChartSession chart;
           s100::LoadError cerr;
-          if (!s100::open_dataset(s102_path.toStdString(), cov_ds, &cerr) || !cov_ds.coverage) {
+          std::string k101, k102;
+          // Keep the already-portrayed S-101 Dataset; register both under session keys.
+          k101 = chart.insert(ds);
+          if (!chart.open_and_insert(s102_path.toStdString(), &cerr, &k102) ||
+              !chart.find(k102) || !chart.find(k102)->coverage) {
             msg += QString(" — S-102 overlay failed: %1")
                        .arg(QString::fromStdString(cerr.message.empty() ? "no coverage" : cerr.message));
           } else {
@@ -1177,12 +1181,19 @@ int main(int argc, char** argv) {
               s100::DrawingInstructions cov_di;
               s100::PortrayalStats cps;
               auto ctx = s100::PortrayalContext::defaults(pc102);
-              if (s100::portray(*cov_ds.coverage, fc102, pc102, ctx, cov_di, &e102, &cps)) {
-                ds.coverage = std::move(cov_ds.coverage);
+              const auto& cov = *chart.find(k102)->coverage;
+              if (s100::portray(cov, fc102, pc102, ctx, cov_di, &e102, &cps)) {
+                ds.coverage = cov;  // paint + Dataset::bounds unions feature+coverage envelopes
                 instructions.insert(instructions.end(), cov_di.begin(), cov_di.end());
-                msg += QString(" — S-102 overlay %1 (CoverageFill +%2)")
-                           .arg(s102_path)
-                           .arg(static_cast<qulonglong>(cov_di.size()));
+                const auto ub = ds.bounds();
+                msg += QString(" — overlay %1 + %2 (CoverageFill +%3, bounds union [%4,%5]–[%6,%7])")
+                           .arg(QString::fromStdString(k101))
+                           .arg(QString::fromStdString(k102))
+                           .arg(static_cast<qulonglong>(cov_di.size()))
+                           .arg(ub.west, 0, 'f', 5)
+                           .arg(ub.south, 0, 'f', 5)
+                           .arg(ub.east, 0, 'f', 5)
+                           .arg(ub.north, 0, 'f', 5);
               } else {
                 msg += QString(" — S-102 portray failed: %1").arg(QString::fromStdString(e102));
               }

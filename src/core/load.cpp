@@ -11,7 +11,6 @@ DatasetStats Dataset::stats() const {
 }
 
 Bounds Dataset::bounds() const {
-  if (coverage && coverage->grid.bounds_valid) return coverage->grid.geographic_bounds();
   Bounds b;
   bool any = false;
   auto consider = [&](double lon, double lat) {
@@ -19,6 +18,13 @@ Bounds Dataset::bounds() const {
     b.west = std::min(b.west, lon); b.east = std::max(b.east, lon);
     b.south = std::min(b.south, lat); b.north = std::max(b.north, lat);
   };
+  auto consider_bounds = [&](const Bounds& o) {
+    if (!o.valid) return;
+    consider(o.west, o.south);
+    consider(o.east, o.north);
+  };
+  // Feature envelope (S-101) and coverage geographic envelope (S-102) are unioned so
+  // ChartSession / viewer overlays frame both products (docs/s102-contract.md).
   for (const auto& f : features) {
     const auto& g = f.geometry;
     if (g.kind == GeometryKind::Empty) continue;
@@ -31,6 +37,8 @@ Bounds Dataset::bounds() const {
         for (const auto& p : ring.points) consider(p.lon, p.lat);
     }
   }
+  if (coverage && coverage->grid.bounds_valid)
+    consider_bounds(coverage->grid.geographic_bounds());
   b.valid = any;
   return b;
 }
