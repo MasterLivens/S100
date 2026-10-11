@@ -62,11 +62,13 @@ Rules:
 - `pick_wgs84(px,py,w,h, west,south,east,north)` → WGS84; tolerance check ≤ `1e-5` deg.
 - Control points: `testdata/s101/fixtures.toml` after real ISO 8211 spatial records.
 
-## Coverage (P1 — S-102 first slice)
+## Coverage (S-102)
 
-- `Dataset::coverage` holds `CoverageDataset` (grid + host features). Grids must not be flattened into `features`.
-- `CoverageGrid::sample_wgs84(lon, lat)` for EPSG:4326 cells; projected CRS sample is deferred.
-- Portrayal: `portray(CoverageDataset, …)` emits `DrawingInstruction::Kind::Coverage` (`CoverageFill`).
+- `Dataset::coverage` holds `CoverageDataset` with **`std::vector<CoverageGrid> grids`** (+ host coverage features). Do not flatten grids into `features`.
+- Singular `CoverageDataset::grid` storage removed; temporary shim `grid()` → `grids[0]` allowed one release only.
+- `CoverageDataset::sample_wgs84(lon,lat)` routes to the containing grid (smallest envelope, then index). WGS84 façade; UTM/4326 converted inside the grid (see `docs/s102-deepen-contract.md`).
+- Portrayal: **one CoverageFill instruction per grid** (N× `Kind::Coverage`).
+- Deepen / multi-grid / FourShades·SafetyContour oracles: `docs/s102-deepen-contract.md`.
 
 
 ## Exchange set (P1)

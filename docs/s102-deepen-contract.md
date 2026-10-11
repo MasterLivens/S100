@@ -1,45 +1,63 @@
-# S-102 deepen (next slice)
+# S-102 deepen (rev 2)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Builds on `docs/s102-contract.md` (open / bounds / sample_wgs84 / CoverageFill / ChartSession overlay already shipped).
+Builds on `docs/s102-contract.md`. Case id: **`IHO-S102-DEEPEN-MULTIGRID`**.  
+CTest name: **`s102_deepen_multigrid`** (plus helpers as needed).
 
-Case id: **`IHO-S102-DEEPEN-MULTIGRID`**.
+## Portray model (locked)
 
-## Goals
+**N × CoverageFill instructions** — one `DrawingInstruction::Kind::Coverage` per loaded grid instance, in stable grid order.  
+Each instruction carries a distinct `feature_id` (coverage feature instance id) and/or `coverage_attribute` / state so the viewer can attribute paint to a grid.  
+**Not** a single instruction with an embedded grid-id list.
 
-1. **Multi-grid**: load and portray every regular-grid BathymetryCoverage instance in one S-102 dataset (not only the first), each with its own geographic envelope and sample domain.
-2. **Palette refinement**: CoverageFill colouring stays token-based; deepen how bands map and how Day/Dusk/Night remaps without hard-coded RGB.
+## Data model (sync `api-contracts.md`)
 
-## Multi-grid
+```cpp
+struct CoverageDataset {
+  // ...
+  std::vector<CoverageGrid> grids;           // required; size >= 1 after successful open
+  // CoverageGrid grid;                      // REMOVED as sole storage — keep temporary
+  //                                       // shim `grid()` → grids[0] only for one release
+  bool sample_wgs84(double lon, double lat, CoverageSample& out) const;
+};
+```
 
-| Rule | Detail |
+`CoverageDataset::sample_wgs84` routing:
+
+1. Collect grids whose geographic envelope contains `(lon,lat)`.
+2. If several: choose **smallest enclosing area**, then lowest index.
+3. Else → false.
+
+Projected CRS: handled inside `CoverageGrid::sample_wgs84` (EPSG:4326 + UTM 326xx/327xx today). Façade stays WGS84 — **no “projected deferred”** wording.
+
+## CI fixture (MUST — no full SKIP)
+
+Ship a **synthetic multi-grid HDF5** under `testdata/s102/` (gittracked), e.g. two small regular grids with disjoint envelopes.  
+MUST tests #1–3 below **must run on CI**, not SKIP.
+
+## Palette / band oracle (locked)
+
+S-102 PC 3.0.0 context parameters **`FourShades`** and **`SafetyContour`** (also ShallowContour/DeepContour when FourShades):
+
+| Step | Assert |
 |------|--------|
-| Model | `CoverageDataset` holds `std::vector<CoverageGrid> grids` (or equivalent named instances). Deprecate “single grid only” paths. |
-| Open | Enumerate all grid feature instances from HDF5; skip non-regular / unsupported with a logged warning, not a hard fail if ≥1 grid loads. |
-| `bounds()` | Union of all loaded grids' geographic envelopes (and still union with vector features when overlaid). |
-| `sample_wgs84` | Query the grid whose geographic envelope contains the point (if several contain it, prefer smallest enclosing area, then stable instance order). Outside all → false. |
-| Portrayal | One CoverageFill (or equivalent) instruction stream **per grid** (or one instruction with explicit grid id — pick one and document). Viewer paints all. |
-| Session key | Unchanged: `S-102:<dataset-id>` one member; multi-grid is inside the member. |
+| `FourShades=false`, change `SafetyContour` | CoverageFill token / LookupEntry boundaries on DEPVS/DEPDW change (instruction text or parsed bands) |
+| `FourShades=true` | Four depth tokens appear (DEPVS/DEPMS/DEPMD/DEPDW) per BathymetryCoverage.lua |
+| Day → Dusk | Instruction token list **unchanged**; remapped RGB differs (soft) |
 
-Fixtures: prefer NOAA/CHS `.h5` that already has >1 grid if available; otherwise synthetic HDF5 or dual-file overlay test documenting limitation.
-
-## Palette refinement
-
-| Rule | Detail |
-|------|--------|
-| Tokens | Still from PC `CoverageColor` / LookupEntry → colour token names only. |
-| Bands | Honour interval kinds already parsed (`ltSemiInterval`, `geLtInterval`, `geSemiInterval`); add test that Safety-style context changes (if S-102 PC exposes any) or band table changes alter tokens. |
-| Day/Dusk/Night | Switching palette **must not** re-open HDF5 or re-`portray` if instructions are unchanged — only remap tokens→RGB (same as S-101). |
-| No RGB in core | Viewer/palette XML only. |
+No hard-coded RGB in core.
 
 ## Tests (MUST)
 
-1. Multi-grid open: `grids.size() >= 2` on chosen fixture **or** SKIP with explicit reason if no multi-grid fixture in CI.
-2. `sample_wgs84` hits correct grid on a point inside grid A only vs B only.
-3. Overlay paint: both grids contribute visible CoverageFill (instruction count or non-zero painted pixels per grid id dump).
-4. Palette switch Dusk after Day: instruction token list identical; pixel RGB changes (soft assert).
-5. Existing S-102 single-grid / UTM / overlay tests stay green.
+| # | CTest focus |
+|---|-------------|
+| 1 | Synthetic `.h5`: `grids.size() >= 2` after open |
+| 2 | `sample_wgs84` in grid-A-only vs grid-B-only returns that grid's depth |
+| 3 | Portray emits **≥2** Coverage instructions; viewer/dump can attribute both |
+| 4 | SafetyContour / FourShades band oracle above |
+| 5 | Day→Dusk token-stable remap |
+| 6 | Prior single-grid / UTM / overlay tests still green |
 
 ## Non-goals
 
-S-104/S-111 time axis, uncertainty visualization as a separate layer (may stay in sample struct), S-98 IO, pixel-match EncDotNet for S-102.
+S-104/S-111 time, uncertainty as its own layer, S-98, EncDotNet pixel match.
