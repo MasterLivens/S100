@@ -25,7 +25,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S104-OPEN-FRAME` | S-104 first slice | open≥2 frames；sample 随帧变；单帧 portray；ChartSession 叠 S-101 | `s104_open_frame` | Active |
 | `IHO-S111-OPEN-FRAME` | S-111 first slice | open≥2 frames；sample speed/dir；Arrow stride；ChartSession 叠 S-101 | `s111_open_frame` | Active |
 | `IHO-S124-OPEN-LIST` | S-124 first slice | GML open；`warnings.size()==2`；列表；叠图一帧；ChartSession | `s124_open_list` | Active |
-| `IHO-SESSION-PICK-UNIFIED` | multi-product pick | Session 统一拾取报告；S-101/102/104/111/124 | `session_pick_unified` | Next |
+| `IHO-SESSION-PICK-UNIFIED` | multi-product pick | Session 统一拾取；分点 oracle；`true`+可空 hits | `session_pick_unified` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 

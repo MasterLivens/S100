@@ -61,7 +61,7 @@ For **each** warning, emit:
 | Kind | Rule |
 |------|------|
 | `Point` / `Line` / `Area` | From `geometries` (NW.1→Point, NW.2→Area/Polygon) |
-| `Text` | `title`; anchor = point itself, or polygon **centroid** (average of exterior ring vertices) |
+| `Text` | `title`; anchor = point itself, or polygon **centroid** = average of exterior ring vertices **excluding the repeated closing vertex** |
 
 - `fill_ref` / line colour token default **`CHYLW`**.
 - Fixture has 2 warnings → MUST see geometry DI count ≥2 and Text count ≥2 (one title each).

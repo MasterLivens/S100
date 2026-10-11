@@ -59,8 +59,9 @@ Rules:
 6. Migration: delete `LayerId`, `layer_for_feature_type`, and the hard-coded LAND/DEPARE registration; `test_layers` moves to code keys.
 
 ## Pick
-- `pick_wgs84(px,py,w,h, west,south,east,north)` → WGS84; tolerance check ≤ `1e-5` deg.
-- Control points: `testdata/s101/fixtures.toml` after real ISO 8211 spatial records.
+- `pick_wgs84(px,py,w,h, west,south,east,north)` → WGS84; tolerance check ≤ `1e-5` deg (view helper).
+- Control points: `testdata/s101/fixtures.toml`.
+- **Session:** `chart_session_pick(session, lon, lat, …)` — unified multi-product report; see `docs/session-pick-contract.md`. CLI `--session-pick`. Returns `true` with zero hits when nothing matches; `false` only on hard failure.
 
 ## Coverage (S-102)
 

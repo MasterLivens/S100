@@ -1,78 +1,103 @@
-# ChartSession unified pick — next slice
+# ChartSession unified pick (rev 2)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-SESSION-PICK-UNIFIED`**. CTest: **`session_pick_unified`**.
+Case id: **`IHO-SESSION-PICK-UNIFIED`** (Active). CTest: **`session_pick_unified`**.
 
 ## Goal
 
-One pick at WGS84 `(lon,lat)` (and optional screen px via existing `pick_wgs84`) returns a **single report** covering loaded session members: S-101 features, S-102/S-104/S-111 samples, S-124 warnings. No per-product CLI only.
+Geographic pick on a **ChartSession** → one `SessionPickResult` across loaded members. Screen/`Dataset`-only pick APIs are out of this slice (existing `pick_wgs84` may feed lon/lat into this API).
 
-## Frozen API
+## API
 
 ```cpp
 struct SessionPickHit {
   enum class Kind { Feature, CoverageSample, WaterLevel, Current, NavWarning };
   Kind kind;
-  std::string member_key;      // ChartSession key, e.g. S-101:0008
+  std::string member_key;
   ProductId product{ProductId::Unknown};
-  std::uint64_t feature_id{0}; // S-101 / NW as applicable
-  std::string feature_type;    // FC code or "BathymetryCoverage" / NW id
-  std::string label;           // human one-liner
-  // optional payloads (only one populated by kind):
-  std::map<std::string, std::string> attributes; // S-101 attrs or NW fields
-  float depth_or_level{0};     // S-102 depth or S-104 level
+  std::uint64_t feature_id{0};   // S-101 feature id; S-124: 0 (use attributes)
+  std::string feature_type;      // S-101 FC code; S-124: NW id string also in attributes["id"]
+  std::string label;
+  std::map<std::string, std::string> attributes;
+  float depth_or_level{0};
   float speed_ms{0};
   float direction_deg{0};
-  bool numeric_valid{false};
+  bool numeric_valid{false};     // true iff depth_or_level / speed / direction fields are meaningful
 };
 
 struct SessionPickResult {
   double lon{0}, lat{0};
-  std::vector<SessionPickHit> hits;  // may be empty
+  std::vector<SessionPickHit> hits;  // empty = no hits, still success
 };
 
-/** Pick in geographic space. Uses each member's active frame where applicable. */
+// true  = call completed (hits may be empty — including OOB / ocean)
+// false = hard failure only (null session, corrupt member pointer); fill err
 bool chart_session_pick(const ChartSession& session, double lon, double lat,
                         SessionPickResult& out, std::string* err = nullptr);
 ```
 
-Screen pick: convert with existing `pick_wgs84` then call `chart_session_pick`.
+**No** `Dataset::pick` in this slice. OOB coordinates → `true` + empty hits (not an error).
 
-## Hit rules (MUST)
+## `numeric_valid`
 
-| Product | Include when | Hit content |
-|---------|--------------|-------------|
-| S-101 | Point-in-polygon / on-line tolerance / point radius (document px→deg at view scale; tests use geo tolerances below) | feature_id, feature_type, top-level attributes (cap 32) |
-| S-102 | `sample_wgs84` success on any grid | depth, member_key |
-| S-104 | active-frame `sample_wgs84` success | level as `depth_or_level` |
-| S-111 | active-frame sample success | speed_ms, direction_deg |
-| S-124 | point in warning geometry (point radius 1e-4°; polygon contains) | NW id, title, time_iso |
+| Kind | `numeric_valid` | Numbers |
+|------|-----------------|---------|
+| Feature / NavWarning | false | ignore numeric fields |
+| CoverageSample / WaterLevel | true iff sample succeeded | `depth_or_level` |
+| Current | true iff sample succeeded | `speed_ms`, `direction_deg` |
 
-**Order:** S-101 features (stable id) → S-124 → S-102 → S-104 → S-111. Stable within kind.
+## Active frame
 
-## Tolerances (tests)
+Use each member’s **current** `active_frame` (S-104/S-111). Pick **must not** call `set_active_frame` / `set_active_time`. S-102 has no frame — sample grids as already defined.
 
-- Point feature / NW point: ≤ `1e-4` deg
-- Line: ≤ `1e-4` deg perpendicular
-- Polygon: winding contains (centroid of NW.2 / known S-101 poly)
+## S-124 hit mapping
+
+| Field | Value |
+|-------|-------|
+| `kind` | `NavWarning` |
+| `feature_id` | `0` |
+| `feature_type` | NW `id` (e.g. `NW.1`) |
+| `label` | `title` |
+| `attributes["id"]` | id |
+| `attributes["title"]` | title |
+| `attributes["time_iso"]` | time_iso |
+
+## Hit order (stable)
+
+1. S-101 `Feature` (ascending feature_id)  
+2. S-124 `NavWarning` (fixture order / id ascending)  
+3. S-102 `CoverageSample`  
+4. S-104 `WaterLevel`  
+5. S-111 `Current`  
+
+## Geometry tolerances
+
+- Point (S-101 / NW.1): distance ≤ `1e-4` deg  
+- Polygon contains (S-101 / NW.2): standard contains test  
+- Line: ≤ `1e-4` deg (if exercised)  
+No px→deg conversion in this contract.
+
+## S-124 centroid (MUST this slice)
+
+When emitting NW Text (and for pick anchors if needed): centroid = average of exterior ring vertices **excluding the repeated closing vertex**. Update `docs/s124-contract.md` the same way — not deferred.
 
 ## CLI
 
-`s100_cli --session-pick <lon> <lat>` after loading members (or viewer status line). Thin wrapper.
+**MUST:** `s100_cli --session-pick <lon> <lat>` after members loaded (prints hits).  
+**Viewer dump:** **deferred** (not this slice).
 
-## Fixture / CTest
+## CTest oracles (separate picks — envelopes don’t overlap)
 
-Reuse existing synthetics + IHO 0008:
+| # | Session contents | Pick | Expect |
+|---|------------------|------|--------|
+| A | S-101 `101AA00DS0008.000` only | known land/feature point inside 0008 (from existing fixtures / LAND) | ≥1 `Feature` hit |
+| B | S-124 synthetic only | `(0.2, 0.2)` | `NavWarning` for `NW.1` and `NW.2` (point + containing poly) |
+| C | S-102 + S-104 + S-111 synthetics | point inside 0–0.4 oracle cells | CoverageSample + WaterLevel + Current; `numeric_valid==true` |
+| D | full stack optional | `(0.2,0.2)` on synthetics-only session | kinds ⊆ {NW,102,104,111}; **no** S-101 Feature |
+| E | any | empty ocean e.g. `(180,0)` with only synthetics loaded | `true`, `hits.empty()` |
 
-1. Session with S-101 `0008` + S-102 synthetic multigrid + S-104 synthetic + S-111 synthetic + S-124 synthetic.
-2. Pick known points from each SOURCE oracle → assert expected kinds present.
-3. Pick ocean empty → `hits.empty()`.
-4. MUST not SKIP when synthetics present (all are gittracked).
+MUST not SKIP when fixtures present (all gittracked).
 
 ## Non-goals
 
-Full ECDIS pick-report formatting, S-98 highlight, time-aligned scrubbing UI (use each product’s current `active_frame` only), centroid WARN fix (separate one-liner ok in same PR if tiny).
-
-## Centroid note
-
-S-124 Text anchor: average ring vertices **excluding** the repeated closing vertex (closes WARN from `7cdba01`).
+ECDIS pick-report layout, S-98, viewer pick dump, Dataset-level pick API, time scrubbing.
