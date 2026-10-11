@@ -1,53 +1,76 @@
-# S-104 water level — first slice
+# S-104 water level — first slice (rev 2)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Product: **S-104** (HDF5). Case id: **`IHO-S104-OPEN-FRAME`**. CTest: **`s104_open_frame`**.
+Case id: **`IHO-S104-OPEN-FRAME`**. CTest: **`s104_open_frame`**.
 
 ## Goal
 
-Read an S-104 HDF5 water-level dataset, pick **one time frame**, sample/portray it, and overlay on S-101 in the same `ChartSession`. Not a full time animation UI.
+HDF5 open → ≥2 time frames → sample/portray **one active frame** → overlay S-101 in `ChartSession`. No animation UI.
 
-## Model
-
-Reuse coverage-shaped types where practical; do **not** stuff water level into `ProductId::S102` grids.
+## Frozen data model
 
 ```cpp
-struct TimeFrame {
-  std::string time_iso;          // UTC instant from dataset
-  // values: same layout as one CoverageGrid depth plane, or dedicated WL grid
+struct WaterLevelFrame {
+  std::string time_iso;   // UTC
+  CoverageGrid grid;      // one WL plane (reuse CoverageGrid layout/values-as-level)
 };
 
-struct WaterLevelDataset {       // or CoverageDataset with product=S104 + frames
+struct WaterLevelDataset {
   ProductId product{ProductId::S104};
   std::filesystem::path path;
-  Bounds geographic_bounds;      // WGS84
-  std::vector<TimeFrame> frames; // size >= 1 after open
-  std::size_t active_frame{0};   // default: first frame (or nearest to a requested time)
+  std::vector<WaterLevelFrame> frames;  // size >= 1 after successful open
+  std::size_t active_frame{0};
+  // host/coverage features for portrayal if needed
+  std::vector<CoverageFeature> features;
+
+  Bounds bounds() const;  // geographic union of frames (usually shared envelope)
+  bool set_active_frame(std::size_t index);           // false if out of range
+  bool set_active_time(std::string_view iso_utc);     // nearest frame; always picks one if frames non-empty
+  bool sample_wgs84(double lon, double lat, CoverageSample& out) const;  // active frame only
 };
+
+// Dataset integration (locked):
+// Dataset::water_level  optional WaterLevelDataset  when product==S104
+// Do NOT reuse Dataset::coverage for S-104.
 ```
 
-Pinned choices:
+`CoverageSample::depth` carries water level (metres) for this product.
 
-1. **`open_dataset(.h5)`** dispatches S-104 by product identity in the file (same façade as S-102). Mis-detect → `LoadError`.
-2. **First slice = single active frame.** API: `set_active_frame(index)` / `set_active_time(iso)` (nearest). Portray/sample use **only** `active_frame`.
-3. **Sample façade** `sample_wgs84(lon,lat)` → water level (metres) at active frame; CRS rules same as S-102 (WGS84 out; convert inside core).
-4. **ChartSession** key `S-104:<stem>`; overlay with S-101 like S-102 (`--s104` CLI ok).
-5. **Portrayal**: emit Coverage-like / water-level instructions via S-104 PC when present; if PC not yet vendored, emit a minimal tokenized surface (document tokens) and gate full PC to a follow-up — **prefer** vendoring official S-104 PC + FC with SOURCE/hash like S-102 if size allows this slice.
-6. **HDF5** same link policy as S-102 (required when claiming S-104; CI reproducible).
+## Frame API ownership
 
-## Fixture
+| API | Lives on | Notes |
+|-----|----------|-------|
+| `set_active_frame` / `set_active_time` / `sample_wgs84` / `bounds` | **`WaterLevelDataset`** | Core |
+| Session overlay | `ChartSession` member `S-104:<stem>` holds `Dataset` with `water_level` filled | |
+| CLI | `s100_viewer … --s104 <path.h5> [--s104-frame <i>\|--s104-time <iso>]` | Thin wrappers calling the core setters |
 
-- Prefer a small public CHS/NOAA S-104 cell if license-ok and downloadable; else **`testdata/s104/synthetic_waterlevel_4326.h5`** gittracked (`!` gitignore exception + `SOURCE.md`), ≥2 time frames, EPSG:4326, so tests can switch frames.
-- NOAA/CHS large binaries stay gitignored.
+## Open path
 
-## Tests (MUST)
+- `open_dataset(path)` detects S-104 HDF5 and fills `Dataset::water_level` (`product=S104`).
+- Wrong product / unreadable → `LoadError` (not silent Parse-as-unknown if file claims S-104).
+- HDF5 link policy = S-102 (required when claiming S-104).
 
-1. Open synthetic (or fetched) file: `frames.size() >= 2`, bounds valid.
-2. `sample_wgs84` at a known cell differs between frame 0 and frame 1.
-3. Portray/snapshot with active frame 0 vs 1 produces different pixel/token evidence (soft ok).
-4. ChartSession loads S-101 + S-104 together.
-5. Existing S-102 tests untouched/green.
+## Fixture (CI MUST)
+
+- **`testdata/s104/synthetic_waterlevel_4326.h5`** gittracked (`.gitignore` `!` already set).
+- ≥2 frames, EPSG:4326, known levels at a documented lon/lat (different per frame).
+- MUST tests run on this file in CI — **no SKIP** of the primary open/sample/frame assertions.
+- Real CHS/NOAA cells optional extras only.
+
+## Portray MUST / WARN
+
+| Check | Severity |
+|-------|----------|
+| Open synthetic; `frames.size()>=2`; `set_active_frame` / `set_active_time` behave | **MUST** |
+| `sample_wgs84` at fixture point differs frame0 vs frame1 | **MUST** |
+| Portray emits ≥1 water-level / Coverage-like instruction for active frame | **MUST** |
+| ChartSession S-101 + S-104 loads | **MUST** |
+| Instruction / band **token** change when switching frames (if tokens encode level bands) | **MUST** when using tokenized surface |
+| Soft pixel diff frame0 vs frame1 snapshot | **WARN-only** |
+| Official S-104 FC/PC vendored + provenance | **WARN** if deferred this slice — minimal tokenized surface allowed; full PC follow-up |
+
+Day→Dusk: tokens stable, RGB remap only (same as S-102).
 
 ## Non-goals
 
-Scrubbing animation, uncertainty UI, S-111 currents, S-98 stacking rules, Track B.
+Animation scrubbing, S-111, S-98, uncertainty layer UI.

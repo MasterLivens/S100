@@ -83,6 +83,16 @@ Parallel to `open_dataset` — do not overload the single-file entry. Details: `
   Host feature assoc: `associationCode` required; empty `roleCode` = any role. Spatial: `GetAssociatedFeatureIDs(spatialId)` ID-only; `GetAssociatedInformationIDs(spatialId, associationCode, roleCode)` filters info (not FASC).
 - Coverage products (S-102 `.h5`) are members of the same `ChartSession` map (`S-102:<stem>`); `open_cell_series` routes them through `open_dataset`.
 
+
+## S-104 (water level — first slice)
+
+Details: `docs/s104-contract.md`.
+
+- `open_dataset` on S-104 HDF5 fills `Dataset::water_level` (`WaterLevelDataset`), not `coverage`.
+- `WaterLevelDataset::{set_active_frame,set_active_time,sample_wgs84,bounds}`; sample is **active frame only**.
+- `ChartSession` key `S-104:<stem>`; CLI `--s104` / `--s104-frame` / `--s104-time`.
+- CI fixture `testdata/s104/synthetic_waterlevel_4326.h5` (tracked); primary CTest `s104_open_frame` MUST not SKIP.
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
