@@ -90,7 +90,9 @@ if(S100_BUILD_VIEWER)
   target_link_libraries(s100_viewer PRIVATE s100_core Qt6::Widgets Qt6::Svg)
   target_compile_definitions(s100_viewer PRIVATE
     S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
-    S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0")
+    S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0"
+    S100_DEFAULT_S102_FC="${CMAKE_SOURCE_DIR}/catalogues/S-102/S-102_FC_3.0.0.xml"
+    S100_DEFAULT_S102_PC="${CMAKE_SOURCE_DIR}/catalogues/S-102/PC_3.0.0")
   # Offscreen smoke: paints DrawingInstructions and writes a PNG (no display required).
   add_test(NAME viewer_snapshot
     COMMAND s100_viewer

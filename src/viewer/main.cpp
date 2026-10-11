@@ -38,6 +38,12 @@
 #ifndef S100_DEFAULT_PC
 #define S100_DEFAULT_PC ""
 #endif
+#ifndef S100_DEFAULT_S102_FC
+#define S100_DEFAULT_S102_FC ""
+#endif
+#ifndef S100_DEFAULT_S102_PC
+#define S100_DEFAULT_S102_PC ""
+#endif
 
 namespace {
 
@@ -149,6 +155,79 @@ NamedLineStyle load_named_line_style(const fs::path& line_styles_dir, const std:
     }
   }
   return out;
+}
+
+/** CoverageFill bands from CoverageColor + LookupEntry state (S-102 PC). */
+struct CoverageBand {
+  std::string token;
+  double transparency{0};
+  bool has_lo{false};
+  bool has_hi{false};
+  double lo{0};
+  double hi{0};
+  enum class Interval { LtSemi, GeLt, GeSemi, Unknown } interval{Interval::Unknown};
+
+  bool matches(float depth) const {
+    switch (interval) {
+      case Interval::LtSemi:
+        return has_hi && depth < hi;
+      case Interval::GeLt:
+        return (!has_lo || depth >= lo) && (!has_hi || depth < hi);
+      case Interval::GeSemi:
+        return has_lo && depth >= lo;
+      default:
+        return false;
+    }
+  }
+};
+
+std::vector<CoverageBand> parse_coverage_bands(const s100::DrawingInstruction& di) {
+  std::vector<CoverageBand> bands;
+  std::string cur_token;
+  double cur_tr = 0;
+  auto split_csv = [](const std::string& s) {
+    std::vector<std::string> parts;
+    std::string cur;
+    for (char c : s) {
+      if (c == ',') {
+        parts.push_back(cur);
+        cur.clear();
+      } else {
+        cur.push_back(c);
+      }
+    }
+    parts.push_back(cur);
+    return parts;
+  };
+  for (const auto& el : di.coverage_state) {
+    const auto colon = el.find(':');
+    if (colon == std::string::npos) continue;
+    const std::string cmd = el.substr(0, colon);
+    const std::string rest = el.substr(colon + 1);
+    const auto parts = split_csv(rest);
+    if (cmd == "CoverageColor" && !parts.empty()) {
+      cur_token = parts[0];
+      cur_tr = parts.size() > 1 && !parts[1].empty() ? std::stod(parts[1]) : 0.0;
+    } else if (cmd == "LookupEntry" && parts.size() >= 4 && !cur_token.empty()) {
+      CoverageBand b;
+      b.token = cur_token;
+      b.transparency = cur_tr;
+      if (!parts[1].empty()) {
+        b.has_lo = true;
+        b.lo = std::stod(parts[1]);
+      }
+      if (!parts[2].empty()) {
+        b.has_hi = true;
+        b.hi = std::stod(parts[2]);
+      }
+      const std::string& kind = parts[3];
+      if (kind == "ltSemiInterval") b.interval = CoverageBand::Interval::LtSemi;
+      else if (kind == "geLtInterval") b.interval = CoverageBand::Interval::GeLt;
+      else if (kind == "geSemiInterval") b.interval = CoverageBand::Interval::GeSemi;
+      bands.push_back(std::move(b));
+    }
+  }
+  return bands;
 }
 
 /** PC AreaFills/<ref>.xml — S-100 symbolFill (v1/v2 lattice in mm).
@@ -529,6 +608,11 @@ class MapWidget : public QWidget {
 
     for (const s100::DrawingInstruction* dip : order) {
       const auto& di = *dip;
+      // CoverageFill is coverage-grid backed (S-102); no Dataset::features / layer toggle.
+      if (di.kind == s100::DrawingInstruction::Kind::Coverage) {
+        draw_coverage(p, r, di);
+        continue;
+      }
       const auto fit = by_id_.find(di.feature_id);
       if (fit == by_id_.end()) continue;
       const s100::Feature& f = *fit->second;
@@ -568,6 +652,51 @@ class MapWidget : public QWidget {
   }
 
  private:
+  void draw_coverage(QPainter& p, const QRectF& r, const s100::DrawingInstruction& di) {
+    if (di.command != "CoverageFill") return;
+    if (!dataset_ || !dataset_->coverage) return;
+    const s100::CoverageGrid& grid = dataset_->coverage->grid;
+    if (grid.ncols == 0 || grid.nrows == 0 || !grid.bounds_valid) return;
+    const auto bands = parse_coverage_bands(di);
+    if (bands.empty()) return;
+
+    // Rasterize at grid resolution (cap edges for huge cells), then draw into geographic envelope.
+    constexpr int kMaxEdge = 2048;
+    const int out_w = static_cast<int>(std::min<std::size_t>(grid.ncols, kMaxEdge));
+    const int out_h = static_cast<int>(std::min<std::size_t>(grid.nrows, kMaxEdge));
+    if (out_w <= 0 || out_h <= 0) return;
+    QImage img(out_w, out_h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    for (int y = 0; y < out_h; ++y) {
+      const std::size_t row =
+          static_cast<std::size_t>((static_cast<double>(y) + 0.5) * grid.nrows / out_h);
+      for (int x = 0; x < out_w; ++x) {
+        const std::size_t col =
+            static_cast<std::size_t>((static_cast<double>(x) + 0.5) * grid.ncols / out_w);
+        s100::CoverageSample sm;
+        if (!grid.sample_cell(row, col, sm) || !sm.has_depth) continue;
+        const std::string* token = nullptr;
+        double tr = 0;
+        for (const auto& b : bands) {
+          if (b.matches(sm.depth)) {
+            token = &b.token;
+            tr = b.transparency;
+            break;
+          }
+        }
+        if (!token) continue;
+        const QColor c = palette_.get_alpha(*token, tr);
+        img.setPixel(x, out_h - 1 - y, c.rgba());  // image row0 = north
+      }
+    }
+
+    const QPointF tl = project(r, west_, south_, east_, north_, grid.west, grid.north);
+    const QPointF br = project(r, west_, south_, east_, north_, grid.east, grid.south);
+    const QRectF dest(tl, br);
+    p.drawImage(dest.normalized(), img);
+  }
+
   void draw_area(QPainter& p, const QRectF& r, const s100::Feature& f,
                  const s100::DrawingInstruction& di) {
     const auto geoms = paint_geometries(di, f);
@@ -830,17 +959,27 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString cell, snapshot;
+  QString cell, snapshot, s102_path;
   QString fc_path = S100_DEFAULT_FC;
   QString pc_path = S100_DEFAULT_PC;
   QString palette_name = QStringLiteral("Day");  // Day | Dusk | Night
+  bool fc_set = false, pc_set = false;
   for (int i = 1; i < argc; ++i) {
     const QString a = argv[i];
     if (a == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
-    else if (a == "--fc" && i + 1 < argc) fc_path = argv[++i];
-    else if (a == "--pc" && i + 1 < argc) pc_path = argv[++i];
+    else if (a == "--fc" && i + 1 < argc) { fc_path = argv[++i]; fc_set = true; }
+    else if (a == "--pc" && i + 1 < argc) { pc_path = argv[++i]; pc_set = true; }
     else if (a == "--palette" && i + 1 < argc) palette_name = argv[++i];
+    else if (a == "--s102" && i + 1 < argc) s102_path = argv[++i];
     else if (cell.isEmpty()) cell = a;
+  }
+  const bool cell_is_hdf5 =
+      cell.endsWith(QLatin1String(".h5"), Qt::CaseInsensitive) ||
+      cell.endsWith(QLatin1String(".hdf5"), Qt::CaseInsensitive);
+  // Opening an S-102 cell alone: default to S-102 FC/PC unless the user overrode paths.
+  if (cell_is_hdf5) {
+    if (!fc_set && QString(S100_DEFAULT_S102_FC).size() > 0) fc_path = S100_DEFAULT_S102_FC;
+    if (!pc_set && QString(S100_DEFAULT_S102_PC).size() > 0) pc_path = S100_DEFAULT_S102_PC;
   }
   if (palette_name != QLatin1String("Day") && palette_name != QLatin1String("Dusk") &&
       palette_name != QLatin1String("Night")) {
@@ -969,33 +1108,94 @@ int main(int argc, char** argv) {
     s100::Dataset ds;
     s100::LoadError err;
     if (s100::open_dataset(cell.toStdString(), ds, &err)) {
-      s100::ClassifyResult cr;
-      const bool ok = s100::classify_layers(ds, fc, &cr);
-      s100::PortrayalSession session(fc, pc);
+      s100::DrawingInstructions instructions;
       s100::PortrayalStats ps;
-      std::string perr;
-      const auto* di = session.portray(ds, &ps, &perr);
       QString msg;
-      if (di) {
-        msg = QString("loaded %1 — features=%2 instructions=%3 lua_errors=%4 (FC %5 %6, PC %7 %8)")
-                  .arg(cell)
-                  .arg(static_cast<qulonglong>(ps.features))
-                  .arg(static_cast<qulonglong>(ps.instructions))
-                  .arg(static_cast<qulonglong>(ps.lua_errors))
-                  .arg(QString::fromStdString(fc.product))
-                  .arg(QString::fromStdString(fc.version))
-                  .arg(QString::fromStdString(pc.product))
-                  .arg(QString::fromStdString(pc.version));
-        if (!ok)
-          msg += QString(" — WARNING: %1 codes not in FC, not drawn")
-                     .arg(static_cast<qulonglong>(cr.unknown_codes.size()));
-        map->setPortrayal(std::move(ds), *di, ps, palette, pc.root, &pc);
-        refresh_list();
+      bool portrayed = false;
+
+      if (ds.product == s100::ProductId::S102 && ds.coverage) {
+        // S-102 alone: CoverageFill instructions from coverage host.
+        std::string perr;
+        auto ctx = s100::PortrayalContext::defaults(pc);
+        if (s100::portray(*ds.coverage, fc, pc, ctx, instructions, &perr, &ps)) {
+          portrayed = true;
+          msg = QString("loaded S-102 %1 — coverage %2x%3 instructions=%4 lua_errors=%5 (FC %6 %7, PC %8 %9)")
+                    .arg(cell)
+                    .arg(static_cast<qulonglong>(ds.coverage->grid.ncols))
+                    .arg(static_cast<qulonglong>(ds.coverage->grid.nrows))
+                    .arg(static_cast<qulonglong>(ps.instructions))
+                    .arg(static_cast<qulonglong>(ps.lua_errors))
+                    .arg(QString::fromStdString(fc.product))
+                    .arg(QString::fromStdString(fc.version))
+                    .arg(QString::fromStdString(pc.product))
+                    .arg(QString::fromStdString(pc.version));
+        } else {
+          msg = QString("S-102 portray failed: %1").arg(QString::fromStdString(perr));
+        }
       } else {
-        msg = QString("portray failed: %1").arg(QString::fromStdString(perr));
-        map->setPortrayal(std::move(ds), {}, ps, palette, pc.root, &pc);
-        refresh_list();
+        s100::ClassifyResult cr;
+        const bool ok = s100::classify_layers(ds, fc, &cr);
+        s100::PortrayalSession session(fc, pc);
+        std::string perr;
+        const auto* di = session.portray(ds, &ps, &perr);
+        if (di) {
+          instructions = *di;
+          portrayed = true;
+          msg = QString("loaded %1 — features=%2 instructions=%3 lua_errors=%4 (FC %5 %6, PC %7 %8)")
+                    .arg(cell)
+                    .arg(static_cast<qulonglong>(ps.features))
+                    .arg(static_cast<qulonglong>(ps.instructions))
+                    .arg(static_cast<qulonglong>(ps.lua_errors))
+                    .arg(QString::fromStdString(fc.product))
+                    .arg(QString::fromStdString(fc.version))
+                    .arg(QString::fromStdString(pc.product))
+                    .arg(QString::fromStdString(pc.version));
+          if (!ok)
+            msg += QString(" — WARNING: %1 codes not in FC, not drawn")
+                       .arg(static_cast<qulonglong>(cr.unknown_codes.size()));
+        } else {
+          msg = QString("portray failed: %1").arg(QString::fromStdString(perr));
+        }
+
+        // Optional S-102 overlay: attach coverage + append CoverageFill instructions.
+        if (portrayed && !s102_path.isEmpty()) {
+          s100::Dataset cov_ds;
+          s100::LoadError cerr;
+          if (!s100::open_dataset(s102_path.toStdString(), cov_ds, &cerr) || !cov_ds.coverage) {
+            msg += QString(" — S-102 overlay failed: %1")
+                       .arg(QString::fromStdString(cerr.message.empty() ? "no coverage" : cerr.message));
+          } else {
+            s100::FeatureCatalogue fc102;
+            s100::PortrayalCatalogue pc102;
+            std::string e102;
+            const QString fc102_path =
+                QString(S100_DEFAULT_S102_FC).isEmpty() ? fc_path : QString(S100_DEFAULT_S102_FC);
+            const QString pc102_path =
+                QString(S100_DEFAULT_S102_PC).isEmpty() ? pc_path : QString(S100_DEFAULT_S102_PC);
+            if (s100::load_feature_catalogue(fc102_path.toStdString(), fc102, &e102) &&
+                s100::load_portrayal_catalogue(pc102_path.toStdString(), pc102, &e102)) {
+              s100::DrawingInstructions cov_di;
+              s100::PortrayalStats cps;
+              auto ctx = s100::PortrayalContext::defaults(pc102);
+              if (s100::portray(*cov_ds.coverage, fc102, pc102, ctx, cov_di, &e102, &cps)) {
+                ds.coverage = std::move(cov_ds.coverage);
+                instructions.insert(instructions.end(), cov_di.begin(), cov_di.end());
+                msg += QString(" — S-102 overlay %1 (CoverageFill +%2)")
+                           .arg(s102_path)
+                           .arg(static_cast<qulonglong>(cov_di.size()));
+              } else {
+                msg += QString(" — S-102 portray failed: %1").arg(QString::fromStdString(e102));
+              }
+            } else {
+              msg += QString(" — S-102 FC/PC: %1").arg(QString::fromStdString(e102));
+            }
+          }
+        }
       }
+
+      map->setPortrayal(std::move(ds), portrayed ? std::move(instructions) : s100::DrawingInstructions{},
+                        ps, palette, pc.root, &pc);
+      refresh_list();
       win.statusBar()->showMessage(msg);
     } else {
       win.statusBar()->showMessage(QString::fromStdString(err.message));
