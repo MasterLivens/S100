@@ -1,0 +1,31 @@
+# Host* functions referenced by official PC Rules (static scan, tests must keep this in sync)
+# generated: rg -o '\bHost[A-Za-z]+\b' catalogues/*/PC_*/Rules -g '*.lua'
+HostDebuggerEntry
+HostFeatureGetAssociatedFeatureIDs
+HostFeatureGetAssociatedInformationIDs
+HostFeatureGetCode
+HostFeatureGetComplexAttributeCount
+HostFeatureGetSimpleAttribute
+HostFeatureGetSpatialAssociations
+HostFeatureTypeGetCode
+HostGetComplexAttributeCount
+HostGetComplexAttributeTypeCodes
+HostGetComplexAttributeTypeInfo
+HostGetFeatureAssociationTypeCodes
+HostGetFeatureIDs
+HostGetFeatureTypeCodes
+HostGetFeatureTypeInfo
+HostGetInformationAssociationTypeCodes
+HostGetInformationTypeCodes
+HostGetInformationTypeInfo
+HostGetRoleTypeCodes
+HostGetSimpleAttribute
+HostGetSimpleAttributeTypeCodes
+HostGetSimpleAttributeTypeInfo
+HostGetSpatial
+HostInformationTypeGetCode
+HostInformationTypeGetComplexAttributeCount
+HostInformationTypeGetSimpleAttribute
+HostPortrayalEmit
+HostSpatialGetAssociatedFeatureIDs
+HostSpatialGetAssociatedInformationIDs
