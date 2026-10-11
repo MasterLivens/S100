@@ -28,7 +28,13 @@ void test_soundings() {
     s100::LoadError err;
     CHECK(s100::open_dataset(e.path(), ds, &err));
     std::size_t soundings = 0, points = 0;
-    const auto b = ds.bounds();  // computed once: bounds() scans every feature
+    // Envelope of every feature except soundings: bounds() includes soundings, so
+    // checking soundings against it would always pass. Computed once (full scan).
+    s100::Dataset others;
+    for (const auto& f : ds.features)
+      if (f.feature_type != "Sounding") others.features.push_back(f);
+    const auto b = others.bounds();
+    CHECK(b.valid);
     for (const auto& f : ds.features) {
       if (f.feature_type != "Sounding") continue;
       ++soundings;
