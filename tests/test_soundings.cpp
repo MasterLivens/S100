@@ -28,12 +28,12 @@ void test_soundings() {
     s100::LoadError err;
     CHECK(s100::open_dataset(e.path(), ds, &err));
     std::size_t soundings = 0, points = 0;
+    const auto b = ds.bounds();  // computed once: bounds() scans every feature
     for (const auto& f : ds.features) {
       if (f.feature_type != "Sounding") continue;
       ++soundings;
       CHECK(f.geometry.kind == s100::GeometryKind::MultiPoint);
       CHECK(!f.geometry.multipoint.empty());
-      const auto b = ds.bounds();
       for (const auto& s : f.geometry.multipoint) {
         ++points;
         CHECK(s.lon >= b.west - 1e-9 && s.lon <= b.east + 1e-9);
