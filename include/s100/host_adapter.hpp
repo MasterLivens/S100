@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "s100/types.hpp"
+#include "s100/coverage.hpp"
 #include "s100/dataset.hpp"
 
 struct lua_State;  // Lua stays out of public headers
@@ -112,18 +113,7 @@ class S101HostAdapter : public HostAdapter {
   friend struct S101HostImpl;
 };
 
-/** Minimal coverage-side data the S-102 host needs until the HDF5 loader lands: one entry per
- *  coverage feature instance (e.g. BathymetryCoverage) with its feature-level attributes. */
-struct CoverageFeature {
-  std::uint64_t id{0};
-  std::string code;                  // FC feature type code, e.g. "BathymetryCoverage"
-  std::vector<Attribute> attributes; // feature-instance metadata attributes
-};
-struct CoverageDataset {
-  std::vector<CoverageFeature> features;
-};
-
-/** S-102 host: backed by coverage data. No vector spatials or information types. */
+/** S-102 host: backed by CoverageDataset (HDF5 loader). No vector spatials or information types. */
 class S102HostAdapter : public HostAdapter {
  public:
   S102HostAdapter(const CoverageDataset& cov, const FeatureCatalogue& fc);

@@ -279,17 +279,10 @@ void safety_contour() {
 void s102_engine() {
   const auto& pc = pc_at(kS102Pc);
   CHECK(pc.product == "S-102");
-  // The S-102 FC is not staged yet (open item); a minimal in-memory FC with the one feature
-  // type the PC 3.0.0 rules portray stands in for type information.
   s100::FeatureCatalogue fc;
-  fc.product = "S-102";
-  fc.version = "test";
-  s100::FcFeatureType bc;
-  bc.code = "BathymetryCoverage";
-  bc.name = "Bathymetry Coverage";
-  bc.use_type = "geographic";
-  bc.primitives = {"coverage"};
-  fc.feature_types[bc.code] = bc;
+  std::string fc_err;
+  CHECK(s100::load_feature_catalogue(kSrc / "catalogues/S-102/S-102_FC_3.0.0.xml", fc, &fc_err));
+  CHECK(fc.version == "3.0.0");
   s100::CoverageDataset cov;
   cov.features.push_back(s100::CoverageFeature{1, "BathymetryCoverage", {}});
 

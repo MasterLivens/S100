@@ -34,13 +34,13 @@ Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: S
 |--------|----------------|--------|
 | `product` | `ProductId`, product_name | done |
 | `dataset` | `Dataset`, `open_dataset`, `load_s101` | P0 stub→real ISO 8211 |
-| `hdf5_product` | `load_hdf5_product` façade | stub for P1+ |
+| `hdf5_product` | `load_s102` / `CoverageDataset` / sample | S-102 first slice |
 | `layer` | LAND/DEPARE visibility | P0 |
 | `pick` | screen → WGS84 (≤1e-5°) | P0 |
 | `iso8211` | binary cell decode + spatial | **next (Eng)** |
 | `catalogue` / `portrayal` | FC/PC XML + Lua | P1 |
 | `exchange_set` | CATALOG.XML, .001… updates | **done (P1)** |
-| `coverage` | grid `bounds` / `sample` for S-102+ | P1 |
+| `coverage` | grid `bounds` / `sample_wgs84` (EPSG:4326) | S-102 first slice |
 | `viewer` | Qt map, toggles, status pick | P0 shell |
 
 ## Frozen public test hooks (do not break)

@@ -9,6 +9,8 @@ option(S100_BUILD_VIEWER "Build Qt6 map viewer" ON)
 
 add_subdirectory(third_party)
 
+find_package(HDF5 REQUIRED COMPONENTS C)
+
 add_library(s100_core
   src/core/iso8211.cpp
   src/core/layer.cpp
@@ -25,7 +27,9 @@ add_library(s100_core
   src/core/session.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(s100_core PRIVATE s100_pugixml s100_lua)  # Qt-free (contract rule 4)
+target_include_directories(s100_core PRIVATE ${HDF5_INCLUDE_DIRS})
+target_link_libraries(s100_core PRIVATE s100_pugixml s100_lua ${HDF5_LIBRARIES})  # Qt-free (contract rule 4)
+target_compile_definitions(s100_core PRIVATE ${HDF5_DEFINITIONS})
 
 add_executable(s100_cli src/cli/main.cpp)
 target_link_libraries(s100_cli PRIVATE s100_core)
@@ -47,6 +51,7 @@ add_executable(s100_tests
   tests/test_soundings.cpp
   tests/test_feature_catalogue.cpp
   tests/test_exchange_set.cpp
+  tests/test_s102.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")

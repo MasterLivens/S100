@@ -213,7 +213,23 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
     bool have_meta{false};
   };
   std::map<std::string, Acc> by_key;
+  std::vector<ExchangeCellSeries> coverage_series;
   for (const auto& e : cat.datasets) {
+    const auto ext = e.file_path.extension().string();
+    // Coverage HDF5 products: one series per file (no .001 update chain).
+    if (ext == ".h5" || ext == ".hdf5") {
+      ExchangeCellSeries s;
+      s.product = e.product != ProductId::Unknown ? e.product : ProductId::S102;
+      s.cell_name = e.file_path.stem().string();
+      s.base = e.file_path;
+      s.base_entry = e;
+      s.coverage = e.coverage;
+      s.description = e.description;
+      s.edition_number = e.edition_number;
+      s.latest_update_number = e.update_number;
+      coverage_series.push_back(std::move(s));
+      continue;
+    }
     if (!is_iso8211_ext(e.file_path)) continue;
     const int n = extension_number(e.file_path);
     if (n < 0) continue;
@@ -241,7 +257,7 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
   }
 
   std::vector<ExchangeCellSeries> out;
-  out.reserve(by_key.size());
+  out.reserve(by_key.size() + coverage_series.size());
   for (auto& [_, acc] : by_key) {
     if (acc.s.base.empty()) continue;
     // Prefer catalogue ED/UPD order; fall back to extension number.
@@ -257,8 +273,10 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
     for (const auto& ue : acc.s.update_entries) acc.s.updates.push_back(ue.file_path);
     out.push_back(std::move(acc.s));
   }
+  for (auto& s : coverage_series) out.push_back(std::move(s));
   std::sort(out.begin(), out.end(),
             [](const ExchangeCellSeries& a, const ExchangeCellSeries& b) {
+              if (a.product != b.product) return static_cast<int>(a.product) < static_cast<int>(b.product);
               return a.cell_name < b.cell_name;
             });
   return out;
@@ -280,6 +298,18 @@ std::vector<std::filesystem::path> discover_update_files(const std::filesystem::
 }
 
 bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError* err) {
+  // Coverage / non-S-101 products: single-file open_dataset (no ISO 8211 update chain).
+  if (series.product != ProductId::S101 && series.product != ProductId::Unknown) {
+    if (!series.updates.empty()) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message = "updates not supported for " + std::string(product_name(series.product)) +
+                       " cell " + series.cell_name;
+      }
+      return false;
+    }
+    return open_dataset(series.base, out, err);
+  }
   // When catalogue carries ED/UPD, each file's DSID must match before applying.
   auto check_meta = [&](const ExchangeDatasetEntry& e) -> bool {
     if (!e.has_edition_meta || !e.has_update_meta) return true;

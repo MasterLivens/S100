@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "s100/dataset.hpp"
+#include "s100/hdf5_product.hpp"
 
 namespace s100 {
 
@@ -10,6 +11,7 @@ DatasetStats Dataset::stats() const {
 }
 
 Bounds Dataset::bounds() const {
+  if (coverage && coverage->grid.bounds_valid) return coverage->grid.geographic_bounds();
   Bounds b;
   bool any = false;
   auto consider = [&](double lon, double lat) {
@@ -58,13 +60,9 @@ bool open_dataset(const std::filesystem::path& path, Dataset& out, LoadError* er
     }
     return load_s101(path, out, err);
   }
-  // HDF5 bathymetry / water level / currents — reserved (P1/P2)
+  // HDF5: S-102 bathymetry (S-104/S-111 still Parse via load_hdf5_product).
   if (ext == ".h5" || ext == ".hdf5") {
-    if (err) {
-      err->kind = LoadErrorKind::Parse;
-      err->message = "HDF5 products (S-102/S-104/S-111) not implemented yet: " + path.string();
-    }
-    return false;
+    return load_hdf5_product(ProductId::Unknown, path, out, err);
   }
   // GML warnings — reserved (P3)
   if (ext == ".gml" || ext == ".xml") {

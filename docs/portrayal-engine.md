@@ -146,6 +146,6 @@ matching `Symbols/{day,dusk,night}SvgStyle.css` (CSS is not loaded by QtSvg; the
 the XML palette). Token names in DrawingInstructions are palette-independent. Golden snapshot stays
 Day for now (soft compare may expand per palette later).
 
-Not yet (remaining gaps): augmented geometry, CoverageFill, PixmapFill/HatchFill. Sounding digit
+CoverageFill: parsed into `DrawingInstruction::Kind::Coverage` with `coverage_attribute` + `coverage_state` (CoverageColor/LookupEntry); S-102 `portray(CoverageDataset)` emits them. Viewer paint of CoverageFill grids is still outstanding (renderer gap). Other gaps: augmented geometry, PixmapFill/HatchFill. Sounding digit
 composites are real SVG symbols now (each digit/`SOUNDG*` file); composite placement still follows
 whatever PointInstructions the rules emit.

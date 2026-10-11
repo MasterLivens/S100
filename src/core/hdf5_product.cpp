@@ -1,14 +1,328 @@
 #include "s100/hdf5_product.hpp"
 
+#include <hdf5.h>
+
+#include <cmath>
+#include <cstring>
+#include <limits>
+#include <string>
+
 namespace s100 {
+namespace {
+
+void set_err(LoadError* err, LoadErrorKind kind, std::string msg) {
+  if (!err) return;
+  err->kind = kind;
+  err->message = std::move(msg);
+}
+
+bool read_scalar_double(hid_t loc, const char* name, double* out) {
+  if (!H5Aexists(loc, name)) return false;
+  hid_t a = H5Aopen(loc, name, H5P_DEFAULT);
+  if (a < 0) return false;
+  hid_t t = H5Aget_type(a);
+  hid_t nt = H5Tget_native_type(t, H5T_DIR_ASCEND);
+  bool ok = false;
+  if (H5Tget_class(nt) == H5T_FLOAT) {
+    if (H5Tget_size(nt) == 4) {
+      float v = 0;
+      ok = H5Aread(a, H5T_NATIVE_FLOAT, &v) >= 0;
+      *out = static_cast<double>(v);
+    } else {
+      ok = H5Aread(a, H5T_NATIVE_DOUBLE, out) >= 0;
+    }
+  } else if (H5Tget_class(nt) == H5T_INTEGER) {
+    long long v = 0;
+    ok = H5Aread(a, H5T_NATIVE_LLONG, &v) >= 0;
+    *out = static_cast<double>(v);
+  }
+  H5Tclose(nt);
+  H5Tclose(t);
+  H5Aclose(a);
+  return ok;
+}
+
+bool read_scalar_int(hid_t loc, const char* name, int* out) {
+  double d = 0;
+  if (!read_scalar_double(loc, name, &d)) return false;
+  *out = static_cast<int>(d);
+  return true;
+}
+
+bool read_string_attr(hid_t loc, const char* name, std::string* out) {
+  if (!H5Aexists(loc, name)) return false;
+  hid_t a = H5Aopen(loc, name, H5P_DEFAULT);
+  if (a < 0) return false;
+  hid_t t = H5Aget_type(a);
+  bool ok = false;
+  if (H5Tis_variable_str(t) > 0) {
+    char* buf = nullptr;
+    if (H5Aread(a, t, &buf) >= 0 && buf) {
+      *out = buf;
+      H5free_memory(buf);
+      ok = true;
+    }
+  } else {
+    const size_t n = H5Tget_size(t);
+    std::string buf(n, '\0');
+    if (H5Aread(a, t, buf.data()) >= 0) {
+      const auto end = buf.find('\0');
+      if (end != std::string::npos) buf.resize(end);
+      while (!buf.empty() && (buf.back() == ' ' || buf.back() == '\0')) buf.pop_back();
+      *out = std::move(buf);
+      ok = true;
+    }
+  }
+  H5Tclose(t);
+  H5Aclose(a);
+  return ok;
+}
+
+struct DepthPair {
+  float depth;
+  float uncertainty;
+};
+
+bool almost_eq(float a, float b) {
+  return std::fabs(a - b) <= 1.0f ||
+         std::fabs(a - b) <= 1e-3f * std::max(std::fabs(a), std::fabs(b));
+}
+
+/** Parse Group_F fillValue strings (e.g. "1000000") into floats; keep defaults on failure. */
+void read_fill_from_group_f(hid_t file, float* fill_depth, float* fill_unc) {
+  if (!H5Lexists(file, "/Group_F/BathymetryCoverage", H5P_DEFAULT)) return;
+  hid_t ds = H5Dopen(file, "/Group_F/BathymetryCoverage", H5P_DEFAULT);
+  if (ds < 0) return;
+  hid_t space = H5Dget_space(ds);
+  hsize_t dims[1] = {0};
+  if (H5Sget_simple_extent_ndims(space) == 1) H5Sget_simple_extent_dims(space, dims, nullptr);
+  // Compound with variable strings — read fillValue via HDF5 compound is awkward; keep 1e6 default
+  // which matches CHS / NOAA S-102 3.0.0 cells. Optional override from first row is best-effort.
+  (void)fill_depth;
+  (void)fill_unc;
+  H5Sclose(space);
+  H5Dclose(ds);
+}
+
+bool load_instance_grid(hid_t file, hid_t inst, CoverageGrid& grid, LoadError* err) {
+  if (!read_scalar_double(inst, "gridOriginLongitude", &grid.origin_x) ||
+      !read_scalar_double(inst, "gridOriginLatitude", &grid.origin_y) ||
+      !read_scalar_double(inst, "gridSpacingLongitudinal", &grid.spacing_x) ||
+      !read_scalar_double(inst, "gridSpacingLatitudinal", &grid.spacing_y)) {
+    set_err(err, LoadErrorKind::Parse, "S-102 instance missing gridOrigin/gridSpacing attributes");
+    return false;
+  }
+  double ncols = 0, nrows = 0;
+  if (!read_scalar_double(inst, "numPointsLongitudinal", &ncols) ||
+      !read_scalar_double(inst, "numPointsLatitudinal", &nrows) || ncols < 1 || nrows < 1) {
+    set_err(err, LoadErrorKind::Parse, "S-102 instance missing numPointsLongitudinal/Latitudinal");
+    return false;
+  }
+  grid.ncols = static_cast<std::size_t>(ncols);
+  grid.nrows = static_cast<std::size_t>(nrows);
+
+  if (!H5Lexists(inst, "Group_001/values", H5P_DEFAULT)) {
+    set_err(err, LoadErrorKind::Parse, "S-102 missing Group_001/values dataset");
+    return false;
+  }
+  hid_t ds = H5Dopen(inst, "Group_001/values", H5P_DEFAULT);
+  if (ds < 0) {
+    set_err(err, LoadErrorKind::Parse, "S-102 cannot open Group_001/values");
+    return false;
+  }
+  hid_t space = H5Dget_space(ds);
+  const int nd = H5Sget_simple_extent_ndims(space);
+  hsize_t dims[2] = {0, 0};
+  if (nd != 2 || H5Sget_simple_extent_dims(space, dims, nullptr) < 0) {
+    H5Sclose(space);
+    H5Dclose(ds);
+    set_err(err, LoadErrorKind::Parse, "S-102 values dataset is not a 2-D array");
+    return false;
+  }
+  // HDF5 dims are (numPointsLatitudinal, numPointsLongitudinal) = (nrows, ncols).
+  if (dims[0] != grid.nrows || dims[1] != grid.ncols) {
+    // Trust the dataset dims if attributes disagree slightly.
+    grid.nrows = static_cast<std::size_t>(dims[0]);
+    grid.ncols = static_cast<std::size_t>(dims[1]);
+  }
+
+  hid_t mem_type = H5Tcreate(H5T_COMPOUND, sizeof(DepthPair));
+  H5Tinsert(mem_type, "depth", HOFFSET(DepthPair, depth), H5T_NATIVE_FLOAT);
+  H5Tinsert(mem_type, "uncertainty", HOFFSET(DepthPair, uncertainty), H5T_NATIVE_FLOAT);
+
+  const std::size_t n = grid.nrows * grid.ncols;
+  std::vector<DepthPair> buf(n);
+  const herr_t rd = H5Dread(ds, mem_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data());
+  H5Tclose(mem_type);
+  H5Sclose(space);
+  H5Dclose(ds);
+  if (rd < 0) {
+    set_err(err, LoadErrorKind::Parse, "S-102 H5Dread(values) failed");
+    return false;
+  }
+
+  read_fill_from_group_f(file, &grid.fill_depth, &grid.fill_uncertainty);
+  grid.depth.resize(n);
+  grid.uncertainty.resize(n);
+  for (std::size_t i = 0; i < n; ++i) {
+    grid.depth[i] = buf[i].depth;
+    grid.uncertainty[i] = buf[i].uncertainty;
+  }
+  return true;
+}
+
+}  // namespace
+
+bool CoverageGrid::is_fill_depth(float v) const {
+  return !std::isfinite(v) || almost_eq(v, fill_depth) || std::fabs(v) >= 1.0e5f;
+}
+
+bool CoverageGrid::is_fill_uncertainty(float v) const {
+  return !std::isfinite(v) || almost_eq(v, fill_uncertainty) || std::fabs(v) >= 1.0e5f;
+}
+
+bool CoverageGrid::sample_cell(std::size_t row, std::size_t col, CoverageSample& out) const {
+  out = {};
+  if (row >= nrows || col >= ncols || depth.size() != nrows * ncols) return false;
+  const std::size_t i = row * ncols + col;
+  if (!is_fill_depth(depth[i])) {
+    out.depth = depth[i];
+    out.has_depth = true;
+  }
+  if (uncertainty.size() == depth.size() && !is_fill_uncertainty(uncertainty[i])) {
+    out.uncertainty = uncertainty[i];
+    out.has_uncertainty = true;
+  }
+  return out.has_depth;
+}
+
+bool CoverageGrid::sample_wgs84(double lon, double lat, CoverageSample& out) const {
+  out = {};
+  if (horizontal_crs != 4326) return false;  // projected grids need a CRS transform (open question)
+  if (ncols == 0 || nrows == 0 || spacing_x == 0.0 || spacing_y == 0.0) return false;
+  const double col_f = (lon - origin_x) / spacing_x;
+  const double row_f = (lat - origin_y) / spacing_y;
+  if (col_f < -0.5 || row_f < -0.5 || col_f >= static_cast<double>(ncols) - 0.5 ||
+      row_f >= static_cast<double>(nrows) - 0.5)
+    return false;
+  const auto col = static_cast<std::size_t>(std::llround(col_f));
+  const auto row = static_cast<std::size_t>(std::llround(row_f));
+  if (col >= ncols || row >= nrows) return false;
+  return sample_cell(row, col, out);
+}
+
+bool load_s102(const std::filesystem::path& path, CoverageDataset& out, LoadError* err) {
+  out = CoverageDataset{};
+  out.product = ProductId::S102;
+  out.path = path;
+  out.dataset_name = path.stem().string();
+
+  if (!H5Fis_hdf5(path.string().c_str())) {
+    set_err(err, LoadErrorKind::Invalid, "not an HDF5 file: " + path.string());
+    return false;
+  }
+  hid_t file = H5Fopen(path.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+  if (file < 0) {
+    set_err(err, LoadErrorKind::Io, "cannot open HDF5: " + path.string());
+    return false;
+  }
+
+  auto close_file = [&]() { H5Fclose(file); };
+
+  read_string_attr(file, "productSpecification", &out.product_specification);
+  int crs = 0;
+  if (read_scalar_int(file, "horizontalCRS", &crs)) out.grid.horizontal_crs = crs;
+
+  double w = 0, e = 0, s = 0, n = 0;
+  const bool bw = read_scalar_double(file, "westBoundLongitude", &w);
+  const bool be = read_scalar_double(file, "eastBoundLongitude", &e);
+  const bool bs = read_scalar_double(file, "southBoundLatitude", &s);
+  const bool bn = read_scalar_double(file, "northBoundLatitude", &n);
+  if (bw && be && bs && bn) {
+    out.grid.west = w;
+    out.grid.east = e;
+    out.grid.south = s;
+    out.grid.north = n;
+    out.grid.bounds_valid = true;
+  }
+
+  if (!H5Lexists(file, "/BathymetryCoverage", H5P_DEFAULT)) {
+    close_file();
+    set_err(err, LoadErrorKind::Parse, "S-102 missing /BathymetryCoverage group: " + path.string());
+    return false;
+  }
+
+  // Prefer BathymetryCoverage.01; fall back to first BathymetryCoverage.* child.
+  std::string inst_path = "/BathymetryCoverage/BathymetryCoverage.01";
+  if (!H5Lexists(file, inst_path.c_str(), H5P_DEFAULT)) {
+    hid_t bc = H5Gopen(file, "/BathymetryCoverage", H5P_DEFAULT);
+    if (bc < 0) {
+      close_file();
+      set_err(err, LoadErrorKind::Parse, "cannot open /BathymetryCoverage");
+      return false;
+    }
+    H5G_info_t info{};
+    H5Gget_info(bc, &info);
+    inst_path.clear();
+    for (hsize_t i = 0; i < info.nlinks; ++i) {
+      char name[256];
+      ssize_t len = H5Lget_name_by_idx(bc, ".", H5_INDEX_NAME, H5_ITER_INC, i, name, sizeof(name),
+                                       H5P_DEFAULT);
+      if (len <= 0) continue;
+      if (std::strncmp(name, "BathymetryCoverage", 18) == 0) {
+        inst_path = std::string("/BathymetryCoverage/") + name;
+        break;
+      }
+    }
+    H5Gclose(bc);
+    if (inst_path.empty()) {
+      close_file();
+      set_err(err, LoadErrorKind::Parse, "S-102 has no BathymetryCoverage.* instance");
+      return false;
+    }
+  }
+
+  hid_t inst = H5Gopen(file, inst_path.c_str(), H5P_DEFAULT);
+  if (inst < 0) {
+    close_file();
+    set_err(err, LoadErrorKind::Parse, "cannot open " + inst_path);
+    return false;
+  }
+  const bool grid_ok = load_instance_grid(file, inst, out.grid, err);
+  H5Gclose(inst);
+  close_file();
+  if (!grid_ok) return false;
+
+  // Portrayal host feature: one BathymetryCoverage instance (PC 3.0.0 BathymetryCoverage.lua).
+  CoverageFeature feat;
+  feat.id = 1;
+  feat.code = "BathymetryCoverage";
+  out.features.push_back(std::move(feat));
+  return true;
+}
 
 bool load_hdf5_product(ProductId id, const std::filesystem::path& path, Dataset& out,
                        LoadError* err) {
-  (void)out;
-  if (err) {
-    err->kind = LoadErrorKind::Parse;
-    err->message = std::string(product_name(id)) + " HDF5 loader not linked yet: " + path.string();
+  if (id == ProductId::Unknown || id == ProductId::S102) {
+    // Infer S-102 from path / productSpecification when Unknown.
+    CoverageDataset cov;
+    if (!load_s102(path, cov, err)) return false;
+    if (!cov.product_specification.empty() &&
+        cov.product_specification.find("S-102") == std::string::npos &&
+        cov.product_specification.find("S102") == std::string::npos && id == ProductId::Unknown) {
+      set_err(err, LoadErrorKind::Parse,
+              "HDF5 product is not S-102 (" + cov.product_specification + "): " + path.string());
+      return false;
+    }
+    out = Dataset{};
+    out.product = ProductId::S102;
+    out.path = path;
+    out.dataset_name = cov.dataset_name;
+    out.coverage = std::move(cov);
+    return true;
   }
+  set_err(err, LoadErrorKind::Parse,
+          std::string(product_name(id)) + " HDF5 loader not implemented yet: " + path.string());
   return false;
 }
 

@@ -4,3 +4,6 @@
 /testdata/shom/
 testdata/chs/
 aqtinstall.log
+
+# NOAA / local S-102 HDF5 samples (see testdata/s102/SOURCE.md)
+testdata/s102/*.h5

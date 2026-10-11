@@ -1,8 +1,10 @@
 #pragma once
+#include "s100/coverage.hpp"
 #include "s100/layer.hpp"
 #include "s100/product.hpp"
 #include "s100/types.hpp"
 #include <filesystem>
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -52,8 +54,10 @@ struct Dataset {
   LayerSet layers;
   std::vector<InformationRecord> information;  // IRID records
   SpatialStore spatial;                        // topology for the portrayal host
+  /** Coverage payload for S-102+ (grids are never flattened into features). */
+  std::optional<CoverageDataset> coverage;
   DatasetStats stats() const;
-  /** WGS84 envelope; valid=false until real spatial decode fills it. */
+  /** WGS84 envelope: coverage geographic bounds when present, else feature envelope. */
   Bounds bounds() const;
 };
 
@@ -81,7 +85,7 @@ bool load_s101(const std::filesystem::path& path, Dataset& out, LoadError* err =
 
 /** Product-aware entry for base cells / non-update products.
  *  Lone S-101 updates (.001…) are rejected (LoadErrorKind::Invalid) — use
- *  open_dataset_with_updates / ChartSession. HDF5/GML still return Parse until loaders land. */
+ *  open_dataset_with_updates / ChartSession. S-102 HDF5 loads via load_s102 into coverage. */
 bool open_dataset(const std::filesystem::path& path, Dataset& out, LoadError* err = nullptr);
 
 }  // namespace s100

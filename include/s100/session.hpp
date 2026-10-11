@@ -21,6 +21,12 @@ class ChartSession {
   Dataset* find(const std::string& key);
   const Dataset* find(const std::string& key) const;
   const std::map<std::string, Dataset>& datasets() const { return datasets_; }
+  /** Insert an already-loaded Dataset under exchange_member_key(product, identity).
+   *  identity defaults to dataset_name or path stem. Used to overlay S-102 on S-101. */
+  std::string insert(Dataset ds, std::string dataset_identity = {});
+  /** open_dataset(path) then insert under the shared session key. */
+  bool open_and_insert(const std::filesystem::path& path, LoadError* err = nullptr,
+                       std::string* key_out = nullptr);
   void clear();
 
  private:

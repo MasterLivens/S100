@@ -76,6 +76,27 @@ const Dataset* ChartSession::find(const std::string& key) const {
   return nullptr;
 }
 
+std::string ChartSession::insert(Dataset ds, std::string dataset_identity) {
+  if (dataset_identity.empty()) {
+    // Prefer path stem so keys match group_cell_series / exchange_member_key (no .000 suffix).
+    if (!ds.path.empty()) dataset_identity = ds.path.stem().string();
+    else if (!ds.dataset_name.empty()) dataset_identity = ds.dataset_name;
+    else dataset_identity = "unnamed";
+  }
+  const std::string key = exchange_member_key(ds.product, dataset_identity);
+  datasets_[key] = std::move(ds);
+  return key;
+}
+
+bool ChartSession::open_and_insert(const std::filesystem::path& path, LoadError* err,
+                                   std::string* key_out) {
+  Dataset ds;
+  if (!open_dataset(path, ds, err)) return false;
+  const std::string key = insert(std::move(ds));
+  if (key_out) *key_out = key;
+  return true;
+}
+
 void ChartSession::clear() {
   catalogue_ = ExchangeCatalogue{};
   series_.clear();

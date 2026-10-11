@@ -6,7 +6,7 @@ Owner: SoftwareArchitecture. Implement: SoftwareEngineer. Test: SoftwareTester.
 
 - `bool open_dataset(path, Dataset&, LoadError*)` — only public load entry for apps/tests.
 - `bool load_s101(...)` — S-101 helper; prefer `open_dataset` in new code.
-- HDF5 / GML paths return `LoadErrorKind::Parse` until P1/P3 loaders land.
+- S-102 HDF5 loads via `open_dataset` / `load_s102` into `Dataset::coverage` (sample/bounds). S-104/S-111/GML still `Parse` until their loaders land.
 
 ## Dataset (vector / S-101)
 
@@ -62,9 +62,11 @@ Rules:
 - `pick_wgs84(px,py,w,h, west,south,east,north)` → WGS84; tolerance check ≤ `1e-5` deg.
 - Control points: `testdata/s101/fixtures.toml` after real ISO 8211 spatial records.
 
-## Coverage (P1 — do not implement in P0)
+## Coverage (P1 — S-102 first slice)
 
-- `sample(lon, lat[, t])` on coverage products; grids must not be flattened into `features`.
+- `Dataset::coverage` holds `CoverageDataset` (grid + host features). Grids must not be flattened into `features`.
+- `CoverageGrid::sample_wgs84(lon, lat)` for EPSG:4326 cells; projected CRS sample is deferred.
+- Portrayal: `portray(CoverageDataset, …)` emits `DrawingInstruction::Kind::Coverage` (`CoverageFill`).
 
 
 ## Exchange set (P1)
@@ -75,7 +77,7 @@ Parallel to `open_dataset` — do not overload the single-file entry. Details: `
 - Updates apply in DSID ED/UPD order (catalogue metadata validated when present); mismatch → `LoadError`, no partial apply.
 - `ChartSession` is shared across products; member key = `ProductId` + dataset identity (`S-101:cellStem`).
 - FASC/INAS FAUI/IUIN element merge remains stub (whole-list replace) until Bridge / Track B.
-- Coverage products listed in the catalogue are not loaded yet; one Dataset map for all products.
+- Coverage products (S-102 `.h5`) are members of the same `ChartSession` map (`S-102:<stem>`); `open_cell_series` routes them through `open_dataset`.
 
 ## Stability
 
