@@ -1,0 +1,4 @@
+# Keep SOURCE.md; ignore the self-contained CLI payload (~150 MiB extracted).
+*
+!.gitignore
+!SOURCE.md

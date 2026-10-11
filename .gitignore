@@ -7,3 +7,9 @@ aqtinstall.log
 
 # NOAA / local S-102 HDF5 samples (see testdata/s102/SOURCE.md)
 testdata/s102/*.h5
+
+# EncDotNet soft-oracle outputs + CLI payload (see tools/encdotnet-s100/SOURCE.md)
+/Testing/encdotnet-oracle/
+/tools/encdotnet-s100/*
+!/tools/encdotnet-s100/SOURCE.md
+!/tools/encdotnet-s100/.gitignore

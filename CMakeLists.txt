@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(S100_BUILD_VIEWER "Build Qt6 map viewer" ON)
+option(S100_ENCDOTNET_ORACLE "Optional EncDotNet soft-oracle ctest (warn-only; OFF in CI)" OFF)
 
 add_subdirectory(third_party)
 
@@ -110,6 +111,14 @@ if(S100_BUILD_VIEWER)
       -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
       -P ${CMAKE_SOURCE_DIR}/tests/check_viewer_palettes.cmake)
   set_tests_properties(viewer_golden viewer_palettes PROPERTIES TIMEOUT 90)
+
+  if(S100_ENCDOTNET_ORACLE)
+    add_test(NAME viewer_encdotnet_oracle
+      COMMAND ${CMAKE_COMMAND}
+        -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
+        -P ${CMAKE_SOURCE_DIR}/tests/check_encdotnet_oracle.cmake)
+    set_tests_properties(viewer_encdotnet_oracle PROPERTIES TIMEOUT 180)
+  endif()
 endif()
 
 install(TARGETS s100_core s100_cli RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
