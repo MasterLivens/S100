@@ -15,3 +15,7 @@ testdata/s102/*.h5
 /tools/encdotnet-s100/*
 !/tools/encdotnet-s100/SOURCE.md
 !/tools/encdotnet-s100/.gitignore
+
+# S-104 HDF5 samples (see testdata/s104/SOURCE.md when added)
+testdata/s104/*.h5
+!testdata/s104/synthetic_waterlevel_4326.h5
