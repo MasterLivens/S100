@@ -32,8 +32,17 @@ S-101/S-102 checks unchanged.
 
 ## SOURCE.md
 
-Each product folder: upstream URL/commit, date, sha256 of required files, **unsigned** note + redistribution terms.  
-S-104 SOURCE MUST quote that PC is not defined for Ed.2.0.0 and list FC sha only.
+**File MUST exist** at `catalogues/S-104|S-111|S-124/SOURCE.md`.
+
+**Content SHOULD include** (Tester treats missing fields as BLOCK on review):
+
+- Upstream URL / registry or git tag/commit  
+- Fetch date  
+- sha256 of every **required** file for that product  
+- **unsigned** R&D note + upstream redistribution terms  
+- Edition **2.0.0** claim  
+
+S-104 SOURCE additionally MUST state PC is **officially N/A** for Ed.2.0.0 (PS §9 / GI Registry) and list **FC sha only** (no PC sha row).
 
 ## Portray
 
@@ -42,6 +51,26 @@ Minimal tokenized / engine portray for S-104 remains OK. Wiring S-111/S-124 load
 ## Supersedes
 
 Rev 2 requirement of S-104 PC path. Product contracts updated accordingly.
+
+
+## Extend `tests/check_catalogues.cmake` (align existing style)
+
+Keep current S-101/S-102 `expect_sha` + `versionNumber` / `productId…version=` pairing.
+
+Add:
+
+```cmake
+# S-104 FC only; FATAL if PC_2.0.0/ appears
+expect_sha("${C}/S-104/S-104_FC_2.0.0.xml" <from SOURCE>)
+# read FC versionNumber — non-empty
+if(EXISTS "${C}/S-104/PC_2.0.0")
+  message(FATAL_ERROR "S-104 must not ship PC_2.0.0 (official N/A)")
+endif()
+
+# S-111 and S-124: expect_sha FC + PC xml; pair FC versionNumber == PC productId/version
+```
+
+No `SKIP` for missing required files — missing path fails SHA/read → FATAL.
 
 ## Non-goals
 
