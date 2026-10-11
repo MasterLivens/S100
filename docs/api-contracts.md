@@ -78,7 +78,7 @@ Parallel to `open_dataset` — do not overload the single-file entry. Details: `
 - `ChartSession` is shared across products; member key = `ProductId` + dataset identity (`S-101:cellStem`).
 - FASC/INAS: element-level FAUI/IUIN merge required for Bridge slice — see `docs/association-contract.md`.
   Match key `(rcnm,rcid,association,role)`; unknown FAUI → LoadError with per-feature association rollback.
-  Host: `associationCode` required; empty `roleCode` = any role. Spatial Host APIs stay ID-only (no FASC filter).
+  Host feature assoc: `associationCode` required; empty `roleCode` = any role. Spatial: `GetAssociatedFeatureIDs(spatialId)` ID-only; `GetAssociatedInformationIDs(spatialId, associationCode, roleCode)` filters info (not FASC).
 - Coverage products (S-102 `.h5`) are members of the same `ChartSession` map (`S-102:<stem>`); `open_cell_series` routes them through `open_dataset`.
 
 ## Stability

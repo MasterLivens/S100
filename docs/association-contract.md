@@ -55,11 +55,16 @@ When this lands, set `docs/exchange-set.md` FASC row to **full** and remove the 
 
 Return only peer IDs that exist in the current `Dataset`. Dangling `rcid` → omit + `HostDebuggerEntry`; never crash Lua.
 
-### Spatial associations (separate API — do not mix)
+### Spatial Host (separate from FASC — do not mix)
 
-- `HostSpatialGetAssociatedFeatureIDs(spatialId)` / `HostSpatialGetAssociatedInformationIDs(spatialId)`
+Align with PortrayalAPI:
 
-These are **ID-only** (no association/role filter). They return features/information linked via spatial topology / SPAS, not FASC. Do not add FASC filters to these entry points.
+| Function | Signature | Filter rules |
+|----------|-----------|--------------|
+| `HostSpatialGetAssociatedFeatureIDs` | `(spatialId)` | **ID only** — features linked via spatial topology / SPAS. No association/role arguments. Not FASC. |
+| `HostSpatialGetAssociatedInformationIDs` | `(spatialId, associationCode, roleCode)` | Spatial→**information** associations (INAS on spatial), **not** FASC. `associationCode` **required** (non-empty). `roleCode` nil/`""` = any role. |
+
+Do not add FASC feature-association filters to either Spatial entry point.
 
 ### Viewer
 
@@ -84,8 +89,10 @@ Add under `tests/` (names suggestive; Tester may rename):
    - Empty `associationCode` errors.
    - Dangling rcid in list does not appear in returned IDs.
 
-3. **`association_spatial_no_fasc_filter`** (smoke)
-   - `HostSpatialGetAssociatedFeatureIDs` callable with spatial id only; documenting no assoc/role args.
+3. **`association_spatial_host_signatures`** (smoke)
+   - `HostSpatialGetAssociatedFeatureIDs(spatialId)` — one arg only; no assoc/role.
+   - `HostSpatialGetAssociatedInformationIDs(spatialId, associationCode, roleCode)` — assoc required; empty role = any; empty assoc → Host error.
+   - Confirm these do not apply FASC feature-association filters.
 
 Engineer delivers tests + implementation together; Tester owns pass/fail and fixtures.toml style data if files are used.
 
