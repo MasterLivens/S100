@@ -22,6 +22,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S102-OPEN-SAMPLE` | S-102 产品 | open/bounds/sample WGS84 | s102 tests | Reuse/in flight |
 | `IHO-S102-OVERLAY-SESSION` | 叠显契约 | ChartSession 键叠 S-101 | session | Reuse/in flight |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
+| `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 
 ## Backlog（不插队，挂在现计划之后）
 

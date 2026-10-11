@@ -21,7 +21,7 @@ Automate Base / Standard display checks against `testdata/golden/s164-ref/AA5DBA
 | Soft pixel drift vs AA5* ref | **WARN-only** | `scripts/soft_compare_oracle.py` defaults (exit 0 unless `--strict`) |
 | EncDotNet / NIWC compare | Out of this slice | See visual-acceptance.md |
 
-CTest target `s164_display_compare`: fails only on MUST rows. Soft-compare annotations print as warnings.
+CTest target `viewer_s164_display_compare`: fails only on MUST rows. Soft-compare annotations print as warnings.
 
 ## Colour assertion (pinned)
 

@@ -1047,7 +1047,8 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString cell, snapshot, s102_path, dump_text_boxes;
+  QString cell, snapshot, s102_path, dump_text_boxes, dump_layers;
+  QString layers_on, layers_off;
   QString fc_path = S100_DEFAULT_FC;
   QString pc_path = S100_DEFAULT_PC;
   QString palette_name = QStringLiteral("Day");  // Day | Dusk | Night
@@ -1062,6 +1063,9 @@ int main(int argc, char** argv) {
     else if (a == "--s102" && i + 1 < argc) s102_path = argv[++i];
     else if (a == "--no-text-collision") text_collision = false;
     else if (a == "--dump-text-boxes" && i + 1 < argc) dump_text_boxes = argv[++i];
+    else if (a == "--dump-layers" && i + 1 < argc) dump_layers = argv[++i];
+    else if (a == "--layers-on" && i + 1 < argc) layers_on = argv[++i];
+    else if (a == "--layers-off" && i + 1 < argc) layers_off = argv[++i];
     else if (cell.isEmpty()) cell = a;
   }
   const bool cell_is_hdf5 =
@@ -1299,6 +1303,14 @@ int main(int argc, char** argv) {
 
       map->setPortrayal(std::move(ds), portrayed ? std::move(instructions) : s100::DrawingInstructions{},
                         ps, palette, pc.root, &pc);
+      auto apply_layer_csv = [&](const QString& csv, bool on) {
+        for (const QString& part : csv.split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+          const QString code = part.trimmed();
+          if (!code.isEmpty()) map->visibility().set_layer(code.toStdString(), on);
+        }
+      };
+      apply_layer_csv(layers_on, true);
+      apply_layer_csv(layers_off, false);
       refresh_list();
       win.statusBar()->showMessage(msg);
     } else {
@@ -1309,9 +1321,9 @@ int main(int argc, char** argv) {
   win.resize(1280, 800);
   win.show();
 
-  // Headless: --snapshot and/or --dump-text-boxes (QT_QPA_PLATFORM=offscreen)
-  if (!snapshot.isEmpty() || !dump_text_boxes.isEmpty()) {
-    QTimer::singleShot(200, [&win, snapshot]() {
+  // Headless: --snapshot / --dump-text-boxes / --dump-layers (QT_QPA_PLATFORM=offscreen)
+  if (!snapshot.isEmpty() || !dump_text_boxes.isEmpty() || !dump_layers.isEmpty()) {
+    QTimer::singleShot(200, [&win, map, snapshot, dump_layers]() {
       bool ok = true;
       if (!snapshot.isEmpty()) {
         ok = win.grab().save(snapshot);
@@ -1319,6 +1331,23 @@ int main(int argc, char** argv) {
                      snapshot.toUtf8().constData());
       } else {
         (void)win.grab();  // force paint → dump-text-boxes
+      }
+      if (ok && !dump_layers.isEmpty()) {
+        QFile f(dump_layers);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+          std::fprintf(stderr, "dump-layers FAILED %s\n", dump_layers.toUtf8().constData());
+          ok = false;
+        } else {
+          QTextStream out(&f);
+          if (map->dataset()) {
+            for (const auto& [code, li] : map->dataset()->layers.all()) {
+              out << QString::fromStdString(li.code) << '\t'
+                  << (map->visibility().is_visible(li) ? "on" : "off") << '\n';
+            }
+          }
+          f.close();
+          std::fprintf(stdout, "dump-layers saved %s\n", dump_layers.toUtf8().constData());
+        }
       }
       QApplication::exit(ok ? 0 : 1);
     });
