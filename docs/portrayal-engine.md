@@ -101,18 +101,24 @@ symbology. Not a host defect; listed exactly in `tests/test_portrayal.cpp` (open
 
 ## Viewer (DrawingInstructions renderer)
 
-`s100_viewer` consumes `portray()` output (via `PortrayalSession`) and paints with the PC **Day**
-colour profile (`ColorProfiles/colorProfile.xml` sRGB). Layer list / use-type visibility still
-apply; meta stays off by default. Status bar shows feature count, instruction count, and
-`lua_errors`. Flags: `--fc`, `--pc`, `--snapshot <png>` (use `QT_QPA_PLATFORM=offscreen`).
+`s100_viewer` consumes `portray()` output (via `PortrayalSession`) and paints with the PC colour
+profile (`ColorProfiles/colorProfile.xml` sRGB). DrawingInstructions keep colour **token names**
+(e.g. `DEPVS`, `LANDA`); the viewer maps tokens → RGB through the active palette at paint time.
+**Day / Dusk / Night** select which `<palette name="…">` table from the official profile is used —
+switching palette does **not** re-run Lua/portray (same instruction list; SVG symbol cache is
+rebuilt with the new token→RGB map). Default is Day. UI: toolbar combo; CLI: `--palette Day|Dusk|Night`.
+Official catalogues are not modified (SVG CSS inject + presentation-attribute promotion at load,
+same as before). Layer list / use-type visibility still apply; meta stays off by default. Status
+bar shows feature count, instruction count, and `lua_errors`. Flags: `--fc`, `--pc`,
+`--palette`, `--snapshot <png>` (use `QT_QPA_PLATFORM=offscreen`).
 
 | Kind | What is drawn |
 |------|----------------|
-| Area `ColorFill` | Polygon fill from colour token + transparency |
-| Area `AreaFillReference` / `SymbolFill` | PC `AreaFills/<ref>.xml` **symbolFill** only: stamp `Symbols/<symbol>.svg` on the v1/v2 mm lattice (y-up → screen y-down), clipped to instruction/feature rings with odd-even fill. `GlobalGeometry` anchors the lattice at lon/lat (0,0); `LocalGeometry` at the outer-ring first vertex. Colour tokens via the same Day palette SVG remapping as Point symbols (CSS inject + presentation attrs). |
+| Area `ColorFill` | Polygon fill from colour token + transparency (active palette) |
+| Area `AreaFillReference` / `SymbolFill` | PC `AreaFills/<ref>.xml` **symbolFill** only: stamp `Symbols/<symbol>.svg` on the v1/v2 mm lattice (y-up → screen y-down), clipped to instruction/feature rings with odd-even fill. `GlobalGeometry` anchors the lattice at lon/lat (0,0); `LocalGeometry` at the outer-ring first vertex. Colour tokens via the same active-palette SVG remapping as Point symbols (CSS inject + presentation attrs). |
 | Line `_simple_` | Width / colour / dash from inline `LineStyleDef` |
 | Line named style | Colour + width from `LineStyles/<ref>.xml` (dashes simplified) |
-| Point | PC `Symbols/<symbol_ref>.svg` via `QSvgRenderer` (Qt6::Svg). External CSS class tokens (`fCHBLK` / `sSNDG1` / …) remapped through the loaded Day colour profile into an embedded `<style>` **and** promoted to `fill=`/`stroke=` presentation attributes (Qt Svg Tiny does not apply stroke-via-CSS-class); renderers cached by `symbol_ref`. Scale: SVG user unit = mm × `scale_factor` × DPI; `LocalOffset` + `rotation` applied; pivot `(0,0)`. Missing file → tiny `CHBLK` dot |
+| Point | PC `Symbols/<symbol_ref>.svg` via `QSvgRenderer` (Qt6::Svg). External CSS class tokens (`fCHBLK` / `sSNDG1` / …) remapped through the active Day/Dusk/Night colour profile into an embedded `<style>` **and** promoted to `fill=`/`stroke=` presentation attributes (Qt Svg Tiny does not apply stroke-via-CSS-class); renderers cached by `symbol_ref` (cache cleared on palette change). Scale: SVG user unit = mm × `scale_factor` × DPI; `LocalOffset` + `rotation` applied; pivot `(0,0)`. Missing file → tiny `CHBLK` dot |
 | Text | Token colour + LocalOffset; font size from mm |
 
 ### AreaFill formats supported
@@ -133,7 +139,13 @@ holes, point/multipoint as-is; composite curves expanded). The viewer paints onl
 unchanged (feature geometry). Unresolved refs yield an empty `geometries` list and nothing is drawn
 for that instruction (no fall-back to the whole feature).
 
-Not yet (architect priority after SpatialReference): dusk/night palettes (CSS files exist; viewer
-still Day-only), augmented geometry, CoverageFill. Sounding digit composites are real SVG symbols
-now (each digit/`SOUNDG*` file); composite placement still follows whatever PointInstructions the
-rules emit.
+### Colour palettes (Day / Dusk / Night)
+
+Official `ColorProfiles/colorProfile.xml` defines three sRGB palettes (`Day`, `Dusk`, `Night`) plus
+matching `Symbols/{day,dusk,night}SvgStyle.css` (CSS is not loaded by QtSvg; the viewer remaps from
+the XML palette). Token names in DrawingInstructions are palette-independent. Golden snapshot stays
+Day for now (soft compare may expand per palette later).
+
+Not yet (remaining gaps): augmented geometry, CoverageFill, PixmapFill/HatchFill. Sounding digit
+composites are real SVG symbols now (each digit/`SOUNDG*` file); composite placement still follows
+whatever PointInstructions the rules emit.

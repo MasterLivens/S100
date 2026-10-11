@@ -1,1 +1,1 @@
-2664aa6b1ab9f370498ea7abf02e7b10b263fc47f05ea65dd4e2f7cded468096  testdata/golden/iho_0008.png
+8ccb42ed81952cc431b64708a0a544925ca176e50029194ee244be7c92013f4e  testdata/golden/iho_0008.png

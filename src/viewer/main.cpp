@@ -2,10 +2,12 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QFile>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QImage>
+#include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QMouseEvent>
@@ -48,7 +50,8 @@ QPointF project(const QRectF& rect, double west, double south, double east, doub
   return QPointF(rect.left() + u * rect.width(), rect.top() + v * rect.height());
 }
 
-/** Day (or named) palette from PC ColorProfiles/colorProfile.xml — sRGB only. */
+/** Named palette (Day / Dusk / Night) from PC ColorProfiles/colorProfile.xml — sRGB only.
+ *  Token→RGB only; DrawingInstructions keep token names. */
 struct ColorPalette {
   QHash<QString, QColor> by_token;
 
@@ -471,6 +474,16 @@ class MapWidget : public QWidget {
     update();
   }
 
+  /** Swap Day/Dusk/Night token→RGB only. Does not re-run Lua/portray; DrawingInstructions
+   *  keep colour token names and paint remaps through the active palette. */
+  void setPalette(ColorPalette palette) {
+    palette_ = std::move(palette);
+    symbol_cache_.reset(&palette_, pc_root_ / "Symbols");
+    update();
+  }
+
+  const ColorPalette& palette() const { return palette_; }
+
   const std::optional<s100::Dataset>& dataset() const { return dataset_; }
   const s100::PortrayalStats& stats() const { return stats_; }
   s100::LayerVisibility& visibility() { return visibility_; }
@@ -574,7 +587,7 @@ class MapWidget : public QWidget {
     }
     if (path.isEmpty()) return;
 
-    // ColorFill: solid token from Day palette.
+    // ColorFill: solid token from active Day/Dusk/Night palette.
     if (di.command == "ColorFill") {
       const QColor fill = palette_.get_alpha(di.fill_ref, di.fill_transparency);
       p.setBrush(fill);
@@ -717,7 +730,7 @@ class MapWidget : public QWidget {
   void draw_point(QPainter& p, const QRectF& r, const s100::Feature& f,
                   const s100::DrawingInstruction& di) {
     // PointInstruction: PC Symbols/<symbol_ref>.svg via QSvgRenderer. CSS class tokens
-    // (fCHBLK / sSNDG1 / …) are remapped through the active Day colour profile at load.
+    // (fCHBLK / sSNDG1 / …) are remapped through the active Day/Dusk/Night colour profile at load.
     QSvgRenderer* svg = symbol_cache_.get(di.symbol_ref);
     auto paint_one = [&](QPointF s) {
       const qreal ox = mm_to_px(this, di.offset_x);
@@ -820,12 +833,20 @@ int main(int argc, char** argv) {
   QString cell, snapshot;
   QString fc_path = S100_DEFAULT_FC;
   QString pc_path = S100_DEFAULT_PC;
+  QString palette_name = QStringLiteral("Day");  // Day | Dusk | Night
   for (int i = 1; i < argc; ++i) {
     const QString a = argv[i];
     if (a == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
     else if (a == "--fc" && i + 1 < argc) fc_path = argv[++i];
     else if (a == "--pc" && i + 1 < argc) pc_path = argv[++i];
+    else if (a == "--palette" && i + 1 < argc) palette_name = argv[++i];
     else if (cell.isEmpty()) cell = a;
+  }
+  if (palette_name != QLatin1String("Day") && palette_name != QLatin1String("Dusk") &&
+      palette_name != QLatin1String("Night")) {
+    std::fprintf(stderr, "unknown --palette '%s' (use Day, Dusk, or Night)\n",
+                 palette_name.toUtf8().constData());
+    return 2;
   }
 
   QMainWindow win;
@@ -842,6 +863,11 @@ int main(int argc, char** argv) {
   bar->addWidget(geo);
   bar->addWidget(meta);
   bar->addWidget(carto);
+  bar->addWidget(new QLabel("palette:"));
+  auto* palette_combo = new QComboBox;
+  palette_combo->addItems({QStringLiteral("Day"), QStringLiteral("Dusk"), QStringLiteral("Night")});
+  palette_combo->setCurrentText(palette_name);
+  bar->addWidget(palette_combo);
   bar->addStretch();
 
   auto* split = new QSplitter;
@@ -865,15 +891,34 @@ int main(int argc, char** argv) {
   const bool have_pc = !pc_path.isEmpty() &&
                        s100::load_portrayal_catalogue(pc_path.toStdString(), pc, &pc_err);
 
+  // Colour profile path (official XML; catalogues untouched). Palette name selects which
+  // Day/Dusk/Night sRGB table is used for token→RGB at paint time — portray runs once.
+  fs::path color_profile_xml;
   ColorPalette palette;
   QString pal_err;
   if (have_pc) {
-    fs::path profile = pc.root / "ColorProfiles" / "colorProfile.xml";
+    color_profile_xml = pc.root / "ColorProfiles" / "colorProfile.xml";
     if (!pc.color_profiles.empty() && !pc.color_profiles.front().file_name.empty())
-      profile = pc.root / "ColorProfiles" / pc.color_profiles.front().file_name;
-    if (!load_palette(profile, "Day", palette, &pal_err))
+      color_profile_xml = pc.root / "ColorProfiles" / pc.color_profiles.front().file_name;
+    if (!load_palette(color_profile_xml, palette_name, palette, &pal_err))
       std::fprintf(stderr, "colour profile: %s\n", pal_err.toUtf8().constData());
   }
+
+  auto apply_palette = [&](const QString& name) {
+    if (!have_pc || color_profile_xml.empty()) return;
+    ColorPalette next;
+    QString err;
+    if (!load_palette(color_profile_xml, name, next, &err)) {
+      std::fprintf(stderr, "colour profile: %s\n", err.toUtf8().constData());
+      return;
+    }
+    palette = std::move(next);
+    palette_name = name;
+    map->setPalette(palette);  // remaps SVG/cache; does not re-portray
+  };
+  QObject::connect(palette_combo, &QComboBox::currentTextChanged, map, [&](const QString& name) {
+    apply_palette(name);
+  });
 
   auto refresh_list = [&]() {
     layer_list->blockSignals(true);
