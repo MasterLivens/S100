@@ -119,6 +119,11 @@ if(S100_BUILD_VIEWER)
       -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
       -P ${CMAKE_SOURCE_DIR}/tests/check_text_collision.cmake)
   set_tests_properties(viewer_text_collision PROPERTIES TIMEOUT 90)
+  add_test(NAME viewer_point_label_collision
+    COMMAND ${CMAKE_COMMAND}
+      -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
+      -P ${CMAKE_SOURCE_DIR}/tests/check_point_label_collision.cmake)
+  set_tests_properties(viewer_point_label_collision PROPERTIES TIMEOUT 90)
   add_test(NAME viewer_s164_display_compare
     COMMAND ${CMAKE_COMMAND}
       -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}

@@ -572,6 +572,10 @@ class MapWidget : public QWidget {
   void setTextCollisionEnabled(bool on) { text_collision_ = on; update(); }
   void setDumpTextBoxesPath(std::string path) { dump_text_boxes_path_ = std::move(path); }
 
+  // PointLabel pairing: nearest same-feature Text within this many screen px of a Point
+  // anchor (reference viewport 1280x800). docs/point-symbol-text-collision-contract.md
+  static constexpr qreal kPointLabelPairPx = 48.0;
+
   struct TextJob {
     const s100::DrawingInstruction* di{nullptr};
     const s100::Feature* f{nullptr};
@@ -582,6 +586,14 @@ class MapWidget : public QWidget {
     int align{Qt::AlignCenter};
     QRectF box;
     bool draw{true};
+    bool point_label{false};  // Kind::Text companion of Kind::Point (same feature_id)
+    int plane_order{0};
+    int drawing_priority{0};
+  };
+
+  struct PointAnchor {
+    std::uint64_t feature_id{0};
+    QPointF screen;
   };
 
   bool prepare_text_job(const QRectF& r, const s100::Feature& f, const s100::DrawingInstruction& di,
@@ -617,6 +629,42 @@ class MapWidget : public QWidget {
     job.box = QRectF(job.anchor.x() - w * 0.5, job.anchor.y() - h * 0.5, w, h);
     job.draw = true;
     return true;
+  }
+
+  /** Pair each Point with the nearest same-feature_id Text whose anchor is within
+   *  kPointLabelPairPx; that Text becomes PointLabel. Unpaired Text stays class Text. */
+  void classify_point_labels(std::vector<TextJob>& texts,
+                             const std::vector<PointAnchor>& points) const {
+    std::vector<char> taken(texts.size(), 0);
+    for (const PointAnchor& pt : points) {
+      int best = -1;
+      qreal best_d2 = kPointLabelPairPx * kPointLabelPairPx;
+      for (std::size_t i = 0; i < texts.size(); ++i) {
+        if (taken[i] || !texts[i].di || texts[i].di->feature_id != pt.feature_id) continue;
+        const qreal dx = texts[i].anchor.x() - pt.screen.x();
+        const qreal dy = texts[i].anchor.y() - pt.screen.y();
+        const qreal d2 = dx * dx + dy * dy;
+        if (d2 <= best_d2) {
+          best_d2 = d2;
+          best = static_cast<int>(i);
+        }
+      }
+      if (best >= 0) {
+        texts[static_cast<std::size_t>(best)].point_label = true;
+        taken[static_cast<std::size_t>(best)] = 1;
+      }
+    }
+  }
+
+  /** drawing priority → at equal priority unpaired Text before PointLabel → stable order. */
+  void order_text_jobs_for_layout(std::vector<TextJob>& texts) const {
+    std::stable_sort(texts.begin(), texts.end(), [](const TextJob& a, const TextJob& b) {
+      if (a.plane_order != b.plane_order) return a.plane_order < b.plane_order;
+      if (a.drawing_priority != b.drawing_priority)
+        return a.drawing_priority < b.drawing_priority;
+      if (a.point_label != b.point_label) return !a.point_label && b.point_label;
+      return false;
+    });
   }
 
   static bool boxes_overlap(const QRectF& a, const QRectF& b) {
@@ -662,12 +710,15 @@ class MapWidget : public QWidget {
     QFile f(QString::fromStdString(dump_text_boxes_path_));
     if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) return;
     QTextStream out(&f);
-    out << "x,y,w,h,drawn,text\n";
+    out << "x,y,w,h,drawn,class,feature_id,text\n";
     for (const auto& job : texts) {
+      const std::uint64_t fid = job.di ? job.di->feature_id : 0;
       out << job.box.x() << ',' << job.box.y() << ',' << job.box.width() << ',' << job.box.height()
           << ',' << (job.draw ? 1 : 0) << ','
-          << '"' << QString(job.text).replace('"', "\"") << '"' << '\n';
+          << (job.point_label ? "PointLabel" : "Text") << ',' << fid << ','
+          << '"' << QString(job.text).replace(QLatin1Char('"'), QStringLiteral("\"\"")) << '"' << '\n';
     }
+    std::fprintf(stderr, "point_glyphs_drawn=%zu\n", point_glyphs_drawn_);
   }
 
 
@@ -710,6 +761,8 @@ class MapWidget : public QWidget {
                      });
 
     std::vector<TextJob> texts;
+    std::vector<PointAnchor> point_anchors;
+    point_glyphs_drawn_ = 0;
 
     for (const s100::DrawingInstruction* dip : order) {
       const auto& di = *dip;
@@ -732,12 +785,32 @@ class MapWidget : public QWidget {
         case s100::DrawingInstruction::Kind::Line:
           draw_line(p, r, f, di);
           break;
-        case s100::DrawingInstruction::Kind::Point:
+        case s100::DrawingInstruction::Kind::Point: {
+          // Always submit Point to painter (labels may drop; glyphs must not).
           draw_point(p, r, f, di);
+          ++point_glyphs_drawn_;
+          const qreal ox = mm_to_px(this, di.offset_x);
+          const qreal oy = -mm_to_px(this, di.offset_y);
+          for (const s100::Geometry* gp : paint_geometries(di, f)) {
+            QPointF s;
+            if (gp->kind == s100::GeometryKind::Point) {
+              s = project(r, west_, south_, east_, north_, gp->point.lon, gp->point.lat);
+            } else if (gp->kind == s100::GeometryKind::MultiPoint && !gp->multipoint.empty()) {
+              // Pair against first multipoint pivot (same as text geometry_anchor front).
+              const auto& pt = gp->multipoint.front();
+              s = project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+            } else {
+              s = geometry_anchor(*gp, r, west_, south_, east_, north_);
+            }
+            point_anchors.push_back(PointAnchor{di.feature_id, QPointF(s.x() + ox, s.y() + oy)});
+          }
           break;
+        }
         case s100::DrawingInstruction::Kind::Text: {
           TextJob job;
           if (!prepare_text_job(r, f, di, job)) break;
+          job.plane_order = plane_order(di.display_plane);
+          job.drawing_priority = di.drawing_priority;
           texts.push_back(std::move(job));
           break;
         }
@@ -746,6 +819,8 @@ class MapWidget : public QWidget {
       }
     }
 
+    classify_point_labels(texts, point_anchors);
+    order_text_jobs_for_layout(texts);
     layout_text_jobs(texts);
     for (const auto& job : texts) {
       if (!job.draw) continue;
@@ -1040,6 +1115,7 @@ class MapWidget : public QWidget {
   std::function<void(const QString&)> status_cb_;
   bool text_collision_{true};
   std::string dump_text_boxes_path_;
+  std::size_t point_glyphs_drawn_{0};  // Kind::Point submitted to symbol painter this paint
 };
 
 }  // namespace
