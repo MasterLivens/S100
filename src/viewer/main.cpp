@@ -2,30 +2,41 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QFile>
 #include <QHBoxLayout>
+#include <QHash>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPen>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QXmlStreamReader>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <functional>
 #include <optional>
-#include <set>
+#include <unordered_map>
 #include <vector>
 
 #ifndef S100_DEFAULT_FC
 #define S100_DEFAULT_FC ""
 #endif
+#ifndef S100_DEFAULT_PC
+#define S100_DEFAULT_PC ""
+#endif
 
 namespace {
+
+namespace fs = std::filesystem;
 
 QPointF project(const QRectF& rect, double west, double south, double east, double north,
                 double lon, double lat) {
@@ -34,19 +45,145 @@ QPointF project(const QRectF& rect, double west, double south, double east, doub
   return QPointF(rect.left() + u * rect.width(), rect.top() + v * rect.height());
 }
 
-// Placeholder colours keyed by FC code until the Portrayal Catalogue step (contract rule 5).
-struct Style {
-  QColor fill;  // invalid = outline only
-  QColor line;
+/** Day (or named) palette from PC ColorProfiles/colorProfile.xml — sRGB only. */
+struct ColorPalette {
+  QHash<QString, QColor> by_token;
+
+  QColor get(const std::string& token, const QColor& fallback = QColor(128, 128, 128)) const {
+    const auto it = by_token.constFind(QString::fromStdString(token));
+    return it == by_token.cend() ? fallback : *it;
+  }
+
+  QColor get_alpha(const std::string& token, double transparency,
+                   const QColor& fallback = QColor(128, 128, 128)) const {
+    QColor c = get(token, fallback);
+    // Part 9a transparency: 0 = opaque, 1 = fully transparent.
+    const double t = std::clamp(transparency, 0.0, 1.0);
+    c.setAlphaF(1.0 - t);
+    return c;
+  }
 };
 
-Style style_for(const std::string& code) {
-  if (code == "LandArea" || code == "LandRegion") return {QColor(210, 180, 140), QColor(140, 110, 70)};
-  if (code == "DepthArea") return {QColor(160, 200, 230), QColor(110, 150, 190)};
-  if (code == "DredgedArea") return {QColor(185, 215, 235), QColor(110, 150, 190)};
-  if (code == "Coastline" || code == "ShorelineConstruction") return {QColor(), QColor(60, 50, 30)};
-  if (code == "DepthContour") return {QColor(), QColor(70, 110, 160)};
-  return {QColor(), QColor(90, 90, 90)};
+bool load_palette(const fs::path& color_profile_xml, const QString& palette_name, ColorPalette& out,
+                  QString* err = nullptr) {
+  QFile f(QString::fromStdString(color_profile_xml.string()));
+  if (!f.open(QIODevice::ReadOnly)) {
+    if (err) *err = QString("cannot open %1").arg(f.fileName());
+    return false;
+  }
+  QXmlStreamReader xml(&f);
+  bool in_wanted = false;
+  QString cur_token;
+  int r = -1, g = -1, b = -1;
+  while (!xml.atEnd()) {
+    xml.readNext();
+    if (xml.isStartElement()) {
+      const auto n = xml.name();
+      if (n == QLatin1String("palette")) {
+        in_wanted = xml.attributes().value("name") == palette_name;
+      } else if (in_wanted && n == QLatin1String("item")) {
+        cur_token = xml.attributes().value("token").toString();
+        r = g = b = -1;
+      } else if (in_wanted && !cur_token.isEmpty()) {
+        if (n == QLatin1String("red")) r = xml.readElementText().toInt();
+        else if (n == QLatin1String("green")) g = xml.readElementText().toInt();
+        else if (n == QLatin1String("blue")) b = xml.readElementText().toInt();
+      }
+    } else if (xml.isEndElement()) {
+      if (xml.name() == QLatin1String("item") && in_wanted && !cur_token.isEmpty() &&
+          r >= 0 && g >= 0 && b >= 0) {
+        out.by_token.insert(cur_token, QColor(r, g, b));
+        cur_token.clear();
+      } else if (xml.name() == QLatin1String("palette")) {
+        in_wanted = false;
+      }
+    }
+  }
+  if (xml.hasError()) {
+    if (err) *err = xml.errorString();
+    return false;
+  }
+  if (out.by_token.isEmpty()) {
+    if (err) *err = QString("palette '%1' empty or missing").arg(palette_name);
+    return false;
+  }
+  return true;
+}
+
+/** Named line style (ACHARE51 etc.): colour + width from LineStyles/*.xml. */
+struct NamedLineStyle {
+  double width_mm{0.32};
+  std::string colour{"CHGRD"};
+  bool has_dash{false};
+};
+
+NamedLineStyle load_named_line_style(const fs::path& line_styles_dir, const std::string& ref) {
+  NamedLineStyle out;
+  if (ref.empty() || ref == "_simple_") return out;
+  const fs::path path = line_styles_dir / (ref + ".xml");
+  QFile f(QString::fromStdString(path.string()));
+  if (!f.open(QIODevice::ReadOnly)) return out;
+  QXmlStreamReader xml(&f);
+  bool in_pen = false;
+  while (!xml.atEnd()) {
+    xml.readNext();
+    if (xml.isStartElement()) {
+      const auto n = xml.name();
+      if (n == QLatin1String("pen")) {
+        in_pen = true;
+        const auto w = xml.attributes().value("width");
+        if (!w.isEmpty()) out.width_mm = w.toDouble();
+      } else if (in_pen && n == QLatin1String("color")) {
+        out.colour = xml.readElementText().toStdString();
+      } else if (n == QLatin1String("dash")) {
+        out.has_dash = true;
+      }
+    } else if (xml.isEndElement() && xml.name() == QLatin1String("pen")) {
+      in_pen = false;
+    }
+  }
+  return out;
+}
+
+qreal mm_to_px(const QPaintDevice* dev, double mm) {
+  const qreal dpi = dev ? static_cast<qreal>(dev->logicalDpiX()) : 96.0;
+  return static_cast<qreal>(mm) * dpi / 25.4;
+}
+
+QPointF feature_anchor(const s100::Feature& f, const QRectF& r, double west, double south,
+                       double east, double north) {
+  switch (f.geometry.kind) {
+    case s100::GeometryKind::Point:
+      return project(r, west, south, east, north, f.geometry.point.lon, f.geometry.point.lat);
+    case s100::GeometryKind::MultiPoint:
+      if (!f.geometry.multipoint.empty()) {
+        const auto& p = f.geometry.multipoint.front();
+        return project(r, west, south, east, north, p.lon, p.lat);
+      }
+      break;
+    case s100::GeometryKind::LineString:
+      if (!f.geometry.line.empty()) {
+        const auto& p = f.geometry.line[f.geometry.line.size() / 2];
+        return project(r, west, south, east, north, p.lon, p.lat);
+      }
+      break;
+    case s100::GeometryKind::Polygon:
+      if (!f.geometry.polygon.empty() && !f.geometry.polygon.front().points.empty()) {
+        double lon = 0, lat = 0;
+        const auto& pts = f.geometry.polygon.front().points;
+        for (const auto& p : pts) {
+          lon += p.lon;
+          lat += p.lat;
+        }
+        lon /= static_cast<double>(pts.size());
+        lat /= static_cast<double>(pts.size());
+        return project(r, west, south, east, north, lon, lat);
+      }
+      break;
+    default:
+      break;
+  }
+  return QPointF();
 }
 
 class MapWidget : public QWidget {
@@ -56,9 +193,20 @@ class MapWidget : public QWidget {
     setMouseTracking(true);
   }
 
-  void setDataset(std::optional<s100::Dataset> ds) {
+  void setPortrayal(std::optional<s100::Dataset> ds, s100::DrawingInstructions instructions,
+                    s100::PortrayalStats stats, ColorPalette palette, fs::path pc_root,
+                    const s100::PortrayalCatalogue* pc) {
     dataset_ = std::move(ds);
+    instructions_ = std::move(instructions);
+    stats_ = std::move(stats);
+    palette_ = std::move(palette);
+    pc_root_ = std::move(pc_root);
+    pc_ = pc;
+    by_id_.clear();
+    named_line_cache_.clear();
     if (dataset_) {
+      by_id_.reserve(dataset_->features.size());
+      for (const auto& f : dataset_->features) by_id_[f.id] = &f;
       const auto b = dataset_->bounds();
       if (b.valid) {
         const double pad_lon = (b.east - b.west) * 0.05 + 1e-6;
@@ -73,6 +221,7 @@ class MapWidget : public QWidget {
   }
 
   const std::optional<s100::Dataset>& dataset() const { return dataset_; }
+  const s100::PortrayalStats& stats() const { return stats_; }
   s100::LayerVisibility& visibility() { return visibility_; }
   void setStatusCallback(std::function<void(const QString&)> cb) { status_cb_ = std::move(cb); }
 
@@ -80,86 +229,62 @@ class MapWidget : public QWidget {
   void paintEvent(QPaintEvent*) override {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.fillRect(rect(), QColor(235, 240, 245));
+    const QColor bg = palette_.by_token.isEmpty() ? QColor(235, 240, 245) : palette_.get("NODTA", QColor(235, 240, 245));
+    p.fillRect(rect(), bg);
     if (!dataset_) {
       p.setPen(Qt::gray);
       p.drawText(rect(), Qt::AlignCenter, "No dataset — pass a .000 path");
       return;
     }
-    const QRectF r = rect();
-    // Paint order: areas, then lines, then points and soundings, so labels stay on top.
-    std::vector<const s100::Feature*> order;
-    order.reserve(dataset_->features.size());
-    for (const auto& f : dataset_->features) {
-      const s100::LayerInfo* layer = dataset_->layers.find(f.feature_type);
-      if (!layer) continue;  // unknown to FC: never drawn (contract rule 3)
-      if (!visibility_.is_visible(*layer)) continue;
-      order.push_back(&f);
+    if (instructions_.empty()) {
+      p.setPen(Qt::gray);
+      p.drawText(rect(), Qt::AlignCenter, "No DrawingInstructions — check FC/PC / portray");
+      return;
     }
-    auto rank = [](s100::GeometryKind k) {
-      switch (k) {
-        case s100::GeometryKind::Polygon: return 0;
-        case s100::GeometryKind::LineString: return 1;
-        case s100::GeometryKind::Point: return 2;
-        case s100::GeometryKind::MultiPoint: return 3;
-        default: return 4;
-      }
+
+    const QRectF r = rect();
+    // Paint order: display-plane order, then drawing priority (contract / PC).
+    std::vector<const s100::DrawingInstruction*> order;
+    order.reserve(instructions_.size());
+    for (const auto& di : instructions_) {
+      if (di.kind == s100::DrawingInstruction::Kind::Null) continue;
+      order.push_back(&di);
+    }
+    auto plane_order = [&](const std::string& plane) -> int {
+      if (!pc_) return plane == "OverRadar" ? 1 : 0;
+      const auto it = pc_->display_planes.find(plane);
+      return it == pc_->display_planes.end() ? 0 : it->second;
     };
     std::stable_sort(order.begin(), order.end(),
-                     [&](const s100::Feature* a, const s100::Feature* b) {
-                       return rank(a->geometry.kind) < rank(b->geometry.kind);
+                     [&](const s100::DrawingInstruction* a, const s100::DrawingInstruction* b) {
+                       const int pa = plane_order(a->display_plane);
+                       const int pb = plane_order(b->display_plane);
+                       if (pa != pb) return pa < pb;
+                       return a->drawing_priority < b->drawing_priority;
                      });
 
-    for (const s100::Feature* fp : order) {
-      const auto& f = *fp;
-      const Style st = style_for(f.feature_type);
-      switch (f.geometry.kind) {
-        case s100::GeometryKind::Polygon: {
-          QPainterPath path;
-          path.setFillRule(Qt::OddEvenFill);  // interior rings punch holes
-          for (const auto& ring : f.geometry.polygon) {
-            QPolygonF poly;
-            for (const auto& pt : ring.points)
-              poly << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
-            path.addPolygon(poly);
-            path.closeSubpath();
-          }
-          p.setBrush(st.fill.isValid() ? QBrush(st.fill) : Qt::NoBrush);
-          p.setPen(QPen(st.line, st.fill.isValid() ? 0.8 : 0.5));
-          p.drawPath(path);
+    for (const s100::DrawingInstruction* dip : order) {
+      const auto& di = *dip;
+      const auto fit = by_id_.find(di.feature_id);
+      if (fit == by_id_.end()) continue;
+      const s100::Feature& f = *fit->second;
+      const s100::LayerInfo* layer = dataset_->layers.find(f.feature_type);
+      if (!layer) continue;  // unknown to FC: never drawn
+      if (!visibility_.is_visible(*layer)) continue;
+
+      switch (di.kind) {
+        case s100::DrawingInstruction::Kind::Area:
+          draw_area(p, r, f, di);
           break;
-        }
-        case s100::GeometryKind::LineString: {
-          QPolygonF line;
-          for (const auto& pt : f.geometry.line)
-            line << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
-          p.setPen(QPen(st.line, 1.2));
-          p.setBrush(Qt::NoBrush);
-          p.drawPolyline(line);
+        case s100::DrawingInstruction::Kind::Line:
+          draw_line(p, r, f, di);
           break;
-        }
-        case s100::GeometryKind::Point: {
-          const auto s =
-              project(r, west_, south_, east_, north_, f.geometry.point.lon, f.geometry.point.lat);
-          p.setPen(QPen(QColor(120, 40, 120), 1));
-          p.setBrush(QColor(200, 120, 200));
-          p.drawEllipse(s, 2.5, 2.5);
+        case s100::DrawingInstruction::Kind::Point:
+          draw_point(p, r, f, di);
           break;
-        }
-        case s100::GeometryKind::MultiPoint: {
-          // Soundings: depth in metres, one decimal under 31 m (simplified S-52 style).
-          QFont font = p.font();
-          font.setPointSizeF(7.0);
-          p.setFont(font);
-          p.setPen(QColor(40, 40, 40));
-          for (const auto& s : f.geometry.multipoint) {
-            const auto pos = project(r, west_, south_, east_, north_, s.lon, s.lat);
-            const QString label = s.z < 31.0 ? QString::number(s.z, 'f', 1)
-                                             : QString::number(static_cast<int>(s.z));
-            p.drawText(QRectF(pos.x() - 20, pos.y() - 8, 40, 16), Qt::AlignCenter, label);
-          }
+        case s100::DrawingInstruction::Kind::Text:
+          draw_text(p, r, f, di);
           break;
-        }
         default:
           break;
       }
@@ -179,8 +304,160 @@ class MapWidget : public QWidget {
   }
 
  private:
+  void draw_area(QPainter& p, const QRectF& r, const s100::Feature& f,
+                 const s100::DrawingInstruction& di) {
+    if (f.geometry.kind != s100::GeometryKind::Polygon) return;
+    // ColorFill: solid token from Day palette. AreaFillReference / pattern fills: deferred
+    // (need symbol tiling from AreaFills/) — see docs/portrayal-engine.md Viewer gaps.
+    if (di.command != "ColorFill") return;
+    QPainterPath path;
+    path.setFillRule(Qt::OddEvenFill);
+    for (const auto& ring : f.geometry.polygon) {
+      QPolygonF poly;
+      for (const auto& pt : ring.points)
+        poly << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+      path.addPolygon(poly);
+      path.closeSubpath();
+    }
+    const QColor fill = palette_.get_alpha(di.fill_ref, di.fill_transparency);
+    p.setBrush(fill);
+    p.setPen(Qt::NoPen);
+    p.drawPath(path);
+  }
+
+  void draw_line(QPainter& p, const QRectF& r, const s100::Feature& f,
+                 const s100::DrawingInstruction& di) {
+    double width_mm = 0.32;
+    std::string colour = "CHGRD";
+    bool dashed = false;
+    double dash_len = 2.0, gap_len = 2.0;
+
+    if (!di.line_styles.empty()) {
+      const auto& ls = di.line_styles.front();
+      if (ls.width > 0) width_mm = ls.width;
+      if (!ls.colour.empty()) colour = ls.colour;
+      if (ls.has_dash) {
+        dashed = true;
+        dash_len = ls.dash_length > 0 ? ls.dash_length : 2.0;
+        const double interval = ls.interval_length > 0 ? ls.interval_length : (dash_len * 2);
+        gap_len = std::max(0.1, interval - dash_len);
+      }
+    } else if (!di.line_style_ref.empty() && di.line_style_ref != "_simple_") {
+      const NamedLineStyle& ns = named_line(di.line_style_ref);
+      width_mm = ns.width_mm;
+      colour = ns.colour;
+      dashed = ns.has_dash;
+    }
+
+    QPen pen(palette_.get(colour), mm_to_px(this, width_mm));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    if (dashed) {
+      const qreal d = mm_to_px(this, dash_len);
+      const qreal g = mm_to_px(this, gap_len);
+      pen.setStyle(Qt::CustomDashLine);
+      pen.setDashPattern({d / pen.widthF(), g / pen.widthF()});
+    }
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+
+    if (f.geometry.kind == s100::GeometryKind::LineString) {
+      QPolygonF line;
+      for (const auto& pt : f.geometry.line)
+        line << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+      p.drawPolyline(line);
+    } else if (f.geometry.kind == s100::GeometryKind::Polygon) {
+      // Area boundary (common for LineInstruction on surface features).
+      for (const auto& ring : f.geometry.polygon) {
+        QPolygonF poly;
+        for (const auto& pt : ring.points)
+          poly << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+        if (!poly.isEmpty()) poly << poly.front();
+        p.drawPolyline(poly);
+      }
+    }
+  }
+
+  void draw_point(QPainter& p, const QRectF& r, const s100::Feature& f,
+                  const s100::DrawingInstruction& di) {
+    // Gap: SVG symbols under PC Symbols/ are not rendered this pass (S-100 SVG uses external
+    // CSS colour classes; QtSvg not linked). Minimal marker keyed by symbol_ref hash hue from
+    // palette tokens CHMGD / CHBLK.
+    const QColor ink = palette_.get("CHMGD", QColor(192, 69, 209));
+    const QColor outline = palette_.get("CHBLK", Qt::black);
+    auto paint_one = [&](QPointF s) {
+      // Distinct marker size by a stable hash of the symbol name (still profile colours only).
+      const uint h = qHash(QString::fromStdString(di.symbol_ref));
+      const qreal rad = 2.0 + static_cast<qreal>(h % 3);
+      p.setPen(QPen(outline, 0.8));
+      p.setBrush(ink);
+      if ((h % 3) == 0) {
+        p.drawEllipse(s, rad, rad);
+      } else if ((h % 3) == 1) {
+        QPolygonF tri;
+        tri << QPointF(s.x(), s.y() - rad) << QPointF(s.x() - rad, s.y() + rad)
+            << QPointF(s.x() + rad, s.y() + rad);
+        p.drawPolygon(tri);
+      } else {
+        p.drawRect(QRectF(s.x() - rad, s.y() - rad, rad * 2, rad * 2));
+      }
+    };
+
+    if (f.geometry.kind == s100::GeometryKind::Point) {
+      paint_one(project(r, west_, south_, east_, north_, f.geometry.point.lon, f.geometry.point.lat));
+    } else if (f.geometry.kind == s100::GeometryKind::MultiPoint) {
+      for (const auto& pt : f.geometry.multipoint)
+        paint_one(project(r, west_, south_, east_, north_, pt.lon, pt.lat));
+    } else {
+      paint_one(feature_anchor(f, r, west_, south_, east_, north_));
+    }
+  }
+
+  void draw_text(QPainter& p, const QRectF& r, const s100::Feature& f,
+                 const s100::DrawingInstruction& di) {
+    if (di.text.empty()) return;
+    const QColor col = palette_.get_alpha(di.text_style.font_colour,
+                                          di.text_style.font_colour_transparency,
+                                          palette_.get("CHBLK", Qt::black));
+    QFont font = p.font();
+    // FontSize is in mm (Part 9a); map to point size roughly.
+    const qreal px = mm_to_px(this, di.text_style.font_size > 0 ? di.text_style.font_size : 2.5);
+    font.setPixelSize(std::max(8, static_cast<int>(std::lround(px))));
+    if (di.text_style.font_weight == "Bold") font.setBold(true);
+    if (di.text_style.font_slant == "Italics" || di.text_style.font_slant == "Italic")
+      font.setItalic(true);
+    p.setFont(font);
+    p.setPen(col);
+
+    int align = Qt::AlignCenter;
+    if (di.text_style.halign == "Start" || di.text_style.halign == "Left")
+      align = (align & ~Qt::AlignHorizontal_Mask) | Qt::AlignLeft;
+    else if (di.text_style.halign == "End" || di.text_style.halign == "Right")
+      align = (align & ~Qt::AlignHorizontal_Mask) | Qt::AlignRight;
+
+    const QPointF s = feature_anchor(f, r, west_, south_, east_, north_);
+    const qreal ox = mm_to_px(this, di.offset_x);
+    const qreal oy = -mm_to_px(this, di.offset_y);  // LocalOffset y up in portrayal CRS
+    p.drawText(QRectF(s.x() + ox - 40, s.y() + oy - 12, 80, 24), align,
+               QString::fromStdString(di.text));
+  }
+
+  const NamedLineStyle& named_line(const std::string& ref) {
+    auto it = named_line_cache_.find(ref);
+    if (it != named_line_cache_.end()) return it->second;
+    NamedLineStyle ns = load_named_line_style(pc_root_ / "LineStyles", ref);
+    return named_line_cache_.emplace(ref, std::move(ns)).first->second;
+  }
+
   std::optional<s100::Dataset> dataset_;
-  s100::LayerVisibility visibility_;  // session state, not in Dataset (contract rule 2)
+  s100::DrawingInstructions instructions_;
+  s100::PortrayalStats stats_;
+  ColorPalette palette_;
+  fs::path pc_root_;
+  const s100::PortrayalCatalogue* pc_{nullptr};
+  std::unordered_map<std::uint64_t, const s100::Feature*> by_id_;
+  std::unordered_map<std::string, NamedLineStyle> named_line_cache_;
+  s100::LayerVisibility visibility_;  // session state, not in Dataset
   double west_{-0.05}, south_{-0.05}, east_{0.05}, north_{0.05};
   std::function<void(const QString&)> status_cb_;
 };
@@ -190,11 +467,14 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString cell, snapshot, fc_path = S100_DEFAULT_FC;
+  QString cell, snapshot;
+  QString fc_path = S100_DEFAULT_FC;
+  QString pc_path = S100_DEFAULT_PC;
   for (int i = 1; i < argc; ++i) {
     const QString a = argv[i];
     if (a == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
     else if (a == "--fc" && i + 1 < argc) fc_path = argv[++i];
+    else if (a == "--pc" && i + 1 < argc) pc_path = argv[++i];
     else if (cell.isEmpty()) cell = a;
   }
 
@@ -207,7 +487,7 @@ int main(int argc, char** argv) {
   auto* meta = new QCheckBox("meta");
   auto* carto = new QCheckBox("cartographic");
   geo->setChecked(true);
-  meta->setChecked(false);
+  meta->setChecked(false);  // meta layers off by default
   carto->setChecked(true);
   bar->addWidget(geo);
   bar->addWidget(meta);
@@ -226,11 +506,24 @@ int main(int argc, char** argv) {
   win.setCentralWidget(central);
   map->setStatusCallback([&](const QString& s) { win.statusBar()->showMessage(s); });
 
-  // FC is product-level: load once per session, share across datasets.
+  // FC / PC are product-level: load once per session. Context lives outside Dataset.
   s100::FeatureCatalogue fc;
-  std::string fc_err;
+  s100::PortrayalCatalogue pc;
+  std::string fc_err, pc_err;
   const bool have_fc = !fc_path.isEmpty() &&
                        s100::load_feature_catalogue(fc_path.toStdString(), fc, &fc_err);
+  const bool have_pc = !pc_path.isEmpty() &&
+                       s100::load_portrayal_catalogue(pc_path.toStdString(), pc, &pc_err);
+
+  ColorPalette palette;
+  QString pal_err;
+  if (have_pc) {
+    fs::path profile = pc.root / "ColorProfiles" / "colorProfile.xml";
+    if (!pc.color_profiles.empty() && !pc.color_profiles.front().file_name.empty())
+      profile = pc.root / "ColorProfiles" / pc.color_profiles.front().file_name;
+    if (!load_palette(profile, "Day", palette, &pal_err))
+      std::fprintf(stderr, "colour profile: %s\n", pal_err.toUtf8().constData());
+  }
 
   auto refresh_list = [&]() {
     layer_list->blockSignals(true);
@@ -253,7 +546,7 @@ int main(int argc, char** argv) {
   auto use_toggle = [&](QCheckBox* box, const char* use) {
     QObject::connect(box, &QCheckBox::toggled, map, [&, use](bool on) {
       map->visibility().set_use_type(use, on);
-      if (map->dataset())  // a use-type switch resets per-layer overrides of that type
+      if (map->dataset())
         for (const auto& [code, li] : map->dataset()->layers.all())
           if (li.use_type == use) map->visibility().clear_layer_rule(code);
       refresh_list();
@@ -273,23 +566,42 @@ int main(int argc, char** argv) {
     win.statusBar()->showMessage(
         QString("Feature Catalogue not loaded (%1) — pass --fc <S-101 FC xml>")
             .arg(QString::fromStdString(fc_err.empty() ? "no path" : fc_err)));
+  } else if (!have_pc) {
+    win.statusBar()->showMessage(
+        QString("Portrayal Catalogue not loaded (%1) — pass --pc <PC dir>")
+            .arg(QString::fromStdString(pc_err.empty() ? "no path" : pc_err)));
   } else if (!cell.isEmpty()) {
     s100::Dataset ds;
     s100::LoadError err;
     if (s100::open_dataset(cell.toStdString(), ds, &err)) {
       s100::ClassifyResult cr;
       const bool ok = s100::classify_layers(ds, fc, &cr);
-      QString msg = QString("loaded %1 — %2 features, %3 layers (FC %4 %5)")
-                        .arg(cell)
-                        .arg(static_cast<qulonglong>(ds.stats().feature_count))
-                        .arg(static_cast<qulonglong>(ds.layers.size()))
-                        .arg(QString::fromStdString(fc.product))
-                        .arg(QString::fromStdString(fc.version));
-      if (!ok) msg += QString(" — WARNING: %1 codes not in FC, not drawn")
-                         .arg(static_cast<qulonglong>(cr.unknown_codes.size()));
+      s100::PortrayalSession session(fc, pc);
+      s100::PortrayalStats ps;
+      std::string perr;
+      const auto* di = session.portray(ds, &ps, &perr);
+      QString msg;
+      if (di) {
+        msg = QString("loaded %1 — features=%2 instructions=%3 lua_errors=%4 (FC %5 %6, PC %7 %8)")
+                  .arg(cell)
+                  .arg(static_cast<qulonglong>(ps.features))
+                  .arg(static_cast<qulonglong>(ps.instructions))
+                  .arg(static_cast<qulonglong>(ps.lua_errors))
+                  .arg(QString::fromStdString(fc.product))
+                  .arg(QString::fromStdString(fc.version))
+                  .arg(QString::fromStdString(pc.product))
+                  .arg(QString::fromStdString(pc.version));
+        if (!ok)
+          msg += QString(" — WARNING: %1 codes not in FC, not drawn")
+                     .arg(static_cast<qulonglong>(cr.unknown_codes.size()));
+        map->setPortrayal(std::move(ds), *di, ps, palette, pc.root, &pc);
+        refresh_list();
+      } else {
+        msg = QString("portray failed: %1").arg(QString::fromStdString(perr));
+        map->setPortrayal(std::move(ds), {}, ps, palette, pc.root, &pc);
+        refresh_list();
+      }
       win.statusBar()->showMessage(msg);
-      map->setDataset(std::move(ds));
-      refresh_list();
     } else {
       win.statusBar()->showMessage(QString::fromStdString(err.message));
     }
@@ -298,7 +610,7 @@ int main(int argc, char** argv) {
   win.resize(1280, 800);
   win.show();
 
-  // Headless smoke hook: s100_viewer <cell> --snapshot out.png  (use QT_QPA_PLATFORM=offscreen)
+  // Headless smoke: s100_viewer <cell> --snapshot out.png  (QT_QPA_PLATFORM=offscreen)
   if (!snapshot.isEmpty()) {
     QTimer::singleShot(200, [&win, snapshot]() {
       const bool ok = win.grab().save(snapshot);

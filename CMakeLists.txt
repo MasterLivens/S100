@@ -66,7 +66,15 @@ if(S100_BUILD_VIEWER)
   add_executable(s100_viewer src/viewer/main.cpp)
   target_link_libraries(s100_viewer PRIVATE s100_core Qt6::Widgets)
   target_compile_definitions(s100_viewer PRIVATE
-    S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml")
+    S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
+    S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0")
+  # Offscreen smoke: paints DrawingInstructions and writes a PNG (no display required).
+  add_test(NAME viewer_snapshot
+    COMMAND s100_viewer
+      "${CMAKE_SOURCE_DIR}/testdata/s101/101AA00DS0003.000"
+      --snapshot "${CMAKE_BINARY_DIR}/viewer_snapshot.png")
+  set_tests_properties(viewer_snapshot PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;S100_TESTDATA=${CMAKE_SOURCE_DIR}/testdata/s101")
 endif()
 
 install(TARGETS s100_core s100_cli RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)

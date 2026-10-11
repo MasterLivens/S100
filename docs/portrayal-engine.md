@@ -95,3 +95,22 @@ symbology. Not a host defect; listed exactly in `tests/test_portrayal.cpp` (open
 ## CLI
 
 `s100_cli <cell> --portray [--pc <PC dir>] [--set SafetyContour=5]... [--errors] [--layers]`
+
+## Viewer (DrawingInstructions renderer)
+
+`s100_viewer` consumes `portray()` output (via `PortrayalSession`) and paints with the PC **Day**
+colour profile (`ColorProfiles/colorProfile.xml` sRGB). Layer list / use-type visibility still
+apply; meta stays off by default. Status bar shows feature count, instruction count, and
+`lua_errors`. Flags: `--fc`, `--pc`, `--snapshot <png>` (use `QT_QPA_PLATFORM=offscreen`).
+
+| Kind | What is drawn |
+|------|----------------|
+| Area `ColorFill` | Polygon fill from colour token + transparency |
+| Area `AreaFillReference` / patterns | **Gap** — needs AreaFills/ symbol tiling |
+| Line `_simple_` | Width / colour / dash from inline `LineStyleDef` |
+| Line named style | Colour + width from `LineStyles/<ref>.xml` (dashes simplified) |
+| Point | **Gap** — SVG under `Symbols/` not linked (CSS class colours); minimal marker (circle/triangle/square) in `CHMGD`/`CHBLK`, shape keyed by `symbol_ref` |
+| Text | Token colour + LocalOffset; font size from mm |
+
+Not yet: SpatialReference clipping, augmented geometry, CoverageFill, dusk/night palettes, SVG
+symbols (soundings are SVG digit composites — shown as markers until SVG lands).
