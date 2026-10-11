@@ -2,6 +2,11 @@
 // One executable, one CTest entry per case: s100_portrayal_tests <case>.
 #include "s100/s100.hpp"
 
+// Lua built as C++ (same as host_adapter.cpp).
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -382,6 +387,93 @@ void spatial_reference_resolve() {
 
 
 /** Colour tokens on instructions stay symbolic names; Day/Dusk/Night remap must not rewrite them. */
+
+void association_host_query() {
+  s100::Dataset ds;
+  s100::Feature a, b, c;
+  a.id = 1; a.record_id = 10; a.feature_type = "Bridge";
+  b.id = 2; b.record_id = 20; b.feature_type = "PylonBridgeSupport";
+  c.id = 3; c.record_id = 30; c.feature_type = "PylonBridgeSupport";
+  auto mk = [](std::uint32_t rcid, const char* role) {
+    s100::AssociationRef r;
+    r.rcnm = 100; r.rcid = rcid; r.association = "supports"; r.role = role;
+    return r;
+  };
+  a.feature_associations.push_back(mk(20, "supportedBy"));
+  a.feature_associations.push_back(mk(30, "supportedEquipment"));
+  a.feature_associations.push_back(mk(99, "supportedBy"));  // dangling
+  ds.features = {a, b, c};
+  s100::S101HostAdapter host(ds, s101_fc());
+
+  lua_State* L = luaL_newstate();
+  CHECK(L);
+  luaL_openlibs(L);
+  for (const auto& name : host.registry().names()) {
+    lua_pushlightuserdata(L, &host);
+    lua_pushcclosure(L, host.registry().function(name), 1);
+    lua_setglobal(L, name.c_str());
+  }
+  // any role
+  CHECK(luaL_dostring(L,
+    "local t = HostFeatureGetAssociatedFeatureIDs('1', 'supports', '')\n"
+    "assert(type(t)=='table')\n"
+    "local s={}\n"
+    "for i,v in ipairs(t) do s[v]=true end\n"
+    "assert(s['2'] and s['3'] and not s['99'])\n"
+    "assert(not s['1'])\n") == 0);
+
+  // filtered role
+  CHECK(luaL_dostring(L,
+    "local t = HostFeatureGetAssociatedFeatureIDs('1', 'supports', 'supportedBy')\n"
+    "assert(#t==1 and t[1]=='2')\n") == 0);
+
+  // empty associationCode → error
+  CHECK(luaL_dostring(L, "HostFeatureGetAssociatedFeatureIDs('1', '', '')") != 0);
+  lua_pop(L, 1);
+
+  lua_close(L);
+  std::cout << "association_host_query ok\n";
+}
+
+void association_spatial_host_signatures() {
+  s100::Dataset ds;
+  s100::SpatialRecord sr;
+  sr.rcnm = 110;
+  sr.rcid = 5;
+  sr.coords.push_back(s100::Point3{0, 0, 0});
+  // spatial→info INAS
+  s100::AssociationRef info;
+  info.rcnm = 150; info.rcid = 7; info.association = "quality"; info.role = "qualityOf";
+  sr.information_associations.push_back(info);
+  ds.spatial.records[s100::SpatialStore::key(110, 5)] = sr;
+  s100::InformationRecord ir;
+  ir.record_id = 7;
+  ir.information_type = "SpatialQuality";
+  ds.information.push_back(ir);
+
+  s100::S101HostAdapter host(ds, s101_fc());
+  lua_State* L = luaL_newstate();
+  CHECK(L);
+  luaL_openlibs(L);
+  for (const auto& name : host.registry().names()) {
+    lua_pushlightuserdata(L, &host);
+    lua_pushcclosure(L, host.registry().function(name), 1);
+    lua_setglobal(L, name.c_str());
+  }
+  // Feature IDs: one arg only (may return empty table — no SPAS link)
+  CHECK(luaL_dostring(L,
+    "local t = HostSpatialGetAssociatedFeatureIDs('P5')\n"
+    "assert(type(t)=='table')\n") == 0);
+  // Info: assoc required
+  CHECK(luaL_dostring(L,
+    "local t = HostSpatialGetAssociatedInformationIDs('P5', 'quality', '')\n"
+    "assert(#t==1 and t[1]=='I7')\n") == 0);
+  CHECK(luaL_dostring(L, "HostSpatialGetAssociatedInformationIDs('P5', '', '')") != 0);
+  lua_pop(L, 1);
+  lua_close(L);
+  std::cout << "association_spatial_host_signatures ok\n";
+}
+
 void colour_tokens_symbolic() {
   auto ds = open_cell(kSrc / "testdata/s101/101AA00DS0008.000");
   s100::PortrayalSession session(s101_fc(), pc_at(kS101Pc));
@@ -414,6 +506,8 @@ int main(int argc, char** argv) {
       {"drawing_instruction_parser", drawing_instruction_parser},
       {"spatial_reference_resolve", spatial_reference_resolve},
       {"colour_tokens_symbolic", colour_tokens_symbolic},
+      {"association_host_query", association_host_query},
+      {"association_spatial_host_signatures", association_spatial_host_signatures},
   };
   if (argc < 2) {
     for (const auto& [n, f] : cases) f();

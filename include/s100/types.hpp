@@ -61,6 +61,8 @@ struct AssociationRef {
   std::uint32_t rcid{0};
   std::string association;
   std::string role;
+  /** FAUI (FASC) / IUIN (INAS): 0 = whole-list replace shape; 1 insert, 2 delete, 3 modify. */
+  std::uint8_t instruction{0};
   std::vector<Attribute> attributes;
 };
 

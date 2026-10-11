@@ -61,4 +61,9 @@ bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError*
 bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path,
                        LoadError* err = nullptr);
 
+/** FAUI/IUIN element merge (docs/association-contract.md). instruction 0 on all → replace. */
+bool apply_association_updates(std::vector<AssociationRef>& existing,
+                               const std::vector<AssociationRef>& patch, LoadError* err = nullptr);
+
+
 }  // namespace s100

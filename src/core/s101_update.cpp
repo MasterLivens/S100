@@ -82,6 +82,7 @@ AssociationRef parse_association(const std::vector<std::uint8_t>& b,
   a.rcnm = b[0];
   a.rcid = read_u32(b.data() + 1);
   const auto nac = read_u16(b.data() + 5), narc = read_u16(b.data() + 7);
+  a.instruction = b[9];
   auto it = assoc_codes.find(nac);
   a.association = it != assoc_codes.end() ? it->second : ("assoc" + std::to_string(nac));
   auto rt = role_codes.find(narc);
@@ -319,6 +320,59 @@ std::uint8_t ruin_from_id(const std::vector<std::uint8_t>& b, bool has_type_code
 
 }  // namespace
 
+bool apply_association_updates(std::vector<AssociationRef>& existing,
+                               const std::vector<AssociationRef>& patch, LoadError* err) {
+  auto same = [](const AssociationRef& a, const AssociationRef& b) {
+    return a.rcnm == b.rcnm && a.rcid == b.rcid && a.association == b.association && a.role == b.role;
+  };
+  bool any_control = false;
+  for (const auto& p : patch)
+    if (p.instruction != 0) {
+      any_control = true;
+      break;
+    }
+  if (!any_control) {
+    existing = patch;
+    for (auto& a : existing) a.instruction = 0;
+    return true;
+  }
+  std::vector<AssociationRef> work = existing;
+  for (const auto& p : patch) {
+    const std::uint8_t insn = p.instruction;
+    if (insn == 1) {
+      AssociationRef copy = p;
+      copy.instruction = 0;
+      work.push_back(std::move(copy));
+    } else if (insn == 2) {
+      work.erase(std::remove_if(work.begin(), work.end(),
+                                [&](const AssociationRef& a) { return same(a, p); }),
+                 work.end());
+    } else if (insn == 3) {
+      bool matched = false;
+      for (auto& a : work) {
+        if (!same(a, p)) continue;
+        a.attributes = p.attributes;
+        matched = true;
+      }
+      if (!matched) {
+        if (err) {
+          err->kind = LoadErrorKind::Invalid;
+          err->message = "FAUI/IUIN Modify: no association member matching (rcnm,rcid,association,role)";
+        }
+        return false;
+      }
+    } else {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message = "unknown FAUI/IUIN value " + std::to_string(static_cast<unsigned>(insn));
+      }
+      return false;
+    }
+  }
+  existing = std::move(work);
+  return true;
+}
+
 bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, LoadError* err) {
   DatasetIdentification upd_id;
   if (!read_s101_dsid(update_path, upd_id, err)) return false;
@@ -430,8 +484,14 @@ bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, Lo
           for (auto& existing : ds.information) {
             if (existing.record_id != rcid) continue;
             if (!ir.attributes.empty()) apply_atin(existing.attributes, ir.attributes);
-            if (!ir.information_associations.empty())
-              existing.information_associations = std::move(ir.information_associations);
+            if (rec.find("INAS")) {
+              auto backup = existing.information_associations;
+              if (!apply_association_updates(existing.information_associations,
+                                             ir.information_associations, err)) {
+                existing.information_associations = std::move(backup);
+                return false;
+              }
+            }
             if (!ir.information_type.empty()) existing.information_type = ir.information_type;
             found = true;
             break;
@@ -468,12 +528,22 @@ bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, Lo
             target->feature_type = patch.feature_type;
           if (rec.find("ATTR")) apply_atin(target->attributes, patch.attributes);
           if (auto* spas = rec.find("SPAS")) apply_spas_sau(target->spatial, spas->data);
-          // MVP stub (exchange-set.md): whole-list replace when FASC/INAS present.
-          // Element-level FAUI/IUIN merge required before Bridge / Track B.
-          if (rec.find("FASC"))
-            target->feature_associations = std::move(patch.feature_associations);
-          if (rec.find("INAS"))
-            target->information_associations = std::move(patch.information_associations);
+          if (rec.find("FASC")) {
+            auto backup = target->feature_associations;
+            if (!apply_association_updates(target->feature_associations, patch.feature_associations,
+                                           err)) {
+              target->feature_associations = std::move(backup);
+              return false;
+            }
+          }
+          if (rec.find("INAS")) {
+            auto backup = target->information_associations;
+            if (!apply_association_updates(target->information_associations,
+                                           patch.information_associations, err)) {
+              target->information_associations = std::move(backup);
+              return false;
+            }
+          }
         }
       }
     }

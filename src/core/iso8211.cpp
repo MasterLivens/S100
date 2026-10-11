@@ -172,6 +172,7 @@ AssociationRef parse_association(const std::vector<std::uint8_t>& b,
   a.rcid = read_u32(b.data() + 1);
   const std::uint16_t nac = read_u16(b.data() + 5);
   const std::uint16_t narc = read_u16(b.data() + 7);
+  a.instruction = b[9];  // FAUI / IUIN
   auto it = assoc_codes.find(nac);
   a.association = it != assoc_codes.end() ? it->second : ("assoc" + std::to_string(nac));
   auto rt = role_codes.find(narc);

@@ -67,6 +67,7 @@ add_executable(s100_tests
   tests/test_feature_catalogue.cpp
   tests/test_exchange_set.cpp
   tests/test_s102.cpp
+  tests/test_associations.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")
@@ -75,9 +76,10 @@ add_test(NAME s100_tests COMMAND s100_tests)
 add_test(NAME third_party_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_third_party.cmake)
 add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_catalogues.cmake)
 add_executable(s100_portrayal_tests tests/test_portrayal.cpp)
-target_link_libraries(s100_portrayal_tests PRIVATE s100_core)
+target_link_libraries(s100_portrayal_tests PRIVATE s100_core s100_lua)
+target_include_directories(s100_portrayal_tests PRIVATE ${CMAKE_SOURCE_DIR}/third_party/lua-5.1.5/src)
 target_compile_definitions(s100_portrayal_tests PRIVATE S100_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-foreach(c portrayal_all_cells host_functions_static host_missing_function safety_contour s102_engine drawing_instruction_parser spatial_reference_resolve colour_tokens_symbolic)
+foreach(c portrayal_all_cells host_functions_static host_missing_function safety_contour s102_engine drawing_instruction_parser spatial_reference_resolve colour_tokens_symbolic association_host_query association_spatial_host_signatures)
   add_test(NAME portrayal.${c} COMMAND s100_portrayal_tests ${c})
 endforeach()
 set_tests_properties(s100_tests PROPERTIES

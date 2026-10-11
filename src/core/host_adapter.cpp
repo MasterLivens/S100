@@ -556,15 +556,32 @@ struct S101HostImpl {
     return a.association == assoc && (role.empty() || a.role == role);
   }
 
+  static void warn_dangling(lua_State* L, const char* kind, std::uint32_t rcid) {
+    lua_getglobal(L, "HostDebuggerEntry");
+    if (!lua_isfunction(L, -1)) {
+      lua_pop(L, 1);
+      return;
+    }
+    lua_pushstring(L, "trace");
+    lua_pushfstring(L, "Warning: %s dangling rcid %u", kind, static_cast<unsigned>(rcid));
+    if (lua_pcall(L, 2, 0, 0) != 0) lua_pop(L, 1);
+  }
+
   static void push_information_ids(lua_State* L, const std::vector<AssociationRef>& refs,
                                    const std::string& assoc, const std::string& role) {
+    if (assoc.empty()) {
+      luaL_error(L, "host: associationCode is required");
+      return;
+    }
     std::vector<std::string> ids;
-    for (const auto& a : refs)
-      if (a.rcnm == 150 && matches(a, assoc, role)) {
-        if (!host(L)->info_by_rcid_.count(a.rcid))
-          luaL_error(L, "host: INAS references missing information record %u", a.rcid);
-        ids.push_back("I" + std::to_string(a.rcid));
+    for (const auto& a : refs) {
+      if (a.rcnm != 150 || !matches(a, assoc, role)) continue;
+      if (!host(L)->info_by_rcid_.count(a.rcid)) {
+        warn_dangling(L, "INAS", a.rcid);
+        continue;
       }
+      ids.push_back("I" + std::to_string(a.rcid));
+    }
     push_strings(L, ids);
   }
 
@@ -585,6 +602,7 @@ struct S101HostImpl {
     auto* h = host(L);
     const Feature& f = feature(L, 1);
     const std::string assoc = arg_string(L, 2);
+    if (assoc.empty()) return luaL_error(L, "host: associationCode is required");
     const std::string role = opt_string(L, 3);
     const auto& fs = h->ds_->features;
     std::vector<std::string> ids;
@@ -595,8 +613,10 @@ struct S101HostImpl {
     for (const auto& a : f.feature_associations) {
       if (!matches(a, assoc, role)) continue;
       auto it = h->feature_by_rcid_.find(a.rcid);
-      if (it == h->feature_by_rcid_.end())
-        return luaL_error(L, "host: FASC references missing feature record %u", a.rcid);
+      if (it == h->feature_by_rcid_.end()) {
+        warn_dangling(L, "FASC", a.rcid);
+        continue;
+      }
       add(it->second);
     }
     // inverse direction
