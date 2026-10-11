@@ -27,6 +27,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S124-OPEN-LIST` | S-124 first slice | GML open；`warnings.size()==2`；列表；叠图一帧；ChartSession | `s124_open_list` | Active |
 | `IHO-SESSION-PICK-UNIFIED` | multi-product pick | Session 统一拾取；分点 oracle；`true`+可空 hits | `session_pick_unified` | Active |
 | `IHO-CATALOGUE-COMPLETE` | FC/PC 补齐 | S-104 **仅 FC**（有 `PC_2.0.0/` → FATAL；跳过 PC pair）；S-111/124 FC+PC sha+pair FATAL | `catalogue_provenance` | Active |
+| `IHO-PC-WIRE-111-124` | PC 接线 | S-124 Lua portray；S-111 PC 符号/色板；XSLT 引擎 WARN | `pc_wire_111_124` | Next |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 
