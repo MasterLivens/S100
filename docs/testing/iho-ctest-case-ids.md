@@ -29,6 +29,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-CATALOGUE-COMPLETE` | FC/PC 补齐 | S-104 **仅 FC**（有 `PC_2.0.0/` → FATAL；跳过 PC pair）；S-111/124 FC+PC sha+pair FATAL | `catalogue_provenance` | Active |
 | `IHO-PC-WIRE-111-124` | PC 接线 | S-124 `S124HostAdapter`+`portray_nav_warnings_pc`；S-111 `SCAROW*`+ColorProfiles；XSLT WARN；禁造 S-111 Lua；no-SKIP | `pc_wire_111_124` | Active |
 | `IHO-SCAMIN-FILTER` | SCAMIN 显隐 | `visible_at_scale` / filter；oracle A–H；开/关 IgnoreScaleMinimum；no-SKIP | `scamin_filter` | Active |
+| `IHO-DISPLAY-PRIORITY` | 显示优先级 | plane 秩 + `drawing_priority` 升序；oracle 钉序；viewer 用 core sort；no-SKIP | `display_priority_order` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 
@@ -41,7 +42,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S164-UPD-CORRUPT` | 2.2.1 / 2.1.5 | 拉 S-164 包 | 坏数据/坏更新拒绝 |
 | `IHO-S164-CANCEL-REISSUE` | 2.2.6 / 2.2.7 | 交换集 | 取消/再版 |
 | `IHO-S101-SCAMIN` | 3.7.7 / Sec.9–10 | 显示比例尺 | → `IHO-SCAMIN-FILTER` |
-| `IHO-S101-DRAW-PRIORITY` | 3.6 Display Priorities | LayerInfo | portrayal 稳定后 |
+| `IHO-S101-DRAW-PRIORITY` | 3.6 Display Priorities | → `IHO-DISPLAY-PRIORITY` |
 | `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞开/关重叠对数 | `viewer_text_collision` | Active |
 | `IHO-S101-POINT-LABEL-COLLISION` | 3.1 ENC Display | PointLabel 配对 Text；开/关 PointLabel 重叠对数；符号存活计数 | `viewer_point_label_collision` | Active |
 | `IHO-DISP-REF-COMPARE` | Display Test Template | 参考实现截图 | 替代「只靠像素漂移」谈观感 |

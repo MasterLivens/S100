@@ -132,6 +132,14 @@ Details: `docs/s124-contract.md`.
 - Hide when `view_denom > scale_minimum` (unless IgnoreScaleMinimum) or `view_denom < scale_maximum`.
 - CLI: `--view-scale <N>`, `--ignore-scamin`. CTest `scamin_filter` MUST NOT SKIP.
 
+
+## Display priority / draw order
+
+- Details: `docs/display-priority-contract.md` (`IHO-DISPLAY-PRIORITY`).
+- API: `display_plane_rank`, `draw_order_less`, `sort_instructions_for_draw`.
+- Order: plane rank ascending, then `drawing_priority` ascending; `stable_sort`.
+- CTest `display_priority_order` MUST NOT SKIP.
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
