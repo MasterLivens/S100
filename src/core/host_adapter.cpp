@@ -341,164 +341,6 @@ struct Common {
 };
 
 
-struct S124HostImpl {
-  static S124HostAdapter* host(lua_State* L) { return static_cast<S124HostAdapter*>(self(L)); }
-
-  static const S124HostAdapter::HostFeature& feature(lua_State* L, int i) {
-    const std::string id = arg_string(L, i);
-    const auto* f = host(L)->feature(id);
-    if (!f) luaL_error(L, "host: unknown S-124 feature ID '%s'", id.c_str());
-    return *f;
-  }
-
-  static int GetFeatureIDs(lua_State* L) {
-    const auto& fs = host(L)->host_features();
-    lua_createtable(L, static_cast<int>(fs.size()), 0);
-    for (std::size_t i = 0; i < fs.size(); ++i) {
-      lua_pushstring(L, fs[i].lua_id.c_str());
-      lua_rawseti(L, -2, static_cast<int>(i + 1));
-    }
-    return 1;
-  }
-  static int FeatureGetCode(lua_State* L) {
-    lua_pushstring(L, feature(L, 1).code.c_str());
-    return 1;
-  }
-  static int FeatureGetSimpleAttribute(lua_State* L) {
-    return push_simple_values(L, feature(L, 1).attributes, opt_string(L, 2), arg_string(L, 3));
-  }
-  static int FeatureGetComplexAttributeCount(lua_State* L) {
-    return push_complex_count(L, feature(L, 1).attributes, opt_string(L, 2), arg_string(L, 3));
-  }
-  static int NoInformation(lua_State* L) {
-    return luaL_error(L, "host: unknown information ID '%s' (S-124 host has no information types)",
-                      luaL_checkstring(L, 1));
-  }
-  static int FeatureGetAssociations(lua_State* L) {
-    feature(L, 1);
-    luaL_checkstring(L, 2);
-    lua_newtable(L);
-    return 1;
-  }
-
-  static const char* spatial_type_name(std::uint8_t rcnm) {
-    switch (rcnm) {
-      case 110: return "Point";
-      case 130: return "Surface";
-      case 120: return "Curve";
-      default: return nullptr;
-    }
-  }
-
-  static void push_spatial_association(lua_State* L, const SpatialRef& r) {
-    const char* type = spatial_type_name(r.rcnm);
-    if (!type) luaL_error(L, "host: unsupported S-124 spatial type %d", r.rcnm);
-    get_function(L, "CreateSpatialAssociation");
-    lua_pushstring(L, type);
-    char buf[32];
-    const char* p = r.rcnm == 110 ? "P" : r.rcnm == 130 ? "S" : r.rcnm == 120 ? "C" : "?";
-    std::snprintf(buf, sizeof buf, "%s%u", p, r.rcid);
-    lua_pushstring(L, buf);
-    lua_pushstring(L, r.reverse ? "Reverse" : "Forward");
-    lua_pushnil(L);
-    lua_pushnil(L);
-    lua_call(L, 5, 1);
-  }
-
-  static int FeatureGetSpatialAssociations(lua_State* L) {
-    const auto& f = feature(L, 1);
-    lua_createtable(L, static_cast<int>(f.spatial.size()), 0);
-    int n = 0;
-    for (const auto& r : f.spatial) {
-      push_spatial_association(L, r);
-      lua_rawseti(L, -2, ++n);
-    }
-    return 1;
-  }
-
-  static bool parse_sid(const std::string& s, std::uint8_t& rcnm, std::uint32_t& rcid) {
-    if (s.size() < 2) return false;
-    switch (s[0]) {
-      case 'P': rcnm = 110; break;
-      case 'S': rcnm = 130; break;
-      case 'C': rcnm = 120; break;
-      default: return false;
-    }
-    char* end = nullptr;
-    rcid = static_cast<std::uint32_t>(std::strtoul(s.c_str() + 1, &end, 10));
-    return end && *end == 0;
-  }
-
-  static void push_point(lua_State* L, double lon, double lat) {
-    char x[32], y[32];
-    std::snprintf(x, sizeof x, "%.10g", lon);
-    std::snprintf(y, sizeof y, "%.10g", lat);
-    get_function(L, "CreatePoint");
-    lua_pushstring(L, x);
-    lua_pushstring(L, y);
-    lua_pushnil(L);
-    lua_call(L, 3, 1);
-  }
-
-  static int GetSpatial(lua_State* L) {
-    const std::string sid = arg_string(L, 1);
-    auto* h = host(L);
-    const auto* spp = h->find_spatial(sid);
-    if (!spp)
-      return luaL_error(L, "host: unknown S-124 spatial ID '%s'", sid.c_str());
-    const auto& sp = *spp;
-    if (sp.rcnm == 110) {
-      if (sp.geom.kind != GeometryKind::Point)
-        return luaL_error(L, "host: S-124 point spatial has no Point geometry");
-      push_point(L, sp.geom.point.lon, sp.geom.point.lat);
-      return 1;
-    }
-    // Surface / Curve: NavwarnPart Surface rules do not read feature.Spatial; return a
-    // MultiPoint of exterior vertices so HostGetSpatial is never nil for the id.
-    const std::vector<Point>* pts = nullptr;
-    std::vector<Point> scratch;
-    if (sp.geom.kind == GeometryKind::Polygon && !sp.geom.polygon.empty())
-      pts = &sp.geom.polygon.front().points;
-    else if (sp.geom.kind == GeometryKind::LineString) {
-      scratch = sp.geom.line;
-      pts = &scratch;
-    } else if (sp.geom.kind == GeometryKind::Point) {
-      scratch.push_back(sp.geom.point);
-      pts = &scratch;
-    }
-    if (!pts || pts->empty())
-      return luaL_error(L, "host: S-124 spatial '%s' has no coordinates", sid.c_str());
-    get_function(L, "CreateMultiPoint");
-    lua_createtable(L, static_cast<int>(pts->size()), 0);
-    int n = 0;
-    for (const auto& p : *pts) {
-      char x[32], y[32];
-      std::snprintf(x, sizeof x, "%.10g", p.lon);
-      std::snprintf(y, sizeof y, "%.10g", p.lat);
-      get_function(L, "CreatePoint");
-      lua_pushstring(L, x);
-      lua_pushstring(L, y);
-      lua_pushstring(L, "0");
-      lua_call(L, 3, 1);
-      lua_rawseti(L, -2, ++n);
-    }
-    lua_call(L, 1, 1);
-    return 1;
-  }
-
-  static int SpatialGetAssociatedFeatureIDs(lua_State* L) {
-    const std::string sid = arg_string(L, 1);
-    push_strings(L, host(L)->features_of_spatial(sid));
-    return 1;
-  }
-  static int SpatialGetAssociatedInformationIDs(lua_State* L) {
-    arg_string(L, 1);
-    arg_string(L, 2);
-    lua_newtable(L);
-    return 1;
-  }
-};
-
 }  // namespace
 
 // =================================================================== S-101
@@ -987,6 +829,167 @@ const CoverageFeature* S102HostAdapter::feature(const std::string& lua_id) const
   return it == index_.end() ? nullptr : &cov_->features[it->second];
 }
 
+
+
+// =================================================================== S-124
+
+struct S124HostImpl {
+  static S124HostAdapter* host(lua_State* L) { return static_cast<S124HostAdapter*>(self(L)); }
+
+  static const S124HostAdapter::HostFeature& feature(lua_State* L, int i) {
+    const std::string id = arg_string(L, i);
+    const auto* f = host(L)->feature(id);
+    if (!f) luaL_error(L, "host: unknown S-124 feature ID '%s'", id.c_str());
+    return *f;
+  }
+
+  static int GetFeatureIDs(lua_State* L) {
+    const auto& fs = host(L)->host_features();
+    lua_createtable(L, static_cast<int>(fs.size()), 0);
+    for (std::size_t i = 0; i < fs.size(); ++i) {
+      lua_pushstring(L, fs[i].lua_id.c_str());
+      lua_rawseti(L, -2, static_cast<int>(i + 1));
+    }
+    return 1;
+  }
+  static int FeatureGetCode(lua_State* L) {
+    lua_pushstring(L, feature(L, 1).code.c_str());
+    return 1;
+  }
+  static int FeatureGetSimpleAttribute(lua_State* L) {
+    return push_simple_values(L, feature(L, 1).attributes, opt_string(L, 2), arg_string(L, 3));
+  }
+  static int FeatureGetComplexAttributeCount(lua_State* L) {
+    return push_complex_count(L, feature(L, 1).attributes, opt_string(L, 2), arg_string(L, 3));
+  }
+  static int NoInformation(lua_State* L) {
+    return luaL_error(L, "host: unknown information ID '%s' (S-124 host has no information types)",
+                      luaL_checkstring(L, 1));
+  }
+  static int FeatureGetAssociations(lua_State* L) {
+    feature(L, 1);
+    luaL_checkstring(L, 2);
+    lua_newtable(L);
+    return 1;
+  }
+
+  static const char* spatial_type_name(std::uint8_t rcnm) {
+    switch (rcnm) {
+      case 110: return "Point";
+      case 130: return "Surface";
+      case 120: return "Curve";
+      default: return nullptr;
+    }
+  }
+
+  static void push_spatial_association(lua_State* L, const SpatialRef& r) {
+    const char* type = spatial_type_name(r.rcnm);
+    if (!type) luaL_error(L, "host: unsupported S-124 spatial type %d", r.rcnm);
+    get_function(L, "CreateSpatialAssociation");
+    lua_pushstring(L, type);
+    char buf[32];
+    const char* p = r.rcnm == 110 ? "P" : r.rcnm == 130 ? "S" : r.rcnm == 120 ? "C" : "?";
+    std::snprintf(buf, sizeof buf, "%s%u", p, r.rcid);
+    lua_pushstring(L, buf);
+    lua_pushstring(L, r.reverse ? "Reverse" : "Forward");
+    lua_pushnil(L);
+    lua_pushnil(L);
+    lua_call(L, 5, 1);
+  }
+
+  static int FeatureGetSpatialAssociations(lua_State* L) {
+    const auto& f = feature(L, 1);
+    lua_createtable(L, static_cast<int>(f.spatial.size()), 0);
+    int n = 0;
+    for (const auto& r : f.spatial) {
+      push_spatial_association(L, r);
+      lua_rawseti(L, -2, ++n);
+    }
+    return 1;
+  }
+
+  static bool parse_sid(const std::string& s, std::uint8_t& rcnm, std::uint32_t& rcid) {
+    if (s.size() < 2) return false;
+    switch (s[0]) {
+      case 'P': rcnm = 110; break;
+      case 'S': rcnm = 130; break;
+      case 'C': rcnm = 120; break;
+      default: return false;
+    }
+    char* end = nullptr;
+    rcid = static_cast<std::uint32_t>(std::strtoul(s.c_str() + 1, &end, 10));
+    return end && *end == 0;
+  }
+
+  static void push_point(lua_State* L, double lon, double lat) {
+    char x[32], y[32];
+    std::snprintf(x, sizeof x, "%.10g", lon);
+    std::snprintf(y, sizeof y, "%.10g", lat);
+    get_function(L, "CreatePoint");
+    lua_pushstring(L, x);
+    lua_pushstring(L, y);
+    lua_pushnil(L);
+    lua_call(L, 3, 1);
+  }
+
+  static int GetSpatial(lua_State* L) {
+    const std::string sid = arg_string(L, 1);
+    auto* h = host(L);
+    const auto* spp = h->find_spatial(sid);
+    if (!spp)
+      return luaL_error(L, "host: unknown S-124 spatial ID '%s'", sid.c_str());
+    const auto& sp = *spp;
+    if (sp.rcnm == 110) {
+      if (sp.geom.kind != GeometryKind::Point)
+        return luaL_error(L, "host: S-124 point spatial has no Point geometry");
+      push_point(L, sp.geom.point.lon, sp.geom.point.lat);
+      return 1;
+    }
+    // Surface / Curve: NavwarnPart Surface rules do not read feature.Spatial; return a
+    // MultiPoint of exterior vertices so HostGetSpatial is never nil for the id.
+    const std::vector<Point>* pts = nullptr;
+    std::vector<Point> scratch;
+    if (sp.geom.kind == GeometryKind::Polygon && !sp.geom.polygon.empty())
+      pts = &sp.geom.polygon.front().points;
+    else if (sp.geom.kind == GeometryKind::LineString) {
+      scratch = sp.geom.line;
+      pts = &scratch;
+    } else if (sp.geom.kind == GeometryKind::Point) {
+      scratch.push_back(sp.geom.point);
+      pts = &scratch;
+    }
+    if (!pts || pts->empty())
+      return luaL_error(L, "host: S-124 spatial '%s' has no coordinates", sid.c_str());
+    get_function(L, "CreateMultiPoint");
+    lua_createtable(L, static_cast<int>(pts->size()), 0);
+    int n = 0;
+    for (const auto& p : *pts) {
+      char x[32], y[32];
+      std::snprintf(x, sizeof x, "%.10g", p.lon);
+      std::snprintf(y, sizeof y, "%.10g", p.lat);
+      get_function(L, "CreatePoint");
+      lua_pushstring(L, x);
+      lua_pushstring(L, y);
+      lua_pushstring(L, "0");
+      lua_call(L, 3, 1);
+      lua_rawseti(L, -2, ++n);
+    }
+    lua_call(L, 1, 1);
+    return 1;
+  }
+
+  static int SpatialGetAssociatedFeatureIDs(lua_State* L) {
+    const std::string sid = arg_string(L, 1);
+    push_strings(L, host(L)->features_of_spatial(sid));
+    return 1;
+  }
+  static int SpatialGetAssociatedInformationIDs(lua_State* L) {
+    arg_string(L, 1);
+    arg_string(L, 2);
+    lua_newtable(L);
+    return 1;
+  }
+};
 
 S124HostAdapter::S124HostAdapter(const NavWarningDataset& nw, const FeatureCatalogue& fc)
     : HostAdapter("S-124", fc), nw_(&nw) {
