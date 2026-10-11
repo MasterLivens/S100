@@ -19,3 +19,7 @@ testdata/s102/*.h5
 # S-104 HDF5 samples (see testdata/s104/SOURCE.md when added)
 testdata/s104/*.h5
 !testdata/s104/synthetic_waterlevel_4326.h5
+
+# S-111 HDF5 samples
+testdata/s111/*.h5
+!testdata/s111/synthetic_current_4326.h5

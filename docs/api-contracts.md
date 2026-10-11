@@ -6,7 +6,7 @@ Owner: SoftwareArchitecture. Implement: SoftwareEngineer. Test: SoftwareTester.
 
 - `bool open_dataset(path, Dataset&, LoadError*)` — only public load entry for apps/tests.
 - `bool load_s101(...)` — S-101 helper; prefer `open_dataset` in new code.
-- S-102 HDF5 loads via `open_dataset` / `load_s102` into `Dataset::coverage` (sample/bounds). S-104 HDF5 loads via `open_dataset` into `Dataset::water_level` (see S-104 section). S-111/GML still `Parse` until their loaders land.
+- S-102 HDF5 → `Dataset::coverage`. S-104 HDF5 → `Dataset::water_level`. S-111 HDF5 → `Dataset::current` (see S-111 section). GML still `Parse` until its loader lands.
 
 ## Dataset (vector / S-101)
 
@@ -92,6 +92,16 @@ Details: `docs/s104-contract.md`.
 - `WaterLevelDataset::{set_active_frame,set_active_time,sample_wgs84,bounds}`; sample is **active frame only**.
 - `ChartSession` key `S-104:<stem>`; CLI `--s104` / `--s104-frame` / `--s104-time`.
 - CI fixture `testdata/s104/synthetic_waterlevel_4326.h5` (tracked); primary CTest `s104_open_frame` MUST not SKIP.
+
+## S-111 (surface current — first slice)
+
+Details: `docs/s111-contract.md`.
+
+- `open_dataset` fills `Dataset::current` (`CurrentDataset`), not coverage/water_level.
+- `CurrentDataset::{set_active_frame,set_active_time,sample_wgs84,bounds}`; sample is active frame; façade returns speed + direction.
+- Portray: subsampled vector arrows for active frame.
+- `ChartSession` key `S-111:<stem>`; CLI `--s111` / `--s111-frame` / `--s111-time`.
+- CI fixture `testdata/s111/synthetic_current_4326.h5`; CTest `s111_open_frame` MUST not SKIP.
 
 ## Stability
 
