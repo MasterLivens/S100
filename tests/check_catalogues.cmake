@@ -11,6 +11,7 @@ endfunction()
 expect_sha("${C}/S-101/S-101_FC_2.0.0.xml" 2743d0689d8a2130f9b809554591d794f01cd9953f222f065ac891b590bd3cfc)
 expect_sha("${C}/S-101/PC_2.0.0/portrayal_catalogue.xml" a6165e950084dbb4ee6f75144a467f398809d57d8548d8d10ae80d715ac37962)
 expect_sha("${C}/S-102/PC_3.0.0/portrayal_catalogue.xml" 381606dfcea27d6f38be26f3f0574e79ad4149e7cc4e3e20ae176579d2f756d2)
+expect_sha("${C}/S-102/S-102_FC_3.0.0.xml" 1aab69dacf18d3bf431c053fb284d74b97ec86b1d9042411956917203b6e50b5)
 
 # FC and PC must be the same S-101 edition (upgrade together).
 file(READ "${C}/S-101/S-101_FC_2.0.0.xml" fc)
@@ -23,3 +24,15 @@ if(fc_ver STREQUAL "" OR NOT fc_ver STREQUAL pc_ver)
   message(FATAL_ERROR "S-101 FC/PC edition mismatch: FC='${fc_ver}' PC='${pc_ver}'")
 endif()
 message(STATUS "S-101 FC/PC pair ok: ${fc_ver}")
+
+# S-102 FC/PC pair (same edition).
+file(READ "${C}/S-102/S-102_FC_3.0.0.xml" s102_fc)
+string(REGEX MATCH "<S100FC:versionNumber>([^<]+)</S100FC:versionNumber>" _ "${s102_fc}")
+set(s102_fc_ver "${CMAKE_MATCH_1}")
+file(READ "${C}/S-102/PC_3.0.0/portrayal_catalogue.xml" s102_pc)
+string(REGEX MATCH "productId=\"S-102\" version=\"([^\"]+)\"" _ "${s102_pc}")
+set(s102_pc_ver "${CMAKE_MATCH_1}")
+if(s102_fc_ver STREQUAL "" OR NOT s102_fc_ver STREQUAL s102_pc_ver)
+  message(FATAL_ERROR "S-102 FC/PC edition mismatch: FC='${s102_fc_ver}' PC='${s102_pc_ver}'")
+endif()
+message(STATUS "S-102 FC/PC pair ok: ${s102_fc_ver}")
