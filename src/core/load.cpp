@@ -23,8 +23,8 @@ Bounds Dataset::bounds() const {
     consider(o.west, o.south);
     consider(o.east, o.north);
   };
-  // Feature envelope (S-101) and coverage geographic envelope (S-102) are unioned so
-  // ChartSession / viewer overlays frame both products (docs/s102-contract.md).
+  // Feature envelope (S-101), coverage (S-102), and water_level (S-104) envelopes are
+  // unioned so ChartSession / viewer overlays frame all products.
   for (const auto& f : features) {
     const auto& g = f.geometry;
     if (g.kind == GeometryKind::Empty) continue;
@@ -42,6 +42,7 @@ Bounds Dataset::bounds() const {
       if (g.bounds_valid) consider_bounds(g.geographic_bounds());
     }
   }
+  if (water_level) consider_bounds(water_level->bounds());
   b.valid = any;
   return b;
 }
@@ -71,7 +72,7 @@ bool open_dataset(const std::filesystem::path& path, Dataset& out, LoadError* er
     }
     return load_s101(path, out, err);
   }
-  // HDF5: S-102 bathymetry (S-104/S-111 still Parse via load_hdf5_product).
+  // HDF5: S-102 bathymetry / S-104 water level (S-111 still Parse via load_hdf5_product).
   if (ext == ".h5" || ext == ".hdf5") {
     return load_hdf5_product(ProductId::Unknown, path, out, err);
   }

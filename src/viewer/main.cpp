@@ -846,21 +846,28 @@ class MapWidget : public QWidget {
  private:
   void draw_coverage(QPainter& p, const QRectF& r, const s100::DrawingInstruction& di) {
     if (di.command != "CoverageFill") return;
-    if (!dataset_ || !dataset_->coverage) return;
-    const auto& cov = *dataset_->coverage;
-    if (cov.grids.empty()) return;
-    std::size_t grid_index = 0;
-    bool found = false;
-    for (std::size_t i = 0; i < cov.features.size(); ++i) {
-      if (cov.features[i].id == di.feature_id) {
-        grid_index = i < cov.grids.size() ? i : 0;
-        found = true;
-        break;
+    if (!dataset_) return;
+    const s100::CoverageGrid* grid_ptr = nullptr;
+    if (dataset_->coverage && !dataset_->coverage->grids.empty()) {
+      const auto& cov = *dataset_->coverage;
+      std::size_t grid_index = 0;
+      bool found = false;
+      for (std::size_t i = 0; i < cov.features.size(); ++i) {
+        if (cov.features[i].id == di.feature_id) {
+          grid_index = i < cov.grids.size() ? i : 0;
+          found = true;
+          break;
+        }
       }
+      if (!found && di.feature_id >= 1 &&
+          static_cast<std::size_t>(di.feature_id) <= cov.grids.size())
+        grid_index = static_cast<std::size_t>(di.feature_id - 1);
+      grid_ptr = &cov.grids[grid_index];
+    } else if (dataset_->water_level) {
+      if (const auto* fr = dataset_->water_level->active()) grid_ptr = &fr->grid;
     }
-    if (!found && di.feature_id >= 1 && di.feature_id <= cov.grids.size())
-      grid_index = static_cast<std::size_t>(di.feature_id - 1);
-    const s100::CoverageGrid& grid = cov.grids[grid_index];
+    if (!grid_ptr) return;
+    const s100::CoverageGrid& grid = *grid_ptr;
     if (grid.ncols == 0 || grid.nrows == 0 || !grid.bounds_valid) return;
     const auto bands = parse_coverage_bands(di);
     if (bands.empty()) return;
@@ -1136,11 +1143,12 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString cell, snapshot, s102_path, dump_text_boxes, dump_layers;
+  QString cell, snapshot, s102_path, s104_path, s104_time, dump_text_boxes, dump_layers;
   QString layers_on, layers_off;
   QString fc_path = S100_DEFAULT_FC;
   QString pc_path = S100_DEFAULT_PC;
   QString palette_name = QStringLiteral("Day");  // Day | Dusk | Night
+  int s104_frame = -1;
   bool fc_set = false, pc_set = false;
   bool text_collision = true;  // default ON (docs/text-collision-contract.md)
   for (int i = 1; i < argc; ++i) {
@@ -1150,6 +1158,9 @@ int main(int argc, char** argv) {
     else if (a == "--pc" && i + 1 < argc) { pc_path = argv[++i]; pc_set = true; }
     else if (a == "--palette" && i + 1 < argc) palette_name = argv[++i];
     else if (a == "--s102" && i + 1 < argc) s102_path = argv[++i];
+    else if (a == "--s104" && i + 1 < argc) s104_path = argv[++i];
+    else if (a == "--s104-frame" && i + 1 < argc) s104_frame = QString(argv[++i]).toInt();
+    else if (a == "--s104-time" && i + 1 < argc) s104_time = argv[++i];
     else if (a == "--no-text-collision") text_collision = false;
     else if (a == "--dump-text-boxes" && i + 1 < argc) dump_text_boxes = argv[++i];
     else if (a == "--dump-layers" && i + 1 < argc) dump_layers = argv[++i];
@@ -1318,6 +1329,24 @@ int main(int argc, char** argv) {
         } else {
           msg = QString("S-102 portray failed: %1").arg(QString::fromStdString(perr));
         }
+      } else if (ds.product == s100::ProductId::S104 && ds.water_level) {
+        // S-104 alone: tokenized CoverageFill for active frame (PC deferred).
+        if (s104_frame >= 0) ds.water_level->set_active_frame(static_cast<std::size_t>(s104_frame));
+        if (!s104_time.isEmpty()) ds.water_level->set_active_time(s104_time.toStdString());
+        std::string perr;
+        if (s100::portray_water_level(*ds.water_level, instructions, &perr)) {
+          portrayed = true;
+          ps.instructions = instructions.size();
+          const auto* fr = ds.water_level->active();
+          msg = QString("loaded S-104 %1 — frames=%2 active=%3 time=%4 instructions=%5")
+                    .arg(cell)
+                    .arg(static_cast<qulonglong>(ds.water_level->frames.size()))
+                    .arg(static_cast<qulonglong>(ds.water_level->active_frame))
+                    .arg(fr ? QString::fromStdString(fr->time_iso) : QStringLiteral("?"))
+                    .arg(static_cast<qulonglong>(instructions.size()));
+        } else {
+          msg = QString("S-104 portray failed: %1").arg(QString::fromStdString(perr));
+        }
       } else {
         s100::ClassifyResult cr;
         const bool ok = s100::classify_layers(ds, fc, &cr);
@@ -1385,6 +1414,43 @@ int main(int argc, char** argv) {
               }
             } else {
               msg += QString(" — S-102 FC/PC: %1").arg(QString::fromStdString(e102));
+            }
+          }
+        }
+
+        // S-104 overlay via ChartSession (contract): S-101 + S-104 keys, union bounds.
+        if (portrayed && !s104_path.isEmpty()) {
+          s100::ChartSession chart;
+          s100::LoadError cerr;
+          std::string k101, k104;
+          k101 = chart.insert(ds);
+          if (!chart.open_and_insert(s104_path.toStdString(), &cerr, &k104) ||
+              !chart.find(k104) || !chart.find(k104)->water_level) {
+            msg += QString(" — S-104 overlay failed: %1")
+                       .arg(QString::fromStdString(cerr.message.empty() ? "no water_level"
+                                                                        : cerr.message));
+          } else {
+            auto& wl = *chart.find(k104)->water_level;
+            if (s104_frame >= 0) wl.set_active_frame(static_cast<std::size_t>(s104_frame));
+            if (!s104_time.isEmpty()) wl.set_active_time(s104_time.toStdString());
+            s100::DrawingInstructions wl_di;
+            std::string e104;
+            if (s100::portray_water_level(wl, wl_di, &e104)) {
+              ds.water_level = wl;  // paint + Dataset::bounds unions water_level envelope
+              instructions.insert(instructions.end(), wl_di.begin(), wl_di.end());
+              const auto ub = ds.bounds();
+              msg += QString(" — overlay %1 + %2 (S-104 CoverageFill +%3 frame=%4, bounds union "
+                             "[%5,%6]–[%7,%8])")
+                         .arg(QString::fromStdString(k101))
+                         .arg(QString::fromStdString(k104))
+                         .arg(static_cast<qulonglong>(wl_di.size()))
+                         .arg(static_cast<qulonglong>(wl.active_frame))
+                         .arg(ub.west, 0, 'f', 5)
+                         .arg(ub.south, 0, 'f', 5)
+                         .arg(ub.east, 0, 'f', 5)
+                         .arg(ub.north, 0, 'f', 5);
+            } else {
+              msg += QString(" — S-104 portray failed: %1").arg(QString::fromStdString(e104));
             }
           }
         }
