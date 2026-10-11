@@ -9,6 +9,10 @@ got = Image.open(got_path).convert("RGB")
 want = Image.open(want_path).convert("RGB")
 if got.size != want.size:
     sys.exit(f"size {got.size} != {want.size}")
+# Magenta placeholder geometry must be gone (SVG symbols or CHBLK fallback).
+mag = sum(1 for r, g, b in got.getdata() if r > 200 and b > 200 and g < 80)
+if mag > 0:
+    sys.exit(f"magenta placeholder pixels still present: {mag}")
 # Official Day palette anchors we expect to dominate water / land / UI chrome.
 # CHSKY-ish blue (97,183,255), land olive (191,190,143), white panel, depth grey-blue.
 anchors = [(97, 183, 255), (191, 190, 143), (255, 255, 255), (147, 174, 187)]
