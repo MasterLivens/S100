@@ -216,6 +216,20 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
   std::vector<ExchangeCellSeries> coverage_series;
   for (const auto& e : cat.datasets) {
     const auto ext = e.file_path.extension().string();
+    // S-124 GML: one series per file (WARN — soft exchange-set member).
+    if (ext == ".gml" || (ext == ".xml" && e.product == ProductId::S124)) {
+      ExchangeCellSeries s;
+      s.product = ProductId::S124;
+      s.cell_name = e.file_path.stem().string();
+      s.base = e.file_path;
+      s.base_entry = e;
+      s.coverage = e.coverage;
+      s.description = e.description;
+      s.edition_number = e.edition_number;
+      s.latest_update_number = e.update_number;
+      coverage_series.push_back(std::move(s));
+      continue;
+    }
     // Coverage HDF5 products: one series per file (no .001 update chain).
     if (ext == ".h5" || ext == ".hdf5") {
       ExchangeCellSeries s;

@@ -12,8 +12,8 @@
 #endif
 
 static const char* kUsage =
-    "usage: s100_cli <file.000> [--fc <FC.xml>] [--layers]\n"
-    "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
+    "usage: s100_cli <file.000|.h5|.gml> [--fc <FC.xml>] [--layers]\n"
+    "                [--s124 <path.gml>] [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
     "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
     "                [--fc <FC.xml>] [--layers]\n"
     "  note: lone .001 updates are rejected; use exchange set / with_updates\n";
@@ -72,38 +72,49 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
   }
 
   const auto st = ds.stats();
-  std::cout << "loaded " << path << " features=" << st.feature_count << " layers=" << st.layer_count
-            << " ms=" << ms << "\n";
+  std::cout << "loaded " << path << " product=" << s100::product_name(ds.product)
+            << " features=" << st.feature_count << " layers=" << st.layer_count << " ms=" << ms;
+  if (ds.nav_warnings)
+    std::cout << " warnings=" << ds.nav_warnings->warnings.size();
+  std::cout << "\n";
 
   bool portrayed = true;
   if (do_portray) {
-    s100::PortrayalCatalogue pc;
-    std::string e;
-    if (!have_fc || !s100::load_portrayal_catalogue(pc_path, pc, &e)) {
-      std::cerr << "portray: need FC and PC (" << e << ")\n";
-      return 1;
-    }
-    s100::PortrayalSession session(fc, pc);
-    for (const auto& [k, v] : settings)
-      if (!session.set_context_parameter(k, v, &e)) {
-        std::cerr << e << "\n";
-        return 2;
+    if (ds.product == s100::ProductId::S124 && ds.nav_warnings) {
+      s100::DrawingInstructions di;
+      std::string e;
+      portrayed = s100::portray_nav_warnings(*ds.nav_warnings, di, &e);
+      std::cout << "portray " << path.filename().string() << " S-124 instructions=" << di.size()
+                << (portrayed ? "" : " FAILED: " + e) << "\n";
+    } else {
+      s100::PortrayalCatalogue pc;
+      std::string e;
+      if (!have_fc || !s100::load_portrayal_catalogue(pc_path, pc, &e)) {
+        std::cerr << "portray: need FC and PC (" << e << ")\n";
+        return 1;
       }
-    s100::PortrayalStats ps;
-    const auto t1 = std::chrono::steady_clock::now();
-    const auto* di = session.portray(ds, &ps, &e);
-    portrayed = di != nullptr && ps.lua_errors == 0;
-    std::cout << "portray " << path.filename().string() << " pc=" << pc.product << " " << pc.version
-              << " features=" << ps.features << " emitted=" << ps.emitted_features
-              << " instructions=" << ps.instructions << " lua_errors=" << ps.lua_errors
-              << " unparsed=" << ps.unparsed
-              << " features_without_instructions=" << ps.features_without_instructions.size()
-              << " ms=" << ms_since(t1) << (di ? "" : " FAILED: " + e) << "\n";
-    for (const auto& [cmd, n] : ps.by_command) std::cout << "  " << cmd << " " << n << "\n";
-    for (const auto& [cmd, n] : ps.unparsed_commands)
-      std::cout << "  unparsed " << cmd << " " << n << "\n";
-    if (show_errors)
-      for (const auto& m : ps.errors) std::cout << "  error: " << m << "\n";
+      s100::PortrayalSession session(fc, pc);
+      for (const auto& [k, v] : settings)
+        if (!session.set_context_parameter(k, v, &e)) {
+          std::cerr << e << "\n";
+          return 2;
+        }
+      s100::PortrayalStats ps;
+      const auto t1 = std::chrono::steady_clock::now();
+      const auto* di = session.portray(ds, &ps, &e);
+      portrayed = di != nullptr && ps.lua_errors == 0;
+      std::cout << "portray " << path.filename().string() << " pc=" << pc.product << " " << pc.version
+                << " features=" << ps.features << " emitted=" << ps.emitted_features
+                << " instructions=" << ps.instructions << " lua_errors=" << ps.lua_errors
+                << " unparsed=" << ps.unparsed
+                << " features_without_instructions=" << ps.features_without_instructions.size()
+                << " ms=" << ms_since(t1) << (di ? "" : " FAILED: " + e) << "\n";
+      for (const auto& [cmd, n] : ps.by_command) std::cout << "  " << cmd << " " << n << "\n";
+      for (const auto& [cmd, n] : ps.unparsed_commands)
+        std::cout << "  unparsed " << cmd << " " << n << "\n";
+      if (show_errors)
+        for (const auto& m : ps.errors) std::cout << "  error: " << m << "\n";
+    }
   }
   if (list_layers)
     for (const auto& [code, li] : ds.layers.all()) {
@@ -113,7 +124,10 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
                   << " plane=" << li.display_plane << " cat=" << li.display_category;
       std::cout << "\n";
     }
-  return st.feature_count > 0 && ms < 5000 && classified && portrayed ? 0 : 1;
+  const bool has_payload =
+      st.feature_count > 0 || (ds.nav_warnings && !ds.nav_warnings->warnings.empty()) ||
+      ds.coverage.has_value() || ds.water_level.has_value() || ds.current.has_value();
+  return has_payload && ms < 5000 && classified && portrayed ? 0 : 1;
 }
 
 static int run_exchange_set(const std::filesystem::path& path, const std::filesystem::path& fc_path,
@@ -220,6 +234,8 @@ int main(int argc, char** argv) {
       load_all = true;
     else if (!std::strcmp(argv[i], "--load") && i + 1 < argc)
       load_one = argv[++i];
+    else if (!std::strcmp(argv[i], "--s124") && i + 1 < argc)
+      path = argv[++i];
     else if (!std::strcmp(argv[i], "--set") && i + 1 < argc) {
       const std::string kv = argv[++i];
       const auto eq = kv.find('=');

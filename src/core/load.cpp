@@ -23,8 +23,8 @@ Bounds Dataset::bounds() const {
     consider(o.west, o.south);
     consider(o.east, o.north);
   };
-  // Feature envelope (S-101), coverage (S-102), water_level (S-104), and current (S-111)
-  // envelopes are unioned so ChartSession / viewer overlays frame all products.
+  // Feature envelope (S-101), coverage (S-102), water_level (S-104), current (S-111),
+  // and nav_warnings (S-124) envelopes are unioned so ChartSession / viewer overlays frame all products.
   for (const auto& f : features) {
     const auto& g = f.geometry;
     if (g.kind == GeometryKind::Empty) continue;
@@ -44,6 +44,7 @@ Bounds Dataset::bounds() const {
   }
   if (water_level) consider_bounds(water_level->bounds());
   if (current) consider_bounds(current->bounds());
+  if (nav_warnings) consider_bounds(nav_warnings->bounds());
   b.valid = any;
   return b;
 }
@@ -77,13 +78,16 @@ bool open_dataset(const std::filesystem::path& path, Dataset& out, LoadError* er
   if (ext == ".h5" || ext == ".hdf5") {
     return load_hdf5_product(ProductId::Unknown, path, out, err);
   }
-  // GML warnings — reserved (P3)
+  // GML: S-124 navigational warnings (other GML still Parse via load_s124 product check).
   if (ext == ".gml" || ext == ".xml") {
-    if (err) {
-      err->kind = LoadErrorKind::Parse;
-      err->message = "GML/XML products (e.g. S-124) not implemented yet: " + path.string();
-    }
-    return false;
+    NavWarningDataset nw;
+    if (!load_s124(path, nw, err)) return false;
+    out = Dataset{};
+    out.product = ProductId::S124;
+    out.path = path;
+    out.dataset_name = path.stem().string();
+    out.nav_warnings = std::move(nw);
+    return true;
   }
   if (err) {
     err->kind = LoadErrorKind::Invalid;

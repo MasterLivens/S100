@@ -3,6 +3,7 @@
 #include "s100/coverage.hpp"
 #include "s100/water_level.hpp"
 #include "s100/current.hpp"
+#include "s100/nav_warning.hpp"
 #include "s100/hdf5_product.hpp"
 #include "s100/feature_catalogue.hpp"
 #include "s100/product.hpp"

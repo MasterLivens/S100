@@ -776,11 +776,21 @@ class MapWidget : public QWidget {
         continue;
       }
       const auto fit = by_id_.find(di.feature_id);
-      if (fit == by_id_.end()) continue;
-      const s100::Feature& f = *fit->second;
-      const s100::LayerInfo* layer = dataset_->layers.find(f.feature_type);
-      if (!layer) continue;  // unknown to FC: never drawn
-      if (!visibility_.is_visible(*layer)) continue;
+      // S-124 (and similar): DI carries geometries with no Feature mirroring.
+      static const s100::Feature kEmptyFeature{};
+      const s100::Feature* fp = nullptr;
+      if (fit != by_id_.end()) {
+        const s100::Feature& f = *fit->second;
+        const s100::LayerInfo* layer = dataset_->layers.find(f.feature_type);
+        if (!layer) continue;  // unknown to FC: never drawn
+        if (!visibility_.is_visible(*layer)) continue;
+        fp = &f;
+      } else if (!di.geometries.empty()) {
+        fp = &kEmptyFeature;
+      } else {
+        continue;
+      }
+      const s100::Feature& f = *fp;
 
       switch (di.kind) {
         case s100::DrawingInstruction::Kind::Area:
@@ -791,22 +801,35 @@ class MapWidget : public QWidget {
           break;
         case s100::DrawingInstruction::Kind::Point: {
           // Always submit Point to painter (labels may drop; glyphs must not).
-          draw_point(p, r, f, di);
-          ++point_glyphs_drawn_;
-          const qreal ox = mm_to_px(this, di.offset_x);
-          const qreal oy = -mm_to_px(this, di.offset_y);
-          for (const s100::Geometry* gp : paint_geometries(di, f)) {
-            QPointF s;
-            if (gp->kind == s100::GeometryKind::Point) {
-              s = project(r, west_, south_, east_, north_, gp->point.lon, gp->point.lat);
-            } else if (gp->kind == s100::GeometryKind::MultiPoint && !gp->multipoint.empty()) {
-              // Pair against first multipoint pivot (same as text geometry_anchor front).
-              const auto& pt = gp->multipoint.front();
-              s = project(r, west_, south_, east_, north_, pt.lon, pt.lat);
-            } else {
-              s = geometry_anchor(*gp, r, west_, south_, east_, north_);
+          if (di.symbol_ref.empty() && !di.fill_ref.empty() && fit == by_id_.end()) {
+            // S-124 marker: filled circle in fill_ref colour (no PC symbol).
+            const QColor col = palette_.get(di.fill_ref, QColor(255, 255, 0));
+            p.setPen(Qt::NoPen);
+            p.setBrush(col);
+            for (const auto& g : di.geometries) {
+              if (g.kind != s100::GeometryKind::Point) continue;
+              const QPointF s = project(r, west_, south_, east_, north_, g.point.lon, g.point.lat);
+              p.drawEllipse(s, 4.0, 4.0);
+              point_anchors.push_back(PointAnchor{di.feature_id, s});
             }
-            point_anchors.push_back(PointAnchor{di.feature_id, QPointF(s.x() + ox, s.y() + oy)});
+            ++point_glyphs_drawn_;
+          } else {
+            draw_point(p, r, f, di);
+            ++point_glyphs_drawn_;
+            const qreal ox = mm_to_px(this, di.offset_x);
+            const qreal oy = -mm_to_px(this, di.offset_y);
+            for (const s100::Geometry* gp : paint_geometries(di, f)) {
+              QPointF s;
+              if (gp->kind == s100::GeometryKind::Point) {
+                s = project(r, west_, south_, east_, north_, gp->point.lon, gp->point.lat);
+              } else if (gp->kind == s100::GeometryKind::MultiPoint && !gp->multipoint.empty()) {
+                const auto& pt = gp->multipoint.front();
+                s = project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+              } else {
+                s = geometry_anchor(*gp, r, west_, south_, east_, north_);
+              }
+              point_anchors.push_back(PointAnchor{di.feature_id, QPointF(s.x() + ox, s.y() + oy)});
+            }
           }
           break;
         }
@@ -1178,8 +1201,8 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString cell, snapshot, s102_path, s104_path, s104_time, s111_path, s111_time, dump_text_boxes,
-      dump_layers;
+  QString cell, snapshot, s102_path, s104_path, s104_time, s111_path, s111_time, s124_path,
+      dump_text_boxes, dump_layers;
   QString layers_on, layers_off;
   QString fc_path = S100_DEFAULT_FC;
   QString pc_path = S100_DEFAULT_PC;
@@ -1201,6 +1224,7 @@ int main(int argc, char** argv) {
     else if (a == "--s111" && i + 1 < argc) s111_path = argv[++i];
     else if (a == "--s111-frame" && i + 1 < argc) s111_frame = QString(argv[++i]).toInt();
     else if (a == "--s111-time" && i + 1 < argc) s111_time = argv[++i];
+    else if (a == "--s124" && i + 1 < argc) s124_path = argv[++i];
     else if (a == "--no-text-collision") text_collision = false;
     else if (a == "--dump-text-boxes" && i + 1 < argc) dump_text_boxes = argv[++i];
     else if (a == "--dump-layers" && i + 1 < argc) dump_layers = argv[++i];
@@ -1405,6 +1429,19 @@ int main(int argc, char** argv) {
         } else {
           msg = QString("S-111 portray failed: %1").arg(QString::fromStdString(perr));
         }
+      } else if (ds.product == s100::ProductId::S124 && ds.nav_warnings) {
+        // S-124 alone: geom + Text title per warning (PC deferred).
+        std::string perr;
+        if (s100::portray_nav_warnings(*ds.nav_warnings, instructions, &perr)) {
+          portrayed = true;
+          ps.instructions = instructions.size();
+          msg = QString("loaded S-124 %1 — warnings=%2 instructions=%3")
+                    .arg(cell)
+                    .arg(static_cast<qulonglong>(ds.nav_warnings->warnings.size()))
+                    .arg(static_cast<qulonglong>(instructions.size()));
+        } else {
+          msg = QString("S-124 portray failed: %1").arg(QString::fromStdString(perr));
+        }
       } else {
         s100::ClassifyResult cr;
         const bool ok = s100::classify_layers(ds, fc, &cr);
@@ -1546,6 +1583,41 @@ int main(int argc, char** argv) {
                          .arg(ub.north, 0, 'f', 5);
             } else {
               msg += QString(" — S-111 portray failed: %1").arg(QString::fromStdString(e111));
+            }
+          }
+        }
+
+        // S-124 overlay via ChartSession (contract): S-101 + S-124 keys, union bounds.
+        if (portrayed && !s124_path.isEmpty()) {
+          s100::ChartSession chart;
+          s100::LoadError cerr;
+          std::string k101, k124;
+          k101 = chart.insert(ds);
+          if (!chart.open_and_insert(s124_path.toStdString(), &cerr, &k124) ||
+              !chart.find(k124) || !chart.find(k124)->nav_warnings) {
+            msg += QString(" — S-124 overlay failed: %1")
+                       .arg(QString::fromStdString(cerr.message.empty() ? "no nav_warnings"
+                                                                        : cerr.message));
+          } else {
+            const auto& nw = *chart.find(k124)->nav_warnings;
+            s100::DrawingInstructions nw_di;
+            std::string e124;
+            if (s100::portray_nav_warnings(nw, nw_di, &e124)) {
+              ds.nav_warnings = nw;  // paint + Dataset::bounds unions nav_warnings envelope
+              instructions.insert(instructions.end(), nw_di.begin(), nw_di.end());
+              const auto ub = ds.bounds();
+              msg += QString(" — overlay %1 + %2 (S-124 warnings=%3 DI +%4, bounds union "
+                             "[%5,%6]–[%7,%8])")
+                         .arg(QString::fromStdString(k101))
+                         .arg(QString::fromStdString(k124))
+                         .arg(static_cast<qulonglong>(nw.warnings.size()))
+                         .arg(static_cast<qulonglong>(nw_di.size()))
+                         .arg(ub.west, 0, 'f', 5)
+                         .arg(ub.south, 0, 'f', 5)
+                         .arg(ub.east, 0, 'f', 5)
+                         .arg(ub.north, 0, 'f', 5);
+            } else {
+              msg += QString(" — S-124 portray failed: %1").arg(QString::fromStdString(e124));
             }
           }
         }

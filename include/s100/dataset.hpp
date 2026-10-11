@@ -2,6 +2,7 @@
 #include "s100/coverage.hpp"
 #include "s100/water_level.hpp"
 #include "s100/current.hpp"
+#include "s100/nav_warning.hpp"
 #include "s100/layer.hpp"
 #include "s100/product.hpp"
 #include "s100/types.hpp"
@@ -62,8 +63,10 @@ struct Dataset {
   std::optional<WaterLevelDataset> water_level;
   /** Surface-current payload for S-111 (time frames; not coverage/water_level). */
   std::optional<CurrentDataset> current;
+  /** Navigational-warning payload for S-124 (GML; no Feature mirroring). */
+  std::optional<NavWarningDataset> nav_warnings;
   DatasetStats stats() const;
-  /** WGS84 envelope: union of feature geometries and coverage geographic bounds (overlay). */
+  /** WGS84 envelope: union of feature / coverage / water_level / current / nav_warnings. */
   Bounds bounds() const;
 };
 
@@ -91,7 +94,8 @@ bool load_s101(const std::filesystem::path& path, Dataset& out, LoadError* err =
 
 /** Product-aware entry for base cells / non-update products.
  *  Lone S-101 updates (.001…) are rejected (LoadErrorKind::Invalid) — use
- *  open_dataset_with_updates / ChartSession. S-102 → coverage; S-104 → water_level; S-111 → current. */
+ *  open_dataset_with_updates / ChartSession. S-102 → coverage; S-104 → water_level;
+ *  S-111 → current; S-124 GML → nav_warnings. */
 bool open_dataset(const std::filesystem::path& path, Dataset& out, LoadError* err = nullptr);
 
 }  // namespace s100

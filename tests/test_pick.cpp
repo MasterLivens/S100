@@ -36,6 +36,8 @@ void run_s104_tests();
 void run_s111_tests();
 void test_s104_open_frame();
 void test_s111_open_frame();
+void test_s124_open_list();
+void run_s124_tests();
 void test_s102_deepen_multigrid();
 void test_association_faui_merge();
 
@@ -67,6 +69,15 @@ int main(int argc, char** argv) {
     std::cout << "s111_open_frame ok\n";
     return 0;
   }
+  if (argc >= 2 && std::string(argv[1]) == "s124_open_list") {
+    test_s124_open_list();
+    if (failures) {
+      std::cerr << failures << " failure(s)\n";
+      return 1;
+    }
+    std::cout << "s124_open_list ok\n";
+    return 0;
+  }
   test_pick_center();
   test_layers();
   test_load_samples();
@@ -82,6 +93,7 @@ int main(int argc, char** argv) {
   test_exchange_set_synthetic_and_chs();
   run_s102_tests();
   run_s104_tests();
+  run_s124_tests();
   test_association_faui_merge();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
