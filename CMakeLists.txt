@@ -13,6 +13,7 @@ add_library(s100_core
   src/core/pick.cpp
   src/core/load.cpp
   src/core/hdf5_product.cpp
+  src/core/feature_catalogue.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -29,6 +30,7 @@ add_executable(s100_tests
   tests/test_chs_bounds.cpp
   tests/test_attributes.cpp
   tests/test_soundings.cpp
+  tests/test_feature_catalogue.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")

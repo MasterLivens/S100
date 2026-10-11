@@ -22,6 +22,7 @@ void test_load_samples();
 void test_layers();
 void test_attributes();
 void test_soundings();
+void test_feature_catalogue();
 void test_bounds_multipoint_only();
 void test_fixtures_pick_0008();
 void test_aggregates_empty_geometry();
@@ -33,6 +34,7 @@ int main() {
   test_load_samples();
   test_attributes();
   test_soundings();
+  test_feature_catalogue();
   test_bounds_multipoint_only();
   test_fixtures_pick_0008();
   test_aggregates_empty_geometry();
