@@ -6,7 +6,7 @@ Owner: SoftwareArchitecture. Implement: SoftwareEngineer. Test: SoftwareTester.
 
 - `bool open_dataset(path, Dataset&, LoadError*)` — only public load entry for apps/tests.
 - `bool load_s101(...)` — S-101 helper; prefer `open_dataset` in new code.
-- S-102 HDF5 loads via `open_dataset` / `load_s102` into `Dataset::coverage` (sample/bounds). S-104/S-111/GML still `Parse` until their loaders land.
+- S-102 HDF5 loads via `open_dataset` / `load_s102` into `Dataset::coverage` (sample/bounds). S-104 HDF5 loads via `open_dataset` into `Dataset::water_level` (see S-104 section). S-111/GML still `Parse` until their loaders land.
 
 ## Dataset (vector / S-101)
 
