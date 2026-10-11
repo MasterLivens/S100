@@ -116,6 +116,29 @@ std::unordered_map<std::uint16_t, std::string> parse_ftcs(const std::vector<std:
   return m;
 }
 
+/** ATTR repeating: NATC(u16) ATIX(u16) PAIX(u16) ATIN(u8) ATVL(text, UT-terminated). */
+std::vector<Attribute> parse_attributes(const std::vector<std::uint8_t>& b,
+                                        const std::unordered_map<std::uint16_t, std::string>& atcs) {
+  std::vector<Attribute> out;
+  std::size_t i = 0;
+  while (i + 7 <= b.size()) {
+    Attribute a;
+    const std::uint16_t natc = read_u16(b.data() + i);
+    a.index = read_u16(b.data() + i + 2);
+    a.parent = read_u16(b.data() + i + 4);
+    a.instruction = b[i + 6];
+    i += 7;
+    const std::size_t start = i;
+    while (i < b.size() && b[i] != 0x1f) ++i;
+    a.value.assign(reinterpret_cast<const char*>(b.data() + start), i - start);
+    if (i < b.size()) ++i;  // skip UT
+    auto it = atcs.find(natc);
+    a.code = it != atcs.end() ? it->second : ("attr" + std::to_string(natc));
+    out.push_back(std::move(a));
+  }
+  return out;
+}
+
 LayerId layer_for_feature_type(const std::string& name) {
   if (name == "LandArea" || name == "LandRegion" || name == "ShorelineConstruction" ||
       name == "Dam" || name == "Dyke" || name == "Causeway") {
@@ -261,6 +284,7 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
 
   Dssi dssi;
   std::unordered_map<std::uint16_t, std::string> ftcs;
+  std::unordered_map<std::uint16_t, std::string> atcs;
   // Topology primitives keyed by (RCNM, RCID): 110 point, 120 curve, 125 composite, 130 surface.
   std::unordered_map<SpatialKey, Point, SpatialKeyHash> points;
   std::unordered_map<SpatialKey, std::vector<Point>, SpatialKeyHash> curves;
@@ -274,6 +298,8 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
       if (auto* f = rec.find("DSSI")) dssi = parse_dssi(f->data);
     if (ftcs.empty())
       if (auto* f = rec.find("FTCS")) ftcs = parse_ftcs(f->data);
+    if (atcs.empty())
+      if (auto* f = rec.find("ATCS")) atcs = parse_ftcs(f->data);  // same name/code layout
 
     if (auto* c2it = rec.find("C2IT")) {
       if (auto* id = rec.find("PRID")) {
@@ -379,6 +405,7 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
     feat.feature_type = fname;
     feat.layer = layer_for_feature_type(fname);
     feat.geometry.kind = GeometryKind::Empty;
+    if (auto* attr = rec.find("ATTR")) feat.attributes = parse_attributes(attr->data, atcs);
 
     // SPAS repeating: RRNM(u8) RRID(u32) ORNT(u8) SMIN(u32) SMAX(u32) SAUI(u8) = 15 bytes
     if (auto* spas = rec.find("SPAS")) {

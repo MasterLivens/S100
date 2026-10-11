@@ -1,2 +1,4 @@
 /build/
 .DS_Store
+# SHOM samples: evaluation/research licence only, never commit or ship
+/testdata/shom/

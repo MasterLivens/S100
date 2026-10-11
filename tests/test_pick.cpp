@@ -20,13 +20,17 @@ void test_pick_center() {
 // declared in other TUs
 void test_load_samples();
 void test_layers();
+void test_attributes();
 void test_fixtures_pick_0008();
+void test_aggregates_empty_geometry();
 
 int main() {
   test_pick_center();
   test_layers();
   test_load_samples();
+  test_attributes();
   test_fixtures_pick_0008();
+  test_aggregates_empty_geometry();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;

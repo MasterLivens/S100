@@ -25,11 +25,29 @@ struct Geometry {
 
 enum class LayerId { LAND, DEPARE, Other };
 
+/** One S-101 attribute instance (ATTR field). Complex attributes have an empty value
+ *  and their sub-attributes point back to them through `parent` (1-based index, 0 = top level). */
+struct Attribute {
+  std::string code;            // camelCase code from ATCS, e.g. "depthRangeMinimumValue"
+  std::string value;           // raw ATVL text; empty for complex attributes
+  std::uint16_t index{0};      // ATIX: instance number among same-code siblings
+  std::uint16_t parent{0};     // PAIX: 1-based position of the parent attribute, 0 = top level
+  std::uint8_t instruction{1}; // ATIN: 1 insert (update files may use 2 delete / 3 modify)
+};
+
 struct Feature {
   std::uint64_t id{0};
   std::string feature_type;
   LayerId layer{LayerId::Other};
   Geometry geometry;
+  std::vector<Attribute> attributes;
+
+  /** First top-level attribute value for `code`, or nullptr. */
+  const std::string* attribute(const std::string& code) const {
+    for (const auto& a : attributes)
+      if (a.parent == 0 && a.code == code) return &a.value;
+    return nullptr;
+  }
 };
 
 struct DatasetStats {

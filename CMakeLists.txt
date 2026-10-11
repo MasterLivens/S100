@@ -25,6 +25,8 @@ add_executable(s100_tests
   tests/test_pick.cpp
   tests/test_layers.cpp
   tests/test_fixtures_pick.cpp
+  tests/test_aggregates.cpp
+  tests/test_attributes.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
 add_test(NAME s100_tests COMMAND s100_tests)
