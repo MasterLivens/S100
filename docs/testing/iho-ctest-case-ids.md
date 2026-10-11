@@ -39,7 +39,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S164-UPD-SEQ` | 2.2.3 Invalid Sequence | 拉 S-164 包 | 乱序必须失败 |
 | `IHO-S164-UPD-CORRUPT` | 2.2.1 / 2.1.5 | 拉 S-164 包 | 坏数据/坏更新拒绝 |
 | `IHO-S164-CANCEL-REISSUE` | 2.2.6 / 2.2.7 | 交换集 | 取消/再版 |
-| `IHO-S101-SCAMIN` | 3.7.7 / Sec.9–10 | 显示比例尺 | 现计划未做 |
+| `IHO-S101-SCAMIN` | 3.7.7 / Sec.9–10 | 显示比例尺 | → `IHO-SCAMIN-FILTER` |
 | `IHO-S101-DRAW-PRIORITY` | 3.6 Display Priorities | LayerInfo | portrayal 稳定后 |
 | `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞开/关重叠对数 | `viewer_text_collision` | Active |
 | `IHO-S101-POINT-LABEL-COLLISION` | 3.1 ENC Display | PointLabel 配对 Text；开/关 PointLabel 重叠对数；符号存活计数 | `viewer_point_label_collision` | Active |

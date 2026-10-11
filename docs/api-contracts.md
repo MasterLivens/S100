@@ -124,6 +124,14 @@ Details: `docs/s124-contract.md`.
 - Details: `docs/catalogue-complete-contract.md`. CTest `catalogue_provenance`: required-file/sha/pair failures → **FATAL** (S-104 PC checks N/A).
 - **PC wiring Active:** `docs/pc-wire-contract.md` (`IHO-PC-WIRE-111-124`). S-124: Lua PC via `S124HostAdapter` / `portray_nav_warnings_pc`. S-111: Arrow `symbol_ref`→`SCAROW*` + ColorProfiles (XSLT host still WARN; **no** invented S-111 Lua).
 
+
+## SCAMIN / scale filter
+
+- Details: `docs/scamin-contract.md` (`IHO-SCAMIN-FILTER`).
+- API: `visible_at_scale(di, view_scale_denom, ignore_scale_minimum)`; `filter_instructions_by_scale(...)`.
+- Hide when `view_denom > scale_minimum` (unless IgnoreScaleMinimum) or `view_denom < scale_maximum`.
+- CLI: `--view-scale <N>`, `--ignore-scamin`. CTest `scamin_filter` MUST NOT SKIP.
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
