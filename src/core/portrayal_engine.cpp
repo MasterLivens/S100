@@ -1,6 +1,8 @@
 #include "s100/portrayal_engine.hpp"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <set>
@@ -219,11 +221,135 @@ bool PortrayalEngine::run(HostAdapter& host, const PortrayalContext& ctx, Drawin
   return true;
 }
 
+
+// ------------------------------------------------------------------ SpatialReference → Geometry
+
+namespace {
+
+bool parse_spatial_ref_token(const std::string& token, std::uint8_t& rcnm, std::uint32_t& rcid,
+                             bool& reverse) {
+  reverse = false;
+  std::string id = token;
+  static const char kRev[] = ",reverse";
+  if (id.size() > sizeof(kRev) - 1 &&
+      id.compare(id.size() - (sizeof(kRev) - 1), sizeof(kRev) - 1, kRev) == 0) {
+    reverse = true;
+    id.resize(id.size() - (sizeof(kRev) - 1));
+  }
+  if (id.size() < 2) return false;
+  switch (id[0]) {
+    case 'P': rcnm = 110; break;
+    case 'M': rcnm = 115; break;
+    case 'C': rcnm = 120; break;
+    case 'K': rcnm = 125; break;
+    case 'S': rcnm = 130; break;
+    default: return false;
+  }
+  char* end = nullptr;
+  rcid = static_cast<std::uint32_t>(std::strtoul(id.c_str() + 1, &end, 10));
+  return end && *end == '\0';
+}
+
+std::vector<Point> resolve_curve_points(const SpatialStore& store, std::uint8_t rcnm,
+                                        std::uint32_t rcid, bool reverse, int depth) {
+  std::vector<Point> pts;
+  if (depth > 16) return pts;
+  if (rcnm == 120) {
+    const SpatialRecord* r = store.find(120, rcid);
+    if (!r) return pts;
+    pts.reserve(r->coords.size());
+    for (const auto& c : r->coords) pts.push_back(Point{c.lon, c.lat});
+  } else if (rcnm == 125) {
+    const SpatialRecord* r = store.find(125, rcid);
+    if (!r) return pts;
+    for (const auto& part : r->parts) {
+      auto part_pts = resolve_curve_points(store, part.rcnm, part.rcid, part.reverse, depth + 1);
+      if (part_pts.empty()) continue;
+      if (!pts.empty() && pts.back().lon == part_pts.front().lon &&
+          pts.back().lat == part_pts.front().lat)
+        part_pts.erase(part_pts.begin());
+      pts.insert(pts.end(), part_pts.begin(), part_pts.end());
+    }
+  }
+  if (reverse) std::reverse(pts.begin(), pts.end());
+  return pts;
+}
+
+bool resolve_one_spatial(const SpatialStore& store, std::uint8_t rcnm, std::uint32_t rcid,
+                         bool reverse, Geometry& out) {
+  out = Geometry{};
+  switch (rcnm) {
+    case 110: {
+      const SpatialRecord* r = store.find(110, rcid);
+      if (!r || r->coords.empty()) return false;
+      out.kind = GeometryKind::Point;
+      out.point = Point{r->coords[0].lon, r->coords[0].lat};
+      return true;
+    }
+    case 115: {
+      const SpatialRecord* r = store.find(115, rcid);
+      if (!r || r->coords.empty()) return false;
+      out.kind = GeometryKind::MultiPoint;
+      out.multipoint = r->coords;
+      return true;
+    }
+    case 120:
+    case 125: {
+      auto pts = resolve_curve_points(store, rcnm, rcid, reverse, 0);
+      if (pts.size() < 2) return false;
+      out.kind = GeometryKind::LineString;
+      out.line = std::move(pts);
+      return true;
+    }
+    case 130: {
+      const SpatialRecord* r = store.find(130, rcid);
+      if (!r) return false;
+      std::vector<Ring> exterior, interior;
+      for (const auto& part : r->parts) {
+        // XOR orientation: surface-part reverse combined with SpatialReference reverse.
+        const bool rev = part.reverse ^ reverse;
+        Ring ring;
+        ring.points = resolve_curve_points(store, part.rcnm, part.rcid, rev, 0);
+        if (ring.points.size() < 3) continue;
+        (part.usage == 2 ? interior : exterior).push_back(std::move(ring));
+      }
+      if (exterior.empty()) return false;
+      out.kind = GeometryKind::Polygon;
+      out.polygon = std::move(exterior);
+      for (auto& ring : interior) out.polygon.push_back(std::move(ring));
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+}  // namespace
+
+void resolve_spatial_references(const Dataset& ds, DrawingInstructions& instructions) {
+  for (auto& di : instructions) {
+    if (di.spatial_refs.empty()) continue;
+    di.geometries.clear();
+    di.geometries.reserve(di.spatial_refs.size());
+    for (const auto& token : di.spatial_refs) {
+      std::uint8_t rcnm = 0;
+      std::uint32_t rcid = 0;
+      bool reverse = false;
+      if (!parse_spatial_ref_token(token, rcnm, rcid, reverse)) continue;
+      Geometry g;
+      if (!resolve_one_spatial(ds.spatial, rcnm, rcid, reverse, g)) continue;
+      di.geometries.push_back(std::move(g));
+    }
+  }
+}
+
 bool portray(const Dataset& ds, const FeatureCatalogue& fc, const PortrayalCatalogue& pc,
              const PortrayalContext& ctx, DrawingInstructions& out, std::string* err,
              PortrayalStats* stats) {
   S101HostAdapter host(ds, fc);
-  return PortrayalEngine(pc).run(host, ctx, out, stats, err);
+  if (!PortrayalEngine(pc).run(host, ctx, out, stats, err)) return false;
+  resolve_spatial_references(ds, out);
+  return true;
 }
 
 bool portray(const CoverageDataset& cov, const FeatureCatalogue& fc, const PortrayalCatalogue& pc,

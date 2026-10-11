@@ -53,7 +53,7 @@ add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE
 add_executable(s100_portrayal_tests tests/test_portrayal.cpp)
 target_link_libraries(s100_portrayal_tests PRIVATE s100_core)
 target_compile_definitions(s100_portrayal_tests PRIVATE S100_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-foreach(c portrayal_all_cells host_functions_static host_missing_function safety_contour s102_engine drawing_instruction_parser)
+foreach(c portrayal_all_cells host_functions_static host_missing_function safety_contour s102_engine drawing_instruction_parser spatial_reference_resolve)
   add_test(NAME portrayal.${c} COMMAND s100_portrayal_tests ${c})
 endforeach()
 set_tests_properties(s100_tests PROPERTIES

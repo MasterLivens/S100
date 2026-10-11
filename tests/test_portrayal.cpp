@@ -345,6 +345,46 @@ void drawing_instruction_parser() {
   std::cout << "parser ok\n";
 }
 
+
+/** SpatialReference ids are resolved into DrawingInstruction::geometries by portray(). */
+void spatial_reference_resolve() {
+  s100::Dataset ds;
+  s100::LoadError le;
+  CHECK(s100::load_s101(kSrc / "testdata/s101/101AA00DS0008.000", ds, &le));
+  const auto& pc = pc_at(kS101Pc);
+  s100::DrawingInstructions di;
+  s100::PortrayalStats st;
+  std::string e;
+  auto ctx = s100::PortrayalContext::defaults(pc);
+  CHECK(s100::portray(ds, s101_fc(), pc, ctx, di, &e, &st));
+  std::size_t with_sr = 0, resolved = 0;
+  for (const auto& d : di) {
+    if (d.spatial_refs.empty()) {
+      CHECK(d.geometries.empty());
+      continue;
+    }
+    ++with_sr;
+    CHECK(!d.geometries.empty());
+    CHECK(d.geometries.size() == d.spatial_refs.size());
+    for (const auto& g : d.geometries) {
+      CHECK(g.kind == s100::GeometryKind::LineString);
+      CHECK(g.line.size() >= 2);
+    }
+    ++resolved;
+  }
+  CHECK(with_sr > 0);
+  CHECK(resolved == with_sr);
+  // Direct resolve of a known reverse token on CHS-style id.
+  s100::DrawingInstructions one;
+  s100::DrawingInstruction sample;
+  sample.spatial_refs = {"C2"};
+  one.push_back(sample);
+  s100::resolve_spatial_references(ds, one);
+  CHECK(one[0].geometries.size() == 1);
+  CHECK(one[0].geometries[0].kind == s100::GeometryKind::LineString);
+  std::cout << "spatial_reference_resolve: " << with_sr << " instructions clipped\n";
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -355,6 +395,7 @@ int main(int argc, char** argv) {
       {"safety_contour", safety_contour},
       {"s102_engine", s102_engine},
       {"drawing_instruction_parser", drawing_instruction_parser},
+      {"spatial_reference_resolve", spatial_reference_resolve},
   };
   if (argc < 2) {
     for (const auto& [n, f] : cases) f();

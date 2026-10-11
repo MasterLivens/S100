@@ -2,7 +2,7 @@
 
 | File | Cell | Notes |
 |------|------|-------|
-| `iho_0008.png` | `101AA00DS0008.000` | Official PC Day palette via DrawingInstructions + AreaFillReference symbolFill tiling. Soft compare in CTest `viewer_golden` (size + Day colour anchors + ≤2% pixel drift + no magenta). |
+| `iho_0008.png` | `101AA00DS0008.000` | Official PC Day palette via DrawingInstructions + AreaFillReference symbolFill tiling + SpatialReference clip (engine-resolved geometries). Soft compare in CTest `viewer_golden` (size + Day colour anchors + ≤2% pixel drift + no magenta). |
 
 CHS goldens stay local (test-licence data is gitignored). Byte-identical PNG hashes are not required — Qt font AA drifts between runs.
 

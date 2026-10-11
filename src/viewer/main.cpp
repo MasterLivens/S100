@@ -383,27 +383,27 @@ struct SymbolCache {
 };
 
 
-QPointF feature_anchor(const s100::Feature& f, const QRectF& r, double west, double south,
-                       double east, double north) {
-  switch (f.geometry.kind) {
+QPointF geometry_anchor(const s100::Geometry& g, const QRectF& r, double west, double south,
+                        double east, double north) {
+  switch (g.kind) {
     case s100::GeometryKind::Point:
-      return project(r, west, south, east, north, f.geometry.point.lon, f.geometry.point.lat);
+      return project(r, west, south, east, north, g.point.lon, g.point.lat);
     case s100::GeometryKind::MultiPoint:
-      if (!f.geometry.multipoint.empty()) {
-        const auto& p = f.geometry.multipoint.front();
+      if (!g.multipoint.empty()) {
+        const auto& p = g.multipoint.front();
         return project(r, west, south, east, north, p.lon, p.lat);
       }
       break;
     case s100::GeometryKind::LineString:
-      if (!f.geometry.line.empty()) {
-        const auto& p = f.geometry.line[f.geometry.line.size() / 2];
+      if (!g.line.empty()) {
+        const auto& p = g.line[g.line.size() / 2];
         return project(r, west, south, east, north, p.lon, p.lat);
       }
       break;
     case s100::GeometryKind::Polygon:
-      if (!f.geometry.polygon.empty() && !f.geometry.polygon.front().points.empty()) {
+      if (!g.polygon.empty() && !g.polygon.front().points.empty()) {
         double lon = 0, lat = 0;
-        const auto& pts = f.geometry.polygon.front().points;
+        const auto& pts = g.polygon.front().points;
         for (const auto& p : pts) {
           lon += p.lon;
           lat += p.lat;
@@ -417,6 +417,22 @@ QPointF feature_anchor(const s100::Feature& f, const QRectF& r, double west, dou
       break;
   }
   return QPointF();
+}
+
+/** Paint geometries for one instruction: engine-resolved SpatialReference geometries when
+ *  present; otherwise the feature's geometry. Viewer never walks Dataset::spatial. */
+std::vector<const s100::Geometry*> paint_geometries(const s100::DrawingInstruction& di,
+                                                    const s100::Feature& f) {
+  std::vector<const s100::Geometry*> out;
+  if (!di.geometries.empty()) {
+    out.reserve(di.geometries.size());
+    for (const auto& g : di.geometries) out.push_back(&g);
+    return out;
+  }
+  // SpatialReference present but unresolved → draw nothing (do not fall back to whole feature).
+  if (!di.spatial_refs.empty()) return out;
+  out.push_back(&f.geometry);
+  return out;
 }
 
 class MapWidget : public QWidget {
@@ -541,16 +557,22 @@ class MapWidget : public QWidget {
  private:
   void draw_area(QPainter& p, const QRectF& r, const s100::Feature& f,
                  const s100::DrawingInstruction& di) {
-    if (f.geometry.kind != s100::GeometryKind::Polygon) return;
+    const auto geoms = paint_geometries(di, f);
     QPainterPath path;
     path.setFillRule(Qt::OddEvenFill);
-    for (const auto& ring : f.geometry.polygon) {
-      QPolygonF poly;
-      for (const auto& pt : ring.points)
-        poly << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
-      path.addPolygon(poly);
-      path.closeSubpath();
+    const s100::Geometry* first_poly = nullptr;
+    for (const s100::Geometry* gp : geoms) {
+      if (gp->kind != s100::GeometryKind::Polygon) continue;
+      if (!first_poly) first_poly = gp;
+      for (const auto& ring : gp->polygon) {
+        QPolygonF poly;
+        for (const auto& pt : ring.points)
+          poly << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+        path.addPolygon(poly);
+        path.closeSubpath();
+      }
     }
+    if (path.isEmpty()) return;
 
     // ColorFill: solid token from Day palette.
     if (di.command == "ColorFill") {
@@ -579,8 +601,9 @@ class MapWidget : public QWidget {
     QPointF origin;
     if (af.area_crs == "LocalGeometry") {
       // Local: lattice origin at first vertex of the outer ring.
-      if (!f.geometry.polygon.empty() && !f.geometry.polygon.front().points.empty()) {
-        const auto& pt = f.geometry.polygon.front().points.front();
+      if (first_poly && !first_poly->polygon.empty() &&
+          !first_poly->polygon.front().points.empty()) {
+        const auto& pt = first_poly->polygon.front().points.front();
         origin = project(r, west_, south_, east_, north_, pt.lon, pt.lat);
       } else {
         origin = path.boundingRect().topLeft();
@@ -672,19 +695,21 @@ class MapWidget : public QWidget {
     p.setPen(pen);
     p.setBrush(Qt::NoBrush);
 
-    if (f.geometry.kind == s100::GeometryKind::LineString) {
-      QPolygonF line;
-      for (const auto& pt : f.geometry.line)
-        line << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
-      p.drawPolyline(line);
-    } else if (f.geometry.kind == s100::GeometryKind::Polygon) {
-      // Area boundary (common for LineInstruction on surface features).
-      for (const auto& ring : f.geometry.polygon) {
-        QPolygonF poly;
-        for (const auto& pt : ring.points)
-          poly << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
-        if (!poly.isEmpty()) poly << poly.front();
-        p.drawPolyline(poly);
+    for (const s100::Geometry* gp : paint_geometries(di, f)) {
+      if (gp->kind == s100::GeometryKind::LineString) {
+        QPolygonF line;
+        for (const auto& pt : gp->line)
+          line << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+        p.drawPolyline(line);
+      } else if (gp->kind == s100::GeometryKind::Polygon) {
+        // Area boundary (LineInstruction on a surface without SpatialReference clip).
+        for (const auto& ring : gp->polygon) {
+          QPolygonF poly;
+          for (const auto& pt : ring.points)
+            poly << project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+          if (!poly.isEmpty()) poly << poly.front();
+          p.drawPolyline(poly);
+        }
       }
     }
   }
@@ -714,13 +739,16 @@ class MapWidget : public QWidget {
       p.drawEllipse(QPointF(s.x() + ox, s.y() + oy), 2.0, 2.0);
     };
 
-    if (f.geometry.kind == s100::GeometryKind::Point) {
-      paint_one(project(r, west_, south_, east_, north_, f.geometry.point.lon, f.geometry.point.lat));
-    } else if (f.geometry.kind == s100::GeometryKind::MultiPoint) {
-      for (const auto& pt : f.geometry.multipoint)
-        paint_one(project(r, west_, south_, east_, north_, pt.lon, pt.lat));
-    } else {
-      paint_one(feature_anchor(f, r, west_, south_, east_, north_));
+    for (const s100::Geometry* gp : paint_geometries(di, f)) {
+      if (gp->kind == s100::GeometryKind::Point) {
+        paint_one(project(r, west_, south_, east_, north_, gp->point.lon, gp->point.lat));
+      } else if (gp->kind == s100::GeometryKind::MultiPoint) {
+        for (const auto& pt : gp->multipoint)
+          paint_one(project(r, west_, south_, east_, north_, pt.lon, pt.lat));
+      } else {
+        // Curve SpatialReference + LinePlacement: anchor at mid-point of the referenced curve.
+        paint_one(geometry_anchor(*gp, r, west_, south_, east_, north_));
+      }
     }
   }
 
@@ -746,7 +774,9 @@ class MapWidget : public QWidget {
     else if (di.text_style.halign == "End" || di.text_style.halign == "Right")
       align = (align & ~Qt::AlignHorizontal_Mask) | Qt::AlignRight;
 
-    const QPointF s = feature_anchor(f, r, west_, south_, east_, north_);
+    const auto geoms = paint_geometries(di, f);
+    if (geoms.empty()) return;
+    const QPointF s = geometry_anchor(*geoms.front(), r, west_, south_, east_, north_);
     const qreal ox = mm_to_px(this, di.offset_x);
     const qreal oy = -mm_to_px(this, di.offset_y);  // LocalOffset y up in portrayal CRS
     p.drawText(QRectF(s.x() + ox - 40, s.y() + oy - 12, 80, 24), align,

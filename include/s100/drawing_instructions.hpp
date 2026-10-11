@@ -1,4 +1,5 @@
 #pragma once
+#include "s100/types.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -71,8 +72,11 @@ struct DrawingInstruction {
   std::string area_placement;   // AreaPlacement raw parameters
 
   // Geometry state: SpatialReference ids restrict drawing to those spatials (empty = whole
-  // feature geometry). Augmented geometry is kept as its explicit commands (not re-derived).
+  // feature geometry). The engine resolves spatial_refs into `geometries` (see
+  // resolve_spatial_references); the viewer paints those when non-empty and never walks
+  // Dataset topology. Augmented geometry is kept as its explicit commands (not re-derived).
   std::vector<std::string> spatial_refs;
+  std::vector<Geometry> geometries;        // engine-resolved SpatialReference geometry
   std::vector<std::string> augmented;      // e.g. "AugmentedRay:GeographicCRS,45,PortrayalCRS,25"
 
   std::vector<std::string> time_state;     // Date / Time / DateTime / TimeValid in effect

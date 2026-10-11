@@ -44,6 +44,12 @@ bool portray(const Dataset& ds, const FeatureCatalogue& fc, const PortrayalCatal
              const PortrayalContext& ctx, DrawingInstructions& out, std::string* err = nullptr,
              PortrayalStats* stats = nullptr);
 
+/** Resolve DrawingInstruction::spatial_refs against Dataset::spatial into
+ *  DrawingInstruction::geometries (one Geometry per successfully resolved ref).
+ *  No-op when spatial_refs is empty. Called by portray(Dataset) after the Lua run so the
+ *  viewer never walks topology. */
+void resolve_spatial_references(const Dataset& ds, DrawingInstructions& instructions);
+
 /** S-102 entry: same engine and output type, coverage-backed host. */
 bool portray(const CoverageDataset& cov, const FeatureCatalogue& fc, const PortrayalCatalogue& pc,
              const PortrayalContext& ctx, DrawingInstructions& out, std::string* err = nullptr,

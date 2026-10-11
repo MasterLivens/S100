@@ -84,6 +84,9 @@ types, roles, associations (FC loader now uses pugixml). `LayerInfo`: `viewing_g
 viewing groups, scale min/max, line style definitions, text style, transforms, spatial references,
 augmented geometry (kept as explicit commands), time and alert state. `feature_id` is
 `std::uint64_t` as in the contract. Unknown commands: counted in `PortrayalStats::unparsed`.
+After the Lua run, `portray(Dataset)` calls `resolve_spatial_references` so each instruction's
+`spatial_refs` become concrete `geometries` (Point / MultiPoint / LineString / Polygon, including
+holes) from `Dataset::spatial`; the viewer paints those and does not walk topology.
 
 ## Errors
 
@@ -106,7 +109,7 @@ apply; meta stays off by default. Status bar shows feature count, instruction co
 | Kind | What is drawn |
 |------|----------------|
 | Area `ColorFill` | Polygon fill from colour token + transparency |
-| Area `AreaFillReference` / `SymbolFill` | PC `AreaFills/<ref>.xml` **symbolFill** only: stamp `Symbols/<symbol>.svg` on the v1/v2 mm lattice (y-up → screen y-down), clipped to feature rings with odd-even fill. `GlobalGeometry` anchors the lattice at lon/lat (0,0); `LocalGeometry` at the outer-ring first vertex. Colour tokens via the same Day palette SVG remapping as Point symbols (CSS inject + presentation attrs). |
+| Area `AreaFillReference` / `SymbolFill` | PC `AreaFills/<ref>.xml` **symbolFill** only: stamp `Symbols/<symbol>.svg` on the v1/v2 mm lattice (y-up → screen y-down), clipped to instruction/feature rings with odd-even fill. `GlobalGeometry` anchors the lattice at lon/lat (0,0); `LocalGeometry` at the outer-ring first vertex. Colour tokens via the same Day palette SVG remapping as Point symbols (CSS inject + presentation attrs). |
 | Line `_simple_` | Width / colour / dash from inline `LineStyleDef` |
 | Line named style | Colour + width from `LineStyles/<ref>.xml` (dashes simplified) |
 | Point | PC `Symbols/<symbol_ref>.svg` via `QSvgRenderer` (Qt6::Svg). External CSS class tokens (`fCHBLK` / `sSNDG1` / …) remapped through the loaded Day colour profile into an embedded `<style>` **and** promoted to `fill=`/`stroke=` presentation attributes (Qt Svg Tiny does not apply stroke-via-CSS-class); renderers cached by `symbol_ref`. Scale: SVG user unit = mm × `scale_factor` × DPI; `LocalOffset` + `rotation` applied; pivot `(0,0)`. Missing file → tiny `CHBLK` dot |
@@ -120,7 +123,17 @@ S-101 PC 2.0.0 `AreaFills/` contains only `af:symbolFill` (25 files). Viewer loa
 `pixmapFill` / `hatchFill` AreaFills XML. Inline `SymbolFill` with the same named-ref payload as
 `AreaFillReference` is accepted.
 
-Not yet (architect priority after AreaFillReference): SpatialReference clipping, dusk/night
-palettes (CSS files exist; viewer still Day-only), augmented geometry, CoverageFill. Sounding digit
-composites are real SVG symbols now (each digit/`SOUNDG*` file); composite placement still follows
-whatever PointInstructions the rules emit.
+### SpatialReference clipping
+
+When a drawing instruction carries `SpatialReference` id(s) (`P|M|C|K|S` + RCID, optional
+`,reverse`), the engine resolves them against `Dataset::spatial` into `DrawingInstruction::geometries`
+(one entry per ref: curve → LineString, surface → Polygon with exterior/interior rings for odd-even
+holes, point/multipoint as-is; composite curves expanded). The viewer paints only those geometries
+(ColorFill / AreaFillReference / Line / Point / Text). If `spatial_refs` is empty, behaviour is
+unchanged (feature geometry). Unresolved refs yield an empty `geometries` list and nothing is drawn
+for that instruction (no fall-back to the whole feature).
+
+Not yet (architect priority after SpatialReference): dusk/night palettes (CSS files exist; viewer
+still Day-only), augmented geometry, CoverageFill. Sounding digit composites are real SVG symbols
+now (each digit/`SOUNDG*` file); composite placement still follows whatever PointInstructions the
+rules emit.
