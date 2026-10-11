@@ -118,11 +118,11 @@ Details: `docs/s124-contract.md`.
 
 ## Catalogues (FC/PC)
 
-- S-101/S-102 pinned as today; S-104/S-111/S-124 MUST ship
-  `catalogues/S-10X/S-10X_FC_2.0.0.xml` + `PC_2.0.0/portrayal_catalogue.xml`
-  with SOURCE sha + edition pairing (`docs/catalogue-complete-contract.md`).
-- CTest `catalogue_provenance` (`tests/check_catalogues.cmake`): missing file / sha / edition mismatch → **FATAL**, no SKIP.
-- Wiring loaders to new PC is follow-up (WARN); presence on disk is MUST.
+- S-101/S-102 pinned as today.
+- S-111/S-124 MUST ship `S-10X_FC_2.0.0.xml` + `PC_2.0.0/portrayal_catalogue.xml` (sha + FC/PC edition pair).
+- S-104 MUST ship **FC only** (`S-104_FC_2.0.0.xml`); official PC is **N/A** for Ed.2.0.0 — never forge; provenance skips PC pairing for S-104.
+- Details: `docs/catalogue-complete-contract.md`. CTest `catalogue_provenance`: required-file/sha/pair failures → **FATAL** (S-104 PC checks N/A).
+- Wiring loaders to S-111/S-124 PC is follow-up (WARN).
 
 ## Stability
 
