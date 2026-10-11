@@ -48,3 +48,5 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 1. 现有 Reuse 行：在测试名或 `docs/testing/hooks-ctest.md` 里挂上 Case ID，零改计划。  
 2. Backlog：等当前 S-102 刀次签收后再开，一次只捞与当前模块相关的 1–2 个 ID。  
 3. 准推规则不变：新 Case 进 `main` 仍由 SoftwareTester 放行。
+
+| `IHO-S124-OPEN-LIST` | S-124 first slice | GML open≥2 NW；列表；叠图一帧 | `s124_open_list` | Next |

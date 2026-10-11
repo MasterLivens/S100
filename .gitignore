@@ -23,3 +23,9 @@ testdata/s104/*.h5
 # S-111 HDF5 samples
 testdata/s111/*.h5
 !testdata/s111/synthetic_current_4326.h5
+
+# S-124 GML samples
+testdata/s124/*
+!testdata/s124/SOURCE.md
+!testdata/s124/synthetic_navwarning.gml
+!testdata/s124/synthetic_navwarning.xml

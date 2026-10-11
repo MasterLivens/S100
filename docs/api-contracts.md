@@ -6,7 +6,7 @@ Owner: SoftwareArchitecture. Implement: SoftwareEngineer. Test: SoftwareTester.
 
 - `bool open_dataset(path, Dataset&, LoadError*)` — only public load entry for apps/tests.
 - `bool load_s101(...)` — S-101 helper; prefer `open_dataset` in new code.
-- S-102 HDF5 → `Dataset::coverage`. S-104 HDF5 → `Dataset::water_level`. S-111 HDF5 → `Dataset::current` (see S-111 section). GML still `Parse` until its loader lands.
+- S-102 → `coverage`; S-104 → `water_level`; S-111 → `current`; S-124 GML → `nav_warnings` (see S-124 section). Other GML still `Parse` until loaders land.
 
 ## Dataset (vector / S-101)
 
@@ -103,6 +103,15 @@ Details: `docs/s111-contract.md`.
 - Wrong HDF5 product must not fill `Dataset::current` (`LoadError`).
 - `ChartSession` key `S-111:<stem>`; CLI `--s111` / `--s111-frame` / `--s111-time`.
 - CI fixture `testdata/s111/synthetic_current_4326.h5` (oracle in SOURCE.md); CTest `s111_open_frame` MUST not SKIP.
+
+## S-124 (navigational warnings — first slice)
+
+Details: `docs/s124-contract.md`.
+
+- `open_dataset` on S-124 GML fills `Dataset::nav_warnings` (`NavWarningDataset`).
+- List via `warnings[]`; overlay portray geometries + title text (one frame = all warnings).
+- `ChartSession` key `S-124:<stem>`; wrong product → `LoadError`.
+- CI fixture `testdata/s124/synthetic_navwarning.gml`; CTest `s124_open_list` MUST not SKIP.
 
 ## Stability
 
