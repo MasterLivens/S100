@@ -54,7 +54,8 @@ struct CoverageGrid {
     return b;
   }
 
-  /** Nearest-neighbour sample in WGS84. Only when horizontal_crs == 4326. */
+  /** Nearest-neighbour sample from WGS84 lon/lat. EPSG:4326 uses lon/lat grid axes;
+   *  EPSG:326xx/327xx (UTM) are converted internally; other projected EPSG return false. */
   bool sample_wgs84(double lon, double lat, CoverageSample& out) const;
   bool sample_cell(std::size_t row, std::size_t col, CoverageSample& out) const;
   bool is_fill_depth(float v) const;

@@ -196,12 +196,68 @@ bool CoverageGrid::sample_cell(std::size_t row, std::size_t col, CoverageSample&
   return out.has_depth;
 }
 
+
+namespace {
+
+/** WGS84 geographic → projected easting/northing for UTM EPSG:326xx (N) / 327xx (S). */
+bool wgs84_to_utm_epsg(int epsg, double lon_deg, double lat_deg, double* x, double* y) {
+  const bool north = epsg >= 32601 && epsg <= 32660;
+  const bool south = epsg >= 32701 && epsg <= 32760;
+  if (!north && !south) return false;
+  if (!x || !y) return false;
+  if (lat_deg < -80.0 || lat_deg > 84.0) return false;
+  const int zone = north ? (epsg - 32600) : (epsg - 32700);
+  constexpr double a = 6378137.0;
+  constexpr double f = 1.0 / 298.257223563;
+  constexpr double k0 = 0.9996;
+  const double e2 = f * (2.0 - f);
+  const double ep2 = e2 / (1.0 - e2);
+  const double lon0 = (zone * 6 - 183) * (3.14159265358979323846 / 180.0);
+  const double lat = lat_deg * (3.14159265358979323846 / 180.0);
+  const double lon = lon_deg * (3.14159265358979323846 / 180.0);
+  const double sin_lat = std::sin(lat);
+  const double cos_lat = std::cos(lat);
+  const double tan_lat = std::tan(lat);
+  const double N = a / std::sqrt(1.0 - e2 * sin_lat * sin_lat);
+  const double T = tan_lat * tan_lat;
+  const double C = ep2 * cos_lat * cos_lat;
+  const double A = cos_lat * (lon - lon0);
+  const double M =
+      a *
+      ((1.0 - e2 / 4.0 - 3.0 * e2 * e2 / 64.0 - 5.0 * e2 * e2 * e2 / 256.0) * lat -
+       (3.0 * e2 / 8.0 + 3.0 * e2 * e2 / 32.0 + 45.0 * e2 * e2 * e2 / 1024.0) * std::sin(2.0 * lat) +
+       (15.0 * e2 * e2 / 256.0 + 45.0 * e2 * e2 * e2 / 1024.0) * std::sin(4.0 * lat) -
+       (35.0 * e2 * e2 * e2 / 3072.0) * std::sin(6.0 * lat));
+  *x = k0 * N *
+           (A + (1.0 - T + C) * A * A * A / 6.0 +
+            (5.0 - 18.0 * T + T * T + 72.0 * C - 58.0 * ep2) * A * A * A * A * A / 120.0) +
+       500000.0;
+  *y = k0 *
+       (M + N * tan_lat *
+                (A * A / 2.0 + (5.0 - T + 9.0 * C + 4.0 * C * C) * A * A * A * A / 24.0 +
+                 (61.0 - 58.0 * T + T * T + 600.0 * C - 330.0 * ep2) * A * A * A * A * A * A / 720.0));
+  if (south) *y += 10000000.0;
+  return true;
+}
+
+bool wgs84_to_grid_xy(int horizontal_crs, double lon, double lat, double* x, double* y) {
+  if (horizontal_crs == 4326) {
+    *x = lon;
+    *y = lat;
+    return true;
+  }
+  return wgs84_to_utm_epsg(horizontal_crs, lon, lat, x, y);
+}
+
+}  // namespace
+
 bool CoverageGrid::sample_wgs84(double lon, double lat, CoverageSample& out) const {
   out = {};
-  if (horizontal_crs != 4326) return false;  // projected grids need a CRS transform (open question)
   if (ncols == 0 || nrows == 0 || spacing_x == 0.0 || spacing_y == 0.0) return false;
-  const double col_f = (lon - origin_x) / spacing_x;
-  const double row_f = (lat - origin_y) / spacing_y;
+  double x = 0, y = 0;
+  if (!wgs84_to_grid_xy(horizontal_crs, lon, lat, &x, &y)) return false;
+  const double col_f = (x - origin_x) / spacing_x;
+  const double row_f = (y - origin_y) / spacing_y;
   if (col_f < -0.5 || row_f < -0.5 || col_f >= static_cast<double>(ncols) - 0.5 ||
       row_f >= static_cast<double>(nrows) - 0.5)
     return false;

@@ -97,21 +97,42 @@ void test_s102_open_bounds_sample_portray() {
     }
     CHECK(found);
   } else {
+    // Projected UTM (e.g. NOAA EPSG:32609): sample_wgs84 converts lon/lat internally.
     s100::CoverageSample sm;
     bool found = false;
+    std::size_t fr = 0, fc = 0;
     for (std::size_t i = 0; i < ds.coverage->grid.depth.size(); ++i) {
       const std::size_t r = i / ds.coverage->grid.ncols;
       const std::size_t c = i % ds.coverage->grid.ncols;
       if (ds.coverage->grid.sample_cell(r, c, sm)) {
         found = true;
+        fr = r;
+        fc = c;
         break;
       }
     }
     CHECK(found);
+    const double east =
+        ds.coverage->grid.origin_x + static_cast<double>(fc) * ds.coverage->grid.spacing_x;
+    const double north =
+        ds.coverage->grid.origin_y + static_cast<double>(fr) * ds.coverage->grid.spacing_y;
+    // Pick a WGS84 point inside the geographic envelope and require a depth hit.
+    s100::CoverageSample sm2;
+    bool wh = false;
+    const int steps = 40;
+    for (int i = 0; i <= steps && !wh; ++i) {
+      const double lon = b.west + (b.east - b.west) * (static_cast<double>(i) / steps);
+      for (int j = 0; j <= steps && !wh; ++j) {
+        const double lat = b.south + (b.north - b.south) * (static_cast<double>(j) / steps);
+        if (ds.coverage->grid.sample_wgs84(lon, lat, sm2) && sm2.has_depth) wh = true;
+      }
+    }
+    CHECK(wh);
     s100::CoverageSample reject;
-    CHECK(!ds.coverage->grid.sample_wgs84(b.west + 0.001, b.south + 0.001, reject));
+    CHECK(!ds.coverage->grid.sample_wgs84(b.west - 1.0, b.south - 1.0, reject));
     std::cout << "S-102 projected CRS " << ds.coverage->grid.horizontal_crs
-              << " cell sample depth=" << sm.depth << " (wgs84 sample skipped)\n";
+              << " cell=(" << fr << "," << fc << ") easting=" << east << " northing=" << north
+              << " wgs84 sample depth=" << sm2.depth << "\n";
   }
 
   // CoverageFill via the same DrawingInstructions pipeline as S-101.
@@ -210,8 +231,47 @@ void test_s102_session_overlay() {
   std::cout << "CHS exchange S-102 member " << s102_key << " loaded\n";
 }
 
+
+void test_s102_utm_sample_wgs84() {
+  const fs::path src = S100_SOURCE_DIR;
+  const fs::path noaa = src / "testdata/s102/102US004AK5HQ262267.h5";
+  if (!fs::exists(noaa)) {
+    std::cerr << "skip s102 UTM sample_wgs84: no NOAA fixture\n";
+    return;
+  }
+  s100::LoadError err;
+  s100::Dataset ds;
+  CHECK(s100::open_dataset(noaa, ds, &err));
+  CHECK(ds.coverage.has_value());
+  CHECK(ds.coverage->grid.horizontal_crs == 32609);
+  const auto b = ds.bounds();
+  CHECK(b.valid);
+  // Geographic envelope can include fill cells; scan for a WGS84 hit with depth.
+  s100::CoverageSample sm;
+  bool hit = false;
+  double hit_lon = 0, hit_lat = 0;
+  const int steps = 40;
+  for (int i = 0; i <= steps && !hit; ++i) {
+    const double lon = b.west + (b.east - b.west) * (static_cast<double>(i) / steps);
+    for (int j = 0; j <= steps && !hit; ++j) {
+      const double lat = b.south + (b.north - b.south) * (static_cast<double>(j) / steps);
+      if (ds.coverage->grid.sample_wgs84(lon, lat, sm) && sm.has_depth) {
+        hit = true;
+        hit_lon = lon;
+        hit_lat = lat;
+      }
+    }
+  }
+  CHECK(hit);
+  s100::CoverageSample reject;
+  CHECK(!ds.coverage->grid.sample_wgs84(b.west - 2.0, b.south - 2.0, reject));
+  std::cout << "S-102 UTM sample_wgs84 EPSG:32609 lon=" << hit_lon << " lat=" << hit_lat
+            << " depth=" << sm.depth << "\n";
+}
+
 void run_s102_tests() {
   test_s102_fc_and_pc_pair();
   test_s102_open_bounds_sample_portray();
+  test_s102_utm_sample_wgs84();
   test_s102_session_overlay();
 }
