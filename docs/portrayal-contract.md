@@ -33,6 +33,8 @@ PortrayalCatalogue + Context ──► PortrayalEngine (embedded Lua, official m
 5. **Context parameters belong to the session** (mariner settings: SafetyContour, SafetyDepth, ShallowContour, DeepContour, FourShades, SimplifiedSymbols, PlainBoundaries, …), defaults from the PC. Changing one re-runs portrayal; cache key = (dataset, PC version, context hash).
 6. **Layers get display info from portrayal**, not new keys: after a run, fill `LayerInfo` with viewing group, display plane, drawing priority (as reserved in `api-contracts.md`).
 
+7. **Host function registry, per product.** Each product's host adapter registers its `Host*` functions in one registry (name → implementation) exposed for tests; the target list is `docs/testing/host-functions.txt`. Name variants share one implementation as aliases (e.g. `HostFeatureTypeGetCode` = `HostFeatureGetCode` for S-102). S-101 registry is backed by the feature list; S-102 by coverage data — same interface, separate registrations.
+
 ## DrawingInstructions (shape, Eng may refine field names)
 
 ```cpp
