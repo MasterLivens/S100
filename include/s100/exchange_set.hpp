@@ -16,6 +16,8 @@ struct ExchangeDatasetEntry {
   std::string file_name;
   int edition_number{0};
   int update_number{0};
+  bool has_edition_meta{false};  // true when CATALOG.XML had editionNumber
+  bool has_update_meta{false};   // true when CATALOG.XML had updateNumber
   std::string purpose;
   std::string description;
   Bounds coverage;
@@ -35,14 +37,20 @@ bool parse_exchange_catalogue(const std::filesystem::path& path, ExchangeCatalog
 
 struct ExchangeCellSeries {
   ProductId product{ProductId::Unknown};
-  std::string cell_name;
+  std::string cell_name;  // dataset identity (file stem / DSID DSNM stem)
   std::filesystem::path base;
-  std::vector<std::filesystem::path> updates;
+  std::vector<std::filesystem::path> updates;  // ordered by catalogue ED/UPD when present
+  /** Catalogue ED/UPD for each path in updates (same size); has_* false if omitted in XML. */
+  std::vector<ExchangeDatasetEntry> update_entries;
+  ExchangeDatasetEntry base_entry{};
   int edition_number{0};
   int latest_update_number{0};
   Bounds coverage;
   std::string description;
 };
+
+/** ChartSession member key: ProductId name + dataset identity (no parallel product maps). */
+std::string exchange_member_key(ProductId product, const std::string& dataset_identity);
 
 std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat);
 std::vector<std::filesystem::path> discover_update_files(const std::filesystem::path& base_000);

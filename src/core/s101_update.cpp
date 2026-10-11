@@ -320,6 +320,23 @@ std::uint8_t ruin_from_id(const std::vector<std::uint8_t>& b, bool has_type_code
 }  // namespace
 
 bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, LoadError* err) {
+  DatasetIdentification upd_id;
+  if (!read_s101_dsid(update_path, upd_id, err)) return false;
+  // Sequence must match Dataset DSID: same edition, update == current + 1.
+  if (upd_id.edition_number != ds.edition_number ||
+      upd_id.update_number != ds.update_number + 1) {
+    if (err) {
+      err->kind = LoadErrorKind::Invalid;
+      err->message =
+          "update DSID ED/UPD mismatch for " + update_path.string() + ": got " +
+          std::to_string(upd_id.edition_number) + "." + std::to_string(upd_id.update_number) +
+          ", expected " + std::to_string(ds.edition_number) + "." +
+          std::to_string(ds.update_number + 1) + " (dataset at " +
+          std::to_string(ds.edition_number) + "." + std::to_string(ds.update_number) + ")";
+    }
+    return false;
+  }
+
   std::ifstream in(update_path, std::ios::binary);
   if (!in) {
     if (err) {
@@ -451,6 +468,8 @@ bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, Lo
             target->feature_type = patch.feature_type;
           if (rec.find("ATTR")) apply_atin(target->attributes, patch.attributes);
           if (auto* spas = rec.find("SPAS")) apply_spas_sau(target->spatial, spas->data);
+          // MVP stub (exchange-set.md): whole-list replace when FASC/INAS present.
+          // Element-level FAUI/IUIN merge required before Bridge / Track B.
           if (rec.find("FASC"))
             target->feature_associations = std::move(patch.feature_associations);
           if (rec.find("INAS"))
@@ -461,18 +480,59 @@ bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, Lo
   }
 
   rebuild_feature_geometries(ds);
+  ds.edition_number = upd_id.edition_number;
+  ds.update_number = upd_id.update_number;
+  if (!upd_id.dataset_name.empty()) ds.dataset_name = upd_id.dataset_name;
   return true;
 }
 
 bool open_dataset_with_updates(const std::filesystem::path& base,
                                const std::vector<std::filesystem::path>& updates, Dataset& out,
                                LoadError* err) {
-  if (!load_s101(base, out, err)) return false;
+  // Build on a temporary Dataset so a mid-sequence failure does not partially apply into out.
+  Dataset tmp;
+  if (!load_s101(base, tmp, err)) return false;
+
+  struct Item {
+    std::filesystem::path path;
+    int edition{0};
+    int update{0};
+  };
+  std::vector<Item> items;
+  items.reserve(updates.size());
   for (const auto& u : updates) {
-    if (!apply_s101_update(out, u, err)) return false;
+    DatasetIdentification id;
+    if (!read_s101_dsid(u, id, err)) return false;
+    items.push_back(Item{u, id.edition_number, id.update_number});
   }
-  out.path = base;
-  out.product = ProductId::S101;
+  // Order by DSID ED/UPD — do not rely on filename / extension sort alone.
+  std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
+    if (a.edition != b.edition) return a.edition < b.edition;
+    return a.update < b.update;
+  });
+
+  int expect_ed = tmp.edition_number;
+  int expect_upd = tmp.update_number + 1;
+  for (const auto& it : items) {
+    if (it.edition != expect_ed || it.update != expect_upd) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message =
+            "update sequence ED/UPD mismatch for " + it.path.string() + ": got " +
+            std::to_string(it.edition) + "." + std::to_string(it.update) + ", expected " +
+            std::to_string(expect_ed) + "." + std::to_string(expect_upd);
+      }
+      return false;
+    }
+    ++expect_upd;
+  }
+
+  for (const auto& it : items) {
+    if (!apply_s101_update(tmp, it.path, err)) return false;
+  }
+  tmp.path = base;
+  tmp.product = ProductId::S101;
+  out = std::move(tmp);
   return !out.features.empty();
 }
 

@@ -71,11 +71,11 @@ Rules:
 
 Parallel to `open_dataset` — do not overload the single-file entry. Details: `docs/exchange-set.md`.
 
-- `parse_exchange_catalogue(path, ExchangeCatalogue&, LoadError*)` — `CATALOG.XML` or catalogue root directory.
-- `group_cell_series(cat)` → `ExchangeCellSeries` (base `.000` + ordered `.001`…).
-- `open_dataset_with_updates(base, updates, Dataset&, LoadError*)` / `open_cell_series(...)`.
-- `ChartSession`: `open_exchange_set` → `member_keys` / `load_member` / `load_all_members` / `find`.
-- Coverage products listed in the catalogue are not loaded yet; session is Dataset-keyed for multi-cell S-101 first.
+- `open_dataset` rejects lone `.001`… (`LoadErrorKind::Invalid`); use `open_dataset_with_updates` / `ChartSession`.
+- Updates apply in DSID ED/UPD order (catalogue metadata validated when present); mismatch → `LoadError`, no partial apply.
+- `ChartSession` is shared across products; member key = `ProductId` + dataset identity (`S-101:cellStem`).
+- FASC/INAS FAUI/IUIN element merge remains stub (whole-list replace) until Bridge / Track B.
+- Coverage products listed in the catalogue are not loaded yet; one Dataset map for all products.
 
 ## Stability
 

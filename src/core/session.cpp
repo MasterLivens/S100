@@ -12,14 +12,14 @@ bool ChartSession::open_exchange_set(const std::filesystem::path& path, LoadErro
 std::vector<std::string> ChartSession::member_keys() const {
   std::vector<std::string> keys;
   keys.reserve(series_.size());
-  for (const auto& s : series_) keys.push_back(s.cell_name);
+  for (const auto& s : series_) keys.push_back(exchange_member_key(s.product, s.cell_name));
   return keys;
 }
 
 bool ChartSession::load_member(const std::string& key, LoadError* err) {
   const ExchangeCellSeries* found = nullptr;
   for (const auto& s : series_) {
-    if (s.cell_name == key) {
+    if (exchange_member_key(s.product, s.cell_name) == key || s.cell_name == key) {
       found = &s;
       break;
     }
@@ -33,7 +33,7 @@ bool ChartSession::load_member(const std::string& key, LoadError* err) {
   }
   Dataset ds;
   if (!open_cell_series(*found, ds, err)) return false;
-  datasets_[key] = std::move(ds);
+  datasets_[exchange_member_key(found->product, found->cell_name)] = std::move(ds);
   return true;
 }
 
@@ -42,7 +42,7 @@ std::size_t ChartSession::load_all_members(LoadError* first_err) {
   bool captured = false;
   for (const auto& s : series_) {
     LoadError err;
-    if (load_member(s.cell_name, &err)) {
+    if (load_member(exchange_member_key(s.product, s.cell_name), &err)) {
       ++ok;
     } else if (first_err && !captured) {
       *first_err = err;
@@ -54,12 +54,26 @@ std::size_t ChartSession::load_all_members(LoadError* first_err) {
 
 Dataset* ChartSession::find(const std::string& key) {
   auto it = datasets_.find(key);
-  return it == datasets_.end() ? nullptr : &it->second;
+  if (it != datasets_.end()) return &it->second;
+  for (const auto& s : series_) {
+    if (s.cell_name == key) {
+      auto it2 = datasets_.find(exchange_member_key(s.product, s.cell_name));
+      return it2 == datasets_.end() ? nullptr : &it2->second;
+    }
+  }
+  return nullptr;
 }
 
 const Dataset* ChartSession::find(const std::string& key) const {
   auto it = datasets_.find(key);
-  return it == datasets_.end() ? nullptr : &it->second;
+  if (it != datasets_.end()) return &it->second;
+  for (const auto& s : series_) {
+    if (s.cell_name == key) {
+      auto it2 = datasets_.find(exchange_member_key(s.product, s.cell_name));
+      return it2 == datasets_.end() ? nullptr : &it2->second;
+    }
+  }
+  return nullptr;
 }
 
 void ChartSession::clear() {

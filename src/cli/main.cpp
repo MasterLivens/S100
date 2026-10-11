@@ -14,8 +14,9 @@
 static const char* kUsage =
     "usage: s100_cli <file.000> [--fc <FC.xml>] [--layers]\n"
     "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
-    "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <cell>|--load-all]\n"
-    "                [--fc <FC.xml>] [--layers]\n";
+    "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
+    "                [--fc <FC.xml>] [--layers]\n"
+    "  note: lone .001 updates are rejected; use exchange set / with_updates\n";
 
 static long long ms_since(std::chrono::steady_clock::time_point t0) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0)
@@ -130,7 +131,8 @@ static int run_exchange_set(const std::filesystem::path& path, const std::filesy
             << " cells=" << session.member_keys().size() << " ms=" << ms_since(t0) << "\n";
 
   for (const auto& s : session.series()) {
-    std::cout << "  " << s.cell_name << " product=" << s100::product_name(s.product)
+    std::cout << "  " << s100::exchange_member_key(s.product, s.cell_name)
+              << " product=" << s100::product_name(s.product)
               << " ed=" << s.edition_number << " upd=" << s.latest_update_number
               << " updates=" << s.updates.size();
     if (s.coverage.valid)

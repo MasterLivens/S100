@@ -41,11 +41,21 @@ bool load_s101(const std::filesystem::path& path, Dataset& out, LoadError* err) 
 
 bool open_dataset(const std::filesystem::path& path, Dataset& out, LoadError* err) {
   const auto ext = path.extension().string();
-  // S-101 cells commonly use .000 / .001 ...
+  // S-101 ISO 8211: base .000 only. Lone updates (.001…) must use open_dataset_with_updates.
   if (ext.size() == 4 && ext[0] == '.' &&
       ext[1] >= '0' && ext[1] <= '9' &&
       ext[2] >= '0' && ext[2] <= '9' &&
       ext[3] >= '0' && ext[3] <= '9') {
+    const int n = (ext[1] - '0') * 100 + (ext[2] - '0') * 10 + (ext[3] - '0');
+    if (n != 0) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message =
+            "open_dataset rejects update file " + path.string() +
+            "; use open_dataset_with_updates (or open_cell_series / ChartSession)";
+      }
+      return false;
+    }
     return load_s101(path, out, err);
   }
   // HDF5 bathymetry / water level / currents — reserved (P1/P2)

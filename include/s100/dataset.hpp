@@ -44,6 +44,10 @@ struct SpatialStore {
 struct Dataset {
   ProductId product{ProductId::Unknown};
   std::filesystem::path path;
+  /** DSID DSED edition.update — required for update sequencing (exchange-set.md). */
+  int edition_number{0};
+  int update_number{0};
+  std::string dataset_name;  // DSID DSNM (file name in the cell)
   std::vector<Feature> features;
   LayerSet layers;
   std::vector<InformationRecord> information;  // IRID records
@@ -60,11 +64,24 @@ struct LoadError {
   std::string message;
 };
 
-/** Load an S-101 cell (.000). On failure returns empty optional and fills err. */
+/** Parsed DSID DSED / DSNM from an S-101 ISO 8211 cell or update. */
+struct DatasetIdentification {
+  int edition_number{0};
+  int update_number{0};
+  std::string dataset_name;
+  bool ok{false};
+};
+
+/** Read DSID edition/update/name from a cell or update file. */
+bool read_s101_dsid(const std::filesystem::path& path, DatasetIdentification& out,
+                    LoadError* err = nullptr);
+
+/** Load an S-101 base cell (.000). Fills Dataset DSID edition/update. */
 bool load_s101(const std::filesystem::path& path, Dataset& out, LoadError* err = nullptr);
 
-/** Product-aware entry: dispatches by extension/header. P0: S-101 .000 only;
- *  S-102/S-104/S-111 HDF5 and S-124 GML return Parse until those loaders land. */
+/** Product-aware entry for base cells / non-update products.
+ *  Lone S-101 updates (.001…) are rejected (LoadErrorKind::Invalid) — use
+ *  open_dataset_with_updates / ChartSession. HDF5/GML still return Parse until loaders land. */
 bool open_dataset(const std::filesystem::path& path, Dataset& out, LoadError* err = nullptr);
 
 }  // namespace s100

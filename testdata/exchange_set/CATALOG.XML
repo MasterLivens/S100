@@ -11,7 +11,7 @@
       <S100XC:fileName>file:/../s101/101AA00DS0008.000</S100XC:fileName>
       <S100XC:description><gco:CharacterString>IHO 0008</gco:CharacterString></S100XC:description>
       <S100XC:purpose>newEdition</S100XC:purpose>
-      <S100XC:editionNumber>1</S100XC:editionNumber>
+      <S100XC:editionNumber>8</S100XC:editionNumber>
       <S100XC:updateNumber>0</S100XC:updateNumber>
       <S100XC:boundingBox>
         <gex:westBoundLongitude><gco:Decimal>-0.1</gco:Decimal></gex:westBoundLongitude>
@@ -29,7 +29,7 @@
       <S100XC:fileName>file:/../s101/101AA00DS0003.000</S100XC:fileName>
       <S100XC:description><gco:CharacterString>IHO 0003</gco:CharacterString></S100XC:description>
       <S100XC:purpose>newEdition</S100XC:purpose>
-      <S100XC:editionNumber>1</S100XC:editionNumber>
+      <S100XC:editionNumber>9</S100XC:editionNumber>
       <S100XC:updateNumber>0</S100XC:updateNumber>
       <S100XC:productSpecification>
         <S100XC:productIdentifier>S-101</S100XC:productIdentifier>

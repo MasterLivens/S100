@@ -216,6 +216,46 @@ SpatialKey spas_target_key(const std::vector<std::uint8_t>& b) {
   return key_from_name_id(b);
 }
 
+
+DatasetIdentification parse_dsid_field(const std::vector<std::uint8_t>& d) {
+  DatasetIdentification id;
+  if (d.size() < 6) return id;
+  // RCNM(b11) RCID(b14) + 7 UT (ENSP..DSTL) + DSRD A(8) + DSLG/DSAB/DSED (+ *DSTC)
+  std::size_t i = 5;
+  auto read_ut = [&](std::string& out) -> bool {
+    const std::size_t start = i;
+    while (i < d.size() && d[i] != 0x1f) ++i;
+    out.assign(reinterpret_cast<const char*>(d.data() + start), i - start);
+    if (i < d.size() && d[i] == 0x1f) {
+      ++i;
+      return true;
+    }
+    return i > start || i >= d.size();
+  };
+  std::string skip;
+  for (int n = 0; n < 5; ++n) {
+    if (!read_ut(skip)) return id;
+  }
+  if (!read_ut(id.dataset_name)) return id;  // DSNM
+  if (!read_ut(skip)) return id;            // DSTL
+  if (i + 8 > d.size()) return id;
+  i += 8;  // DSRD A(8)
+  std::string dslg, dsab, dsed;
+  if (!read_ut(dslg)) return id;
+  if (!read_ut(dsab)) return id;
+  if (!read_ut(dsed)) return id;
+  const auto dot = dsed.find('.');
+  if (dot == std::string::npos) return id;
+  try {
+    id.edition_number = std::stoi(dsed.substr(0, dot));
+    id.update_number = std::stoi(dsed.substr(dot + 1));
+  } catch (...) {
+    return id;
+  }
+  id.ok = true;
+  return id;
+}
+
 }  // namespace
 
 const Iso8211Field* Iso8211Record::find(const char* tag) const {
@@ -434,6 +474,18 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
   out = Dataset{};
   out.path = path;
   out.product = ProductId::S101;
+  for (const auto& rec : records) {
+    if (rec.leader_id != 'D') continue;
+    if (auto* f = rec.find("DSID")) {
+      const auto id = parse_dsid_field(f->data);
+      if (id.ok) {
+        out.edition_number = id.edition_number;
+        out.update_number = id.update_number;
+        out.dataset_name = id.dataset_name;
+      }
+      break;
+    }
+  }
 
   // Keep topology + information records for the portrayal host (Part 13 spatial access).
   auto inas_of = [&](const Iso8211Record& rec) {
@@ -571,6 +623,41 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
     return false;
   }
   return true;
+}
+
+
+bool read_s101_dsid(const std::filesystem::path& path, DatasetIdentification& out, LoadError* err) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in) {
+    if (err) {
+      err->kind = LoadErrorKind::Io;
+      err->message = "cannot open for DSID: " + path.string();
+    }
+    return false;
+  }
+  std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)),
+                                  std::istreambuf_iterator<char>());
+  std::vector<Iso8211Record> records;
+  if (!parse_iso8211_records(bytes, records, err)) return false;
+  for (const auto& rec : records) {
+    if (rec.leader_id != 'D') continue;
+    if (auto* f = rec.find("DSID")) {
+      out = parse_dsid_field(f->data);
+      if (!out.ok) {
+        if (err) {
+          err->kind = LoadErrorKind::Invalid;
+          err->message = "DSID DSED missing or unparseable in " + path.string();
+        }
+        return false;
+      }
+      return true;
+    }
+  }
+  if (err) {
+    err->kind = LoadErrorKind::Invalid;
+    err->message = "no DSID record in " + path.string();
+  }
+  return false;
 }
 
 }  // namespace s100

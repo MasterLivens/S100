@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <string>
 
 namespace s100 {
 namespace {
@@ -156,8 +157,14 @@ bool parse_exchange_catalogue(const std::filesystem::path& path, ExchangeCatalog
     e.file_path = resolve_file_name(root, e.file_name);
     e.description = text(meta, "description");
     e.purpose = text(meta, "purpose");
-    e.edition_number = child(meta, "editionNumber").text().as_int(0);
-    e.update_number = child(meta, "updateNumber").text().as_int(0);
+    if (auto ed = child(meta, "editionNumber")) {
+      e.edition_number = ed.text().as_int(0);
+      e.has_edition_meta = true;
+    }
+    if (auto un = child(meta, "updateNumber")) {
+      e.update_number = un.text().as_int(0);
+      e.has_update_meta = true;
+    }
     if (auto ps = child(meta, "productSpecification")) {
       const auto pid = text(ps, "productIdentifier");
       e.product = product_from_identifier(pid.empty() ? text(ps, "name") : pid);
@@ -196,6 +203,10 @@ bool parse_exchange_catalogue(const std::filesystem::path& path, ExchangeCatalog
   return true;
 }
 
+std::string exchange_member_key(ProductId product, const std::string& dataset_identity) {
+  return std::string(product_name(product)) + ":" + dataset_identity;
+}
+
 std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) {
   struct Acc {
     ExchangeCellSeries s;
@@ -218,25 +229,32 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
     }
     if (n == 0) {
       acc.s.base = e.file_path;
+      acc.s.base_entry = e;
       acc.s.edition_number = e.edition_number;
       if (e.coverage.valid) acc.s.coverage = e.coverage;
     } else {
-      acc.s.updates.push_back(e.file_path);
+      acc.s.update_entries.push_back(e);
     }
-    acc.s.latest_update_number = std::max(acc.s.latest_update_number, e.update_number);
-    if (n > acc.s.latest_update_number) acc.s.latest_update_number = n;
+    if (e.has_update_meta)
+      acc.s.latest_update_number = std::max(acc.s.latest_update_number, e.update_number);
+    acc.s.latest_update_number = std::max(acc.s.latest_update_number, n);
   }
 
   std::vector<ExchangeCellSeries> out;
   out.reserve(by_key.size());
   for (auto& [_, acc] : by_key) {
     if (acc.s.base.empty()) continue;
-    std::sort(acc.s.updates.begin(), acc.s.updates.end(),
-              [](const std::filesystem::path& a, const std::filesystem::path& b) {
-                return extension_number(a) < extension_number(b);
+    // Prefer catalogue ED/UPD order; fall back to extension number.
+    std::sort(acc.s.update_entries.begin(), acc.s.update_entries.end(),
+              [](const ExchangeDatasetEntry& a, const ExchangeDatasetEntry& b) {
+                if (a.has_edition_meta && b.has_edition_meta && a.edition_number != b.edition_number)
+                  return a.edition_number < b.edition_number;
+                if (a.has_update_meta && b.has_update_meta && a.update_number != b.update_number)
+                  return a.update_number < b.update_number;
+                return extension_number(a.file_path) < extension_number(b.file_path);
               });
-    acc.s.updates.erase(std::unique(acc.s.updates.begin(), acc.s.updates.end()),
-                        acc.s.updates.end());
+    acc.s.updates.clear();
+    for (const auto& ue : acc.s.update_entries) acc.s.updates.push_back(ue.file_path);
     out.push_back(std::move(acc.s));
   }
   std::sort(out.begin(), out.end(),
@@ -262,6 +280,30 @@ std::vector<std::filesystem::path> discover_update_files(const std::filesystem::
 }
 
 bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError* err) {
+  // When catalogue carries ED/UPD, each file's DSID must match before applying.
+  auto check_meta = [&](const ExchangeDatasetEntry& e) -> bool {
+    if (!e.has_edition_meta || !e.has_update_meta) return true;
+    DatasetIdentification id;
+    if (!read_s101_dsid(e.file_path, id, err)) return false;
+    if (id.edition_number != e.edition_number || id.update_number != e.update_number) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message =
+            "catalogue ED/UPD does not match DSID for " + e.file_path.string() +
+            ": catalogue " + std::to_string(e.edition_number) + "." +
+            std::to_string(e.update_number) + " vs DSID " + std::to_string(id.edition_number) +
+            "." + std::to_string(id.update_number);
+      }
+      return false;
+    }
+    return true;
+  };
+  if (series.base_entry.has_edition_meta || series.base_entry.has_update_meta) {
+    if (!check_meta(series.base_entry)) return false;
+  }
+  for (const auto& ue : series.update_entries) {
+    if (!check_meta(ue)) return false;
+  }
   return open_dataset_with_updates(series.base, series.updates, out, err);
 }
 
