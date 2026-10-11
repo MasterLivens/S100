@@ -75,6 +75,10 @@ if(S100_BUILD_VIEWER)
       --snapshot "${CMAKE_BINARY_DIR}/viewer_snapshot.png")
   set_tests_properties(viewer_snapshot PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;S100_TESTDATA=${CMAKE_SOURCE_DIR}/testdata/s101")
+  add_test(NAME viewer_golden
+    COMMAND ${CMAKE_COMMAND}
+      -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
+      -P ${CMAKE_SOURCE_DIR}/tests/check_viewer_golden.cmake)
 endif()
 
 install(TARGETS s100_core s100_cli RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
