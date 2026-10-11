@@ -99,9 +99,10 @@ Details: `docs/s111-contract.md`.
 
 - `open_dataset` fills `Dataset::current` (`CurrentDataset`), not coverage/water_level.
 - `CurrentDataset::{set_active_frame,set_active_time,sample_wgs84,bounds}`; sample is active frame; façade returns speed + direction.
-- Portray: subsampled vector arrows for active frame.
+- Portray: `DrawingInstruction::Kind::Arrow` (direction→`rotation`, speed→`scale_factor`); stride `kS111ArrowStride=2`.
+- Wrong HDF5 product must not fill `Dataset::current` (`LoadError`).
 - `ChartSession` key `S-111:<stem>`; CLI `--s111` / `--s111-frame` / `--s111-time`.
-- CI fixture `testdata/s111/synthetic_current_4326.h5`; CTest `s111_open_frame` MUST not SKIP.
+- CI fixture `testdata/s111/synthetic_current_4326.h5` (oracle in SOURCE.md); CTest `s111_open_frame` MUST not SKIP.
 
 ## Stability
 
