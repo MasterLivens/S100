@@ -3,7 +3,7 @@
 | Level | Artifact | Gates CI? | Scope |
 |-------|----------|-----------|-------|
 | Smoke / regression | `testdata/golden/iho_0008.png` + `viewer_golden` | Yes | Day palette anchors, no magenta placeholders, ≤25% pixel drift |
-| S-164 figure refs | `testdata/golden/s164-ref/AA5DBASE.png`, `AA5STNDR.png` | No (yet) | Symbol / layer look vs S-164 manual Display Base & Standard figures |
+| S-164 figure refs | `testdata/golden/s164-ref/AA5DBASE.png`, `AA5STNDR.png` + `display-presets.yaml` | MUST subset via `s164_display_compare` (anchors + presets); soft pixel WARN | Automation: `docs/s164-display-compare-contract.md` |
 | **External oracle (interim / Linux)** | EncDotNet.S100 `s100` **v0.24.0** PNGs | **No** (warn-only) | Soft compare vs our `--snapshot` on same cell + Day |
 | **External oracle (final, preferred)** | NIWC S-100 Viewer / ShoreECDIS screenshots | No | Official IHO-listed free reference; Windows-only today |
 

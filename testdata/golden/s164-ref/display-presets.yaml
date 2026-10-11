@@ -1,0 +1,17 @@
+# Expected layer / display checklist for S-164 Base vs Standard (MVP stub).
+# Codes are S-101 FC feature type codes. "required_on" must be visible; "required_off" must stay hidden.
+# Refine when wiring real S-164 AA5 cells; until then heuristic on 101AA00DS0008.000 is OK.
+presets:
+  base:
+    viewing_group_hint: displayBase
+    required_on: [DepthArea, LandArea, Coastline, DepthContour]
+    required_off: [QualityOfNonBathymetricData]  # meta usually off
+  standard:
+    viewing_group_hint: standardDisplay
+    required_on: [DepthArea, LandArea, Coastline, DepthContour, Sounding, Lights]
+    required_off: []
+day_palette_rgb_anchors:  # same as viewer_golden Day anchors
+  - [97, 183, 255]
+  - [191, 190, 143]
+  - [255, 255, 255]
+  - [147, 174, 187]
