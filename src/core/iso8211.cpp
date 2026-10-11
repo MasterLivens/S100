@@ -91,8 +91,9 @@ Dssi parse_dssi(const std::vector<std::uint8_t>& b) {
 std::vector<Point> decode_c2(const std::vector<std::uint8_t>& blob, double cmfx, double cmfy) {
   std::vector<Point> pts;
   for (std::size_t i = 0; i + 8 <= blob.size(); i += 8) {
-    const auto x = read_i32(blob.data() + i);
-    const auto y = read_i32(blob.data() + i + 4);
+    // S-101 C2IT/C2IL subfield order is YCOO, XCOO (latitude first).
+    const auto y = read_i32(blob.data() + i);
+    const auto x = read_i32(blob.data() + i + 4);
     pts.push_back(Point{static_cast<double>(x) / cmfx, static_cast<double>(y) / cmfy});
   }
   return pts;

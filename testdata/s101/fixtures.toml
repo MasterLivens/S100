@@ -1,16 +1,17 @@
 # P0 pick-accuracy fixtures for 101AA00DS0008.000 (IHO TDS).
+# Coordinates corrected 2026-10-11: C2IT/C2IL are YCOO,XCOO (lat first).
 # View = Dataset::bounds(); window 1000x1000; tol_deg = 1e-5
 cell = "101AA00DS0008.000"
-expect_west = -32.633333
-expect_south = 62.666667
-expect_east = -32.4666663
-expect_north = 62.8333337
+expect_west = 62.666667
+expect_south = -32.633333
+expect_east = 62.8333337
+expect_north = -32.4666663
 bounds_tol_deg = 1.0e-4
 
 [[points]]
 name = "nw_corner"
-lon = -32.633333
-lat = 62.8333337
+lon = 62.666667
+lat = -32.4666663
 pixel_x = 0.0
 pixel_y = 0.0
 window_w = 1000.0
@@ -18,8 +19,8 @@ window_h = 1000.0
 
 [[points]]
 name = "se_corner"
-lon = -32.4666663
-lat = 62.666667
+lon = 62.8333337
+lat = -32.633333
 pixel_x = 1000.0
 pixel_y = 1000.0
 window_w = 1000.0
@@ -27,8 +28,8 @@ window_h = 1000.0
 
 [[points]]
 name = "center"
-lon = -32.54999965
-lat = 62.75000035
+lon = 62.75000035
+lat = -32.54999965
 pixel_x = 500.0
 pixel_y = 500.0
 window_w = 1000.0

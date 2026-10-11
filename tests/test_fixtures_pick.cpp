@@ -26,10 +26,10 @@ void test_fixtures_pick_0008() {
   CHECK(s100::open_dataset(cell, ds, &err));
   const auto b = ds.bounds();
   CHECK(b.valid);
-  CHECK(std::fabs(b.west - (-32.633333)) < 1e-4);
-  CHECK(std::fabs(b.south - 62.666667) < 1e-4);
-  CHECK(std::fabs(b.east - (-32.4666663)) < 1e-4);
-  CHECK(std::fabs(b.north - 62.8333337) < 1e-4);
+  CHECK(std::fabs(b.west - 62.666667) < 1e-4);
+  CHECK(std::fabs(b.south - (-32.633333)) < 1e-4);
+  CHECK(std::fabs(b.east - 62.8333337) < 1e-4);
+  CHECK(std::fabs(b.north - (-32.4666663)) < 1e-4);
 
   struct Pt {
     const char* name;
@@ -37,9 +37,9 @@ void test_fixtures_pick_0008() {
     double lon, lat;
   };
   const Pt pts[] = {
-      {"nw_corner", 0.f, 0.f, 1000.f, 1000.f, -32.633333, 62.8333337},
-      {"se_corner", 1000.f, 1000.f, 1000.f, 1000.f, -32.4666663, 62.666667},
-      {"center", 500.f, 500.f, 1000.f, 1000.f, -32.54999965, 62.75000035},
+      {"nw_corner", 0.f, 0.f, 1000.f, 1000.f, 62.666667, -32.4666663},
+      {"se_corner", 1000.f, 1000.f, 1000.f, 1000.f, 62.8333337, -32.633333},
+      {"center", 500.f, 500.f, 1000.f, 1000.f, 62.75000035, -32.54999965},
   };
   for (const auto& p : pts) {
     auto got = s100::pick_wgs84(p.px, p.py, p.w, p.h, b.west, b.south, b.east, b.north);
