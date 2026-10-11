@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QHBoxLayout>
 #include <QHash>
+#include <QImage>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QMouseEvent>
@@ -147,6 +148,59 @@ NamedLineStyle load_named_line_style(const fs::path& line_styles_dir, const std:
   return out;
 }
 
+/** PC AreaFills/<ref>.xml — S-100 symbolFill (v1/v2 lattice in mm).
+ *  S-101 PC 2.0.0 ships only symbolFill; pixmapFill / hatchFill are not present. */
+struct AreaFillDef {
+  enum class Kind { None, SymbolFill };
+  Kind kind{Kind::None};
+  std::string symbol_ref;
+  std::string area_crs{"GlobalGeometry"};  // GlobalGeometry | LocalGeometry
+  double v1x{0}, v1y{0}, v2x{0}, v2y{0};
+  bool clip_symbols{true};
+};
+
+AreaFillDef load_area_fill(const fs::path& area_fills_dir, const std::string& ref) {
+  AreaFillDef out;
+  if (ref.empty()) return out;
+  const fs::path path = area_fills_dir / (ref + ".xml");
+  QFile f(QString::fromStdString(path.string()));
+  if (!f.open(QIODevice::ReadOnly)) return out;
+  QXmlStreamReader xml(&f);
+  int v_slot = 0;  // 1 = inside v1, 2 = inside v2
+  while (!xml.atEnd()) {
+    xml.readNext();
+    if (xml.isStartElement()) {
+      const auto n = xml.name();
+      if (n == QLatin1String("symbolFill")) {
+        out.kind = AreaFillDef::Kind::SymbolFill;
+      } else if (n == QLatin1String("areaCRS")) {
+        out.area_crs = xml.readElementText().trimmed().toStdString();
+      } else if (n == QLatin1String("symbol")) {
+        out.symbol_ref = xml.attributes().value("reference").toString().toStdString();
+      } else if (n == QLatin1String("clipSymbols")) {
+        const auto t = xml.readElementText().trimmed();
+        out.clip_symbols = (t != QLatin1String("false") && t != QLatin1String("0"));
+      } else if (n == QLatin1String("v1")) {
+        v_slot = 1;
+      } else if (n == QLatin1String("v2")) {
+        v_slot = 2;
+      } else if (n == QLatin1String("x") && v_slot) {
+        const double v = xml.readElementText().toDouble();
+        if (v_slot == 1) out.v1x = v;
+        else out.v2x = v;
+      } else if (n == QLatin1String("y") && v_slot) {
+        const double v = xml.readElementText().toDouble();
+        if (v_slot == 1) out.v1y = v;
+        else out.v2y = v;
+      }
+    } else if (xml.isEndElement()) {
+      if (xml.name() == QLatin1String("v1") || xml.name() == QLatin1String("v2")) v_slot = 0;
+    }
+  }
+  if (out.symbol_ref.empty()) out.kind = AreaFillDef::Kind::None;
+  return out;
+}
+
 qreal mm_to_px(const QPaintDevice* dev, double mm) {
   const qreal dpi = dev ? static_cast<qreal>(dev->logicalDpiX()) : 96.0;
   return static_cast<qreal>(mm) * dpi / 25.4;
@@ -154,7 +208,9 @@ qreal mm_to_px(const QPaintDevice* dev, double mm) {
 
 /** Rewrite S-100 PC SVG so QtSvg sees Day (or active) palette colours.
  *  Official Symbols/*.svg use external daySvgStyle.css class tokens (fCHBLK / sCHBLK);
- *  catalogues must stay untouched — we inject an embedded <style> at load time. */
+ *  catalogues must stay untouched — we inject an embedded <style> at load time AND promote
+ *  colour class tokens to presentation attributes. Qt Svg Tiny reliably honours fill=/stroke=
+ *  attributes; stroke via CSS class alone is not applied (DIAMOND1P etc. would be invisible). */
 QByteArray remap_symbol_svg(const QByteArray& raw, const ColorPalette& palette) {
   QByteArray out = raw;
   // Drop xml-stylesheet PI pointing at day/dusk/night CSS (not loaded by QSvgRenderer).
@@ -163,6 +219,79 @@ QByteArray remap_symbol_svg(const QByteArray& raw, const ColorPalette& palette) 
     const int pe = out.indexOf("?>", pi);
     if (pe > pi) out.remove(pi, pe - pi + 2);
   }
+
+  // Promote fTOKEN / sTOKEN class names to fill="/stroke=" presentation attributes.
+  QByteArray promoted;
+  promoted.reserve(out.size() + 256);
+  int i = 0;
+  while (i < out.size()) {
+    if (out[i] != '<') {
+      promoted.append(out[i]);
+      ++i;
+      continue;
+    }
+    if (i + 1 < out.size() && (out[i + 1] == '/' || out[i + 1] == '!' || out[i + 1] == '?')) {
+      const int tend = out.indexOf('>', i);
+      if (tend < 0) {
+        promoted.append(out.mid(i));
+        break;
+      }
+      promoted.append(out.mid(i, tend - i + 1));
+      i = tend + 1;
+      continue;
+    }
+    const int tend = out.indexOf('>', i);
+    if (tend < 0) {
+      promoted.append(out.mid(i));
+      break;
+    }
+    QByteArray tag = out.mid(i, tend - i + 1);
+    const int class_key = tag.indexOf("class=\"");
+    if (class_key >= 0) {
+      const int c0 = class_key + 7;
+      const int c1 = tag.indexOf('"', c0);
+      if (c1 > c0) {
+        const QByteArray classes = tag.mid(c0, c1 - c0);
+        const QList<QByteArray> parts = classes.split(' ');
+        QByteArray fill_hex;
+        QByteArray stroke_hex;
+        bool fill_none = false;
+        for (const QByteArray& part : parts) {
+          if (part == "f0") {
+            fill_none = true;
+          } else if (part.startsWith('f') && part.size() > 1) {
+            const auto it = palette.by_token.constFind(QString::fromUtf8(part.mid(1)));
+            if (it != palette.by_token.cend()) fill_hex = it.value().name(QColor::HexRgb).toLatin1();
+          } else if (part.startsWith('s') && part.size() > 1 && part != "sl") {
+            const auto it = palette.by_token.constFind(QString::fromUtf8(part.mid(1)));
+            if (it != palette.by_token.cend()) stroke_hex = it.value().name(QColor::HexRgb).toLatin1();
+          }
+        }
+        QByteArray inject;
+        if (fill_none && !tag.contains("fill=")) inject += " fill=\"none\"";
+        if (!fill_hex.isEmpty() && !tag.contains("fill=")) {
+          inject += " fill=\"";
+          inject += fill_hex;
+          inject += "\"";
+        }
+        if (!stroke_hex.isEmpty() && !tag.contains("stroke=")) {
+          inject += " stroke=\"";
+          inject += stroke_hex;
+          inject += "\"";
+        }
+        if (!inject.isEmpty()) {
+          if (tag.endsWith("/>"))
+            tag.insert(tag.size() - 2, inject);
+          else
+            tag.insert(tag.size() - 1, inject);
+        }
+      }
+    }
+    promoted.append(tag);
+    i = tend + 1;
+  }
+  out = std::move(promoted);
+
   QByteArray style;
   style += "<style type=\"text/css\">";
   style += ".layout{display:none}";  // symbolBox / svgBox / pivotPoint
@@ -196,6 +325,8 @@ struct SymbolCache {
   const ColorPalette* palette{nullptr};
   fs::path symbols_dir;
   std::unordered_map<std::string, std::unique_ptr<QSvgRenderer>> by_ref;
+  // Rasterized pattern tiles for AreaFill symbolFill (keyed by symbol_ref + px size).
+  std::unordered_map<std::string, QImage> tile_by_key;
   // Negative cache: missing / invalid files — do not retry every paint.
   std::unordered_map<std::string, bool> missing;
 
@@ -203,6 +334,7 @@ struct SymbolCache {
     palette = pal;
     symbols_dir = std::move(dir);
     by_ref.clear();
+    tile_by_key.clear();
     missing.clear();
   }
 
@@ -225,6 +357,28 @@ struct SymbolCache {
     QSvgRenderer* raw = renderer.get();
     by_ref.emplace(ref, std::move(renderer));
     return raw;
+  }
+
+  /** Rasterize Symbols/<ref>.svg at current mm→px scale for area-fill stamping. */
+  const QImage* pattern_tile(const std::string& ref, qreal mm_px, QRectF* view_box_out) {
+    QSvgRenderer* svg = get(ref);
+    if (!svg) return nullptr;
+    const QRectF vb = svg->viewBoxF();
+    if (view_box_out) *view_box_out = vb;
+    const int pw = std::max(1, static_cast<int>(std::ceil(std::abs(vb.width()) * mm_px)));
+    const int ph = std::max(1, static_cast<int>(std::ceil(std::abs(vb.height()) * mm_px)));
+    const std::string key = ref + "@" + std::to_string(pw) + "x" + std::to_string(ph);
+    if (auto it = tile_by_key.find(key); it != tile_by_key.end()) return &it->second;
+    QImage tile(pw, ph, QImage::Format_ARGB32_Premultiplied);
+    tile.fill(Qt::transparent);
+    {
+      QPainter tp(&tile);
+      tp.setRenderHint(QPainter::Antialiasing, true);
+      svg->render(&tp, QRectF(0, 0, pw, ph));
+    }
+    auto [it, ok] = tile_by_key.emplace(key, std::move(tile));
+    (void)ok;
+    return &it->second;
   }
 };
 
@@ -283,6 +437,7 @@ class MapWidget : public QWidget {
     pc_ = pc;
     by_id_.clear();
     named_line_cache_.clear();
+    area_fill_cache_.clear();
     symbol_cache_.reset(&palette_, pc_root_ / "Symbols");
     if (dataset_) {
       by_id_.reserve(dataset_->features.size());
@@ -387,9 +542,6 @@ class MapWidget : public QWidget {
   void draw_area(QPainter& p, const QRectF& r, const s100::Feature& f,
                  const s100::DrawingInstruction& di) {
     if (f.geometry.kind != s100::GeometryKind::Polygon) return;
-    // ColorFill: solid token from Day palette. AreaFillReference / pattern fills: deferred
-    // (need symbol tiling from AreaFills/) — see docs/portrayal-engine.md Viewer gaps.
-    if (di.command != "ColorFill") return;
     QPainterPath path;
     path.setFillRule(Qt::OddEvenFill);
     for (const auto& ring : f.geometry.polygon) {
@@ -399,10 +551,89 @@ class MapWidget : public QWidget {
       path.addPolygon(poly);
       path.closeSubpath();
     }
-    const QColor fill = palette_.get_alpha(di.fill_ref, di.fill_transparency);
-    p.setBrush(fill);
-    p.setPen(Qt::NoPen);
-    p.drawPath(path);
+
+    // ColorFill: solid token from Day palette.
+    if (di.command == "ColorFill") {
+      const QColor fill = palette_.get_alpha(di.fill_ref, di.fill_transparency);
+      p.setBrush(fill);
+      p.setPen(Qt::NoPen);
+      p.drawPath(path);
+      return;
+    }
+
+    // AreaFillReference / SymbolFill: tile PC AreaFills/<ref>.xml symbolFill lattice.
+    if (di.command != "AreaFillReference" && di.command != "SymbolFill") return;
+    const AreaFillDef& af = area_fill(di.fill_ref);
+    if (af.kind != AreaFillDef::Kind::SymbolFill) return;
+    const qreal mm = mm_to_px(this, 1.0);
+    QRectF vb;
+    const QImage* tile = symbol_cache_.pattern_tile(af.symbol_ref, mm, &vb);
+    if (!tile || tile->isNull()) return;
+
+    // Portrayal CRS y-up → screen y-down.
+    const QPointF v1(af.v1x * mm, -af.v1y * mm);
+    const QPointF v2(af.v2x * mm, -af.v2y * mm);
+    const qreal det = v1.x() * v2.y() - v1.y() * v2.x();
+    if (std::abs(det) < 1e-9) return;
+
+    QPointF origin;
+    if (af.area_crs == "LocalGeometry") {
+      // Local: lattice origin at first vertex of the outer ring.
+      if (!f.geometry.polygon.empty() && !f.geometry.polygon.front().points.empty()) {
+        const auto& pt = f.geometry.polygon.front().points.front();
+        origin = project(r, west_, south_, east_, north_, pt.lon, pt.lat);
+      } else {
+        origin = path.boundingRect().topLeft();
+      }
+    } else {
+      // GlobalGeometry: common geographic anchor so adjacent features' patterns align.
+      origin = project(r, west_, south_, east_, north_, 0.0, 0.0);
+    }
+
+    // Offset from lattice pivot to tile top-left (viewBox origin).
+    const QPointF tile_origin(vb.x() * mm, vb.y() * mm);
+    const int pw = tile->width();
+    const int ph = tile->height();
+
+    const qreal pad =
+        std::max(static_cast<qreal>(pw), static_cast<qreal>(ph)) +
+        std::max(v1.manhattanLength(), v2.manhattanLength());
+    const QRectF cover = path.boundingRect().adjusted(-pad, -pad, pad, pad);
+
+    auto to_ij = [&](const QPointF& pt) {
+      const qreal dx = pt.x() - origin.x();
+      const qreal dy = pt.y() - origin.y();
+      const qreal i = (dx * v2.y() - dy * v2.x()) / det;
+      const qreal j = (v1.x() * dy - v1.y() * dx) / det;
+      return QPointF(i, j);
+    };
+
+    qreal imin = 1e300, imax = -1e300, jmin = 1e300, jmax = -1e300;
+    const QPointF corners[4] = {cover.topLeft(), cover.topRight(), cover.bottomLeft(),
+                                cover.bottomRight()};
+    for (const QPointF& c : corners) {
+      const QPointF ij = to_ij(c);
+      imin = std::min(imin, ij.x());
+      imax = std::max(imax, ij.x());
+      jmin = std::min(jmin, ij.y());
+      jmax = std::max(jmax, ij.y());
+    }
+    const int i0 = static_cast<int>(std::floor(imin)) - 1;
+    const int i1 = static_cast<int>(std::ceil(imax)) + 1;
+    const int j0 = static_cast<int>(std::floor(jmin)) - 1;
+    const int j1 = static_cast<int>(std::ceil(jmax)) + 1;
+
+    p.save();
+    if (af.clip_symbols) p.setClipPath(path);
+    for (int j = j0; j <= j1; ++j) {
+      for (int i = i0; i <= i1; ++i) {
+        const QPointF pt(origin.x() + i * v1.x() + j * v2.x(),
+                         origin.y() + i * v1.y() + j * v2.y());
+        if (!cover.contains(pt)) continue;
+        p.drawImage(pt + tile_origin, *tile);
+      }
+    }
+    p.restore();
   }
 
   void draw_line(QPainter& p, const QRectF& r, const s100::Feature& f,
@@ -529,6 +760,13 @@ class MapWidget : public QWidget {
     return named_line_cache_.emplace(ref, std::move(ns)).first->second;
   }
 
+  const AreaFillDef& area_fill(const std::string& ref) {
+    auto it = area_fill_cache_.find(ref);
+    if (it != area_fill_cache_.end()) return it->second;
+    AreaFillDef af = load_area_fill(pc_root_ / "AreaFills", ref);
+    return area_fill_cache_.emplace(ref, std::move(af)).first->second;
+  }
+
   std::optional<s100::Dataset> dataset_;
   s100::DrawingInstructions instructions_;
   s100::PortrayalStats stats_;
@@ -537,6 +775,7 @@ class MapWidget : public QWidget {
   const s100::PortrayalCatalogue* pc_{nullptr};
   std::unordered_map<std::uint64_t, const s100::Feature*> by_id_;
   std::unordered_map<std::string, NamedLineStyle> named_line_cache_;
+  std::unordered_map<std::string, AreaFillDef> area_fill_cache_;
   SymbolCache symbol_cache_;
   s100::LayerVisibility visibility_;  // session state, not in Dataset
   double west_{-0.05}, south_{-0.05}, east_{0.05}, north_{0.05};

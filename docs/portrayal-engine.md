@@ -106,13 +106,21 @@ apply; meta stays off by default. Status bar shows feature count, instruction co
 | Kind | What is drawn |
 |------|----------------|
 | Area `ColorFill` | Polygon fill from colour token + transparency |
-| Area `AreaFillReference` / patterns | **Gap** — needs AreaFills/ symbol tiling |
+| Area `AreaFillReference` / `SymbolFill` | PC `AreaFills/<ref>.xml` **symbolFill** only: stamp `Symbols/<symbol>.svg` on the v1/v2 mm lattice (y-up → screen y-down), clipped to feature rings with odd-even fill. `GlobalGeometry` anchors the lattice at lon/lat (0,0); `LocalGeometry` at the outer-ring first vertex. Colour tokens via the same Day palette SVG remapping as Point symbols (CSS inject + presentation attrs). |
 | Line `_simple_` | Width / colour / dash from inline `LineStyleDef` |
 | Line named style | Colour + width from `LineStyles/<ref>.xml` (dashes simplified) |
-| Point | PC `Symbols/<symbol_ref>.svg` via `QSvgRenderer` (Qt6::Svg). External CSS class tokens (`fCHBLK` / `sSNDG1` / …) remapped through the loaded Day colour profile into an embedded `<style>` at load; renderers cached by `symbol_ref`. Scale: SVG user unit = mm × `scale_factor` × DPI; `LocalOffset` + `rotation` applied; pivot `(0,0)`. Missing file → tiny `CHBLK` dot |
+| Point | PC `Symbols/<symbol_ref>.svg` via `QSvgRenderer` (Qt6::Svg). External CSS class tokens (`fCHBLK` / `sSNDG1` / …) remapped through the loaded Day colour profile into an embedded `<style>` **and** promoted to `fill=`/`stroke=` presentation attributes (Qt Svg Tiny does not apply stroke-via-CSS-class); renderers cached by `symbol_ref`. Scale: SVG user unit = mm × `scale_factor` × DPI; `LocalOffset` + `rotation` applied; pivot `(0,0)`. Missing file → tiny `CHBLK` dot |
 | Text | Token colour + LocalOffset; font size from mm |
 
-Not yet (architect priority after Symbols SVG): AreaFillReference / pattern tiling from `AreaFills/`,
-SpatialReference clipping, dusk/night palettes (CSS files exist; viewer still Day-only), augmented
-geometry, CoverageFill. Sounding digit composites are real SVG symbols now (each digit/`SOUNDG*`
-file); composite placement still follows whatever PointInstructions the rules emit.
+### AreaFill formats supported
+
+S-101 PC 2.0.0 `AreaFills/` contains only `af:symbolFill` (25 files). Viewer loads that schema
+(`areaCRS`, `symbol@reference`, `v1`/`v2`, optional `clipSymbols`). **Not painted:** `PixmapFill` /
+`HatchFill` drawing commands (none emitted by PC 2.0.0 rules against this catalogue), and any future
+`pixmapFill` / `hatchFill` AreaFills XML. Inline `SymbolFill` with the same named-ref payload as
+`AreaFillReference` is accepted.
+
+Not yet (architect priority after AreaFillReference): SpatialReference clipping, dusk/night
+palettes (CSS files exist; viewer still Day-only), augmented geometry, CoverageFill. Sounding digit
+composites are real SVG symbols now (each digit/`SOUNDG*` file); composite placement still follows
+whatever PointInstructions the rules emit.
