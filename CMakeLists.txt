@@ -7,6 +7,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(S100_BUILD_VIEWER "Build Qt6 map viewer" ON)
 
+add_subdirectory(third_party)
+
 add_library(s100_core
   src/core/iso8211.cpp
   src/core/layer.cpp
@@ -16,6 +18,7 @@ add_library(s100_core
   src/core/feature_catalogue.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(s100_core PRIVATE s100_pugixml)
 
 add_executable(s100_cli src/cli/main.cpp)
 target_link_libraries(s100_cli PRIVATE s100_core)
@@ -40,6 +43,7 @@ target_link_libraries(s100_tests PRIVATE s100_core)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")
 target_compile_definitions(s100_tests PRIVATE S100_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME s100_tests COMMAND s100_tests)
+add_test(NAME third_party_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_third_party.cmake)
 add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_catalogues.cmake)
 set_tests_properties(s100_tests PROPERTIES
   ENVIRONMENT "S100_TESTDATA=${CMAKE_SOURCE_DIR}/testdata/s101"
