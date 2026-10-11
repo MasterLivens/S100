@@ -4,22 +4,10 @@
 
 | File | Role |
 |------|------|
-| `synthetic_navwarning.gml` | **Gittracked.** ≥2 navigational warnings for `IHO-S124-OPEN-LIST` / CTest `s124_open_list`. |
+| `synthetic_navwarning.gml` | **Gittracked** (shipped with contract). `IHO-S124-OPEN-LIST` / `s124_open_list`. |
 
-### Fixture layout (oracle)
+### Oracle
 
-Minimal S-124-shaped GML (Eng may adjust element names to match chosen parser, keep oracle table):
+See `docs/s124-contract.md` fixture table: `NW.1` point (0.2,0.2); `NW.2` ring `0.0 0.0 0.4 0.0 0.4 0.4 0.0 0.4 0.0 0.0`; times `2024-01-01T00:00:00Z` / `T06:00:00Z`.
 
-| id | title | geometry | note |
-|----|-------|----------|------|
-| `NW.1` | `Synthetic Hazard Alpha` | Point **lon=0.2, lat=0.2** | |
-| `NW.2` | `Synthetic Area Bravo` | Polygon envelope ~0.0–0.4 lon/lat | contains (0.2,0.2) |
-
-```
-# generator optional
-python3 scripts/gen_s124_synthetic.py
-```
-
-## Local / gitignored
-
-Other files under `testdata/s124/` stay gitignored except SOURCE + synthetic gml/xml.
+Parser accepts the synthetic element names in that file (`S124:NavigationalWarning`, `gml:pos` / `gml:posList`, lon lat order).

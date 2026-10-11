@@ -108,10 +108,12 @@ Details: `docs/s111-contract.md`.
 
 Details: `docs/s124-contract.md`.
 
-- `open_dataset` on S-124 GML fills `Dataset::nav_warnings` (`NavWarningDataset`).
-- List via `warnings[]`; overlay portray geometries + title text (one frame = all warnings).
-- `ChartSession` key `S-124:<stem>`; wrong product → `LoadError`.
-- CI fixture `testdata/s124/synthetic_navwarning.gml`; CTest `s124_open_list` MUST not SKIP.
+- `open_dataset` / CLI `--s124` fill `Dataset::nav_warnings` (`NavWarningDataset`). No Feature mirroring.
+- `Dataset::bounds()` unions `nav_warnings.bounds()`.
+- Portray each warning: geom DI + `Kind::Text` title (`CHYLW`); fixture MUST yield `warnings.size()==2`.
+- Empty file → `Invalid`; zero NW → `Parse`; wrong product → error and no `nav_warnings` fill.
+- `ChartSession` key `S-124:<stem>`. Fixture shipped at `testdata/s124/synthetic_navwarning.gml`.
+- CTest `s124_open_list` / case `IHO-S124-OPEN-LIST` MUST not SKIP.
 
 ## Stability
 
