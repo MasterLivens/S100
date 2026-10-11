@@ -31,6 +31,7 @@ add_executable(s100_tests
   tests/test_aggregates.cpp
   tests/test_chs_bounds.cpp
   tests/test_fc_primitives.cpp
+  tests/test_layers_all_cells.cpp
   tests/test_attributes.cpp
   tests/test_soundings.cpp
   tests/test_feature_catalogue.cpp

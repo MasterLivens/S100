@@ -28,6 +28,7 @@ void test_fixtures_pick_0008();
 void test_aggregates_empty_geometry();
 void test_chs_bounds_vs_catalog();
 void test_fc_permitted_primitives();
+void test_layers_all_cells();
 
 int main() {
   test_pick_center();
@@ -41,6 +42,7 @@ int main() {
   test_aggregates_empty_geometry();
   test_chs_bounds_vs_catalog();
   test_fc_permitted_primitives();
+  test_layers_all_cells();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;
