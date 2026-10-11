@@ -61,10 +61,23 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=%HDF5_ROOT% -DHDF5_DIR=%HDF5_DIR%
       - name: Build
         run: cmake --build build --config Release
-      - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Test (Linux)
+        if: runner.os == 'Linux'
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 120 --progress
         env:
           S100_TESTDATA: testdata/s101
+          QT_QPA_PLATFORM: offscreen
+          QT_OPENGL: software
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        # Exclude viewer_* : Qt offscreen/show+grab hangs on headless Windows runners (no log for 50+ min).
+        # Linux CI still runs viewer_snapshot / viewer_golden / viewer_palettes.
+        # Per-test --timeout so a future hang fails the job instead of parking forever.
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 120 --progress -E "viewer_"
+        env:
+          S100_TESTDATA: testdata/s101
+          QT_QPA_PLATFORM: offscreen
+          QT_OPENGL: software
       - name: Upload golden mismatch (Linux)
         if: failure() && runner.os == 'Linux'
         uses: actions/upload-artifact@v4
