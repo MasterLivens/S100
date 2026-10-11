@@ -29,6 +29,7 @@ void test_aggregates_empty_geometry();
 void test_chs_bounds_vs_catalog();
 void test_fc_permitted_primitives();
 void test_layers_all_cells();
+void test_exchange_set_synthetic_and_chs();
 
 int main() {
   test_pick_center();
@@ -43,6 +44,7 @@ int main() {
   test_chs_bounds_vs_catalog();
   test_fc_permitted_primitives();
   test_layers_all_cells();
+  test_exchange_set_synthetic_and_chs();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;

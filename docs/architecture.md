@@ -39,7 +39,7 @@ Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: S
 | `pick` | screen → WGS84 (≤1e-5°) | P0 |
 | `iso8211` | binary cell decode + spatial | **next (Eng)** |
 | `catalogue` / `portrayal` | FC/PC XML + Lua | P1 |
-| `exchange_set` | CATALOG.XML, .001… updates | P1 |
+| `exchange_set` | CATALOG.XML, .001… updates | **done (P1)** |
 | `coverage` | grid `bounds` / `sample` for S-102+ | P1 |
 | `viewer` | Qt map, toggles, status pick | P0 shell |
 

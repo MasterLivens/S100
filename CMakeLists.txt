@@ -20,6 +20,9 @@ add_library(s100_core
   src/core/drawing_instructions.cpp
   src/core/host_adapter.cpp
   src/core/portrayal_engine.cpp
+  src/core/exchange_set.cpp
+  src/core/s101_update.cpp
+  src/core/session.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(s100_core PRIVATE s100_pugixml s100_lua)  # Qt-free (contract rule 4)
@@ -43,6 +46,7 @@ add_executable(s100_tests
   tests/test_attributes.cpp
   tests/test_soundings.cpp
   tests/test_feature_catalogue.cpp
+  tests/test_exchange_set.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")
