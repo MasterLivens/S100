@@ -51,7 +51,13 @@ jobs:
           if (-not (Test-Path (Join-Path $prefix "include\hdf5.h"))) { throw "hdf5.h missing under $prefix" }
           "HDF5_ROOT=$prefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "HDF5_DIR=$prefix\cmake" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # Runtime DLLs (hdf5.dll + zlib/szip deps) must be on PATH or every native
+          # test hangs ~120s on a missing-DLL dialog under headless Windows runners.
+          $bin = Join-Path $prefix "bin"
+          if (-not (Test-Path (Join-Path $bin "hdf5.dll"))) { throw "hdf5.dll missing under $bin" }
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           Write-Host "HDF5_ROOT=$prefix"
+          Write-Host "HDF5 bin on PATH: $bin"
       - name: Configure (Linux)
         if: runner.os == 'Linux'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -73,6 +79,7 @@ jobs:
         # Exclude viewer_* : Qt offscreen/show+grab hangs on headless Windows runners (no log for 50+ min).
         # Linux CI still runs viewer_snapshot / viewer_golden / viewer_palettes.
         # Per-test --timeout so a future hang fails the job instead of parking forever.
+        # HDF5 bin is on PATH via GITHUB_PATH from Install HDF5 (shared dll load at process start).
         run: ctest --test-dir build -C Release --output-on-failure --timeout 120 --progress -E "viewer_"
         env:
           S100_TESTDATA: testdata/s101
