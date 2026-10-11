@@ -771,6 +771,10 @@ class MapWidget : public QWidget {
         draw_coverage(p, r, di);
         continue;
       }
+      if (di.kind == s100::DrawingInstruction::Kind::Arrow) {
+        draw_arrow(p, r, di);
+        continue;
+      }
       const auto fit = by_id_.find(di.feature_id);
       if (fit == by_id_.end()) continue;
       const s100::Feature& f = *fit->second;
@@ -844,6 +848,37 @@ class MapWidget : public QWidget {
   }
 
  private:
+  void draw_arrow(QPainter& p, const QRectF& r, const s100::DrawingInstruction& di) {
+    // S-111 surface current: simple line/triangle arrow (do not overload Kind::Point).
+    const std::string token = di.fill_ref.empty() ? "CHGRD" : di.fill_ref;
+    const QColor col = palette_.get(token, QColor(80, 80, 80));
+    // Length proportional to scale_factor (speed_ms); clamp for visibility.
+    const qreal speed = di.scale_factor > 0.0 ? di.scale_factor : 0.5;
+    const qreal len = qBound(8.0 + speed * 14.0, 6.0, 48.0);
+    const qreal head = qBound(len * 0.35, 4.0, 14.0);
+    QPen pen(col, 1.5);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(col);
+    for (const auto& g : di.geometries) {
+      if (g.kind != s100::GeometryKind::Point) continue;
+      const QPointF s = project(r, west_, south_, east_, north_, g.point.lon, g.point.lat);
+      p.save();
+      p.translate(s);
+      // direction_deg: clockwise from true N; Qt rotate is clockwise when Y grows down.
+      p.rotate(di.rotation);
+      // Shaft toward "from" direction (north = -Y before rotate).
+      const QPointF tip(0, -len);
+      const QPointF base(0, 0);
+      p.drawLine(base, tip);
+      QPolygonF tri;
+      tri << tip << QPointF(-head * 0.45, -len + head) << QPointF(head * 0.45, -len + head);
+      p.drawPolygon(tri);
+      p.restore();
+    }
+  }
+
   void draw_coverage(QPainter& p, const QRectF& r, const s100::DrawingInstruction& di) {
     if (di.command != "CoverageFill") return;
     if (!dataset_) return;
@@ -1143,12 +1178,14 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString cell, snapshot, s102_path, s104_path, s104_time, dump_text_boxes, dump_layers;
+  QString cell, snapshot, s102_path, s104_path, s104_time, s111_path, s111_time, dump_text_boxes,
+      dump_layers;
   QString layers_on, layers_off;
   QString fc_path = S100_DEFAULT_FC;
   QString pc_path = S100_DEFAULT_PC;
   QString palette_name = QStringLiteral("Day");  // Day | Dusk | Night
   int s104_frame = -1;
+  int s111_frame = -1;
   bool fc_set = false, pc_set = false;
   bool text_collision = true;  // default ON (docs/text-collision-contract.md)
   for (int i = 1; i < argc; ++i) {
@@ -1161,6 +1198,9 @@ int main(int argc, char** argv) {
     else if (a == "--s104" && i + 1 < argc) s104_path = argv[++i];
     else if (a == "--s104-frame" && i + 1 < argc) s104_frame = QString(argv[++i]).toInt();
     else if (a == "--s104-time" && i + 1 < argc) s104_time = argv[++i];
+    else if (a == "--s111" && i + 1 < argc) s111_path = argv[++i];
+    else if (a == "--s111-frame" && i + 1 < argc) s111_frame = QString(argv[++i]).toInt();
+    else if (a == "--s111-time" && i + 1 < argc) s111_time = argv[++i];
     else if (a == "--no-text-collision") text_collision = false;
     else if (a == "--dump-text-boxes" && i + 1 < argc) dump_text_boxes = argv[++i];
     else if (a == "--dump-layers" && i + 1 < argc) dump_layers = argv[++i];
@@ -1347,6 +1387,24 @@ int main(int argc, char** argv) {
         } else {
           msg = QString("S-104 portray failed: %1").arg(QString::fromStdString(perr));
         }
+      } else if (ds.product == s100::ProductId::S111 && ds.current) {
+        // S-111 alone: Arrow DI for active frame (PC deferred).
+        if (s111_frame >= 0) ds.current->set_active_frame(static_cast<std::size_t>(s111_frame));
+        if (!s111_time.isEmpty()) ds.current->set_active_time(s111_time.toStdString());
+        std::string perr;
+        if (s100::portray_current(*ds.current, instructions, &perr)) {
+          portrayed = true;
+          ps.instructions = instructions.size();
+          const auto* fr = ds.current->active();
+          msg = QString("loaded S-111 %1 — frames=%2 active=%3 time=%4 arrows=%5")
+                    .arg(cell)
+                    .arg(static_cast<qulonglong>(ds.current->frames.size()))
+                    .arg(static_cast<qulonglong>(ds.current->active_frame))
+                    .arg(fr ? QString::fromStdString(fr->time_iso) : QStringLiteral("?"))
+                    .arg(static_cast<qulonglong>(instructions.size()));
+        } else {
+          msg = QString("S-111 portray failed: %1").arg(QString::fromStdString(perr));
+        }
       } else {
         s100::ClassifyResult cr;
         const bool ok = s100::classify_layers(ds, fc, &cr);
@@ -1451,6 +1509,43 @@ int main(int argc, char** argv) {
                          .arg(ub.north, 0, 'f', 5);
             } else {
               msg += QString(" — S-104 portray failed: %1").arg(QString::fromStdString(e104));
+            }
+          }
+        }
+
+        // S-111 overlay via ChartSession (contract): S-101 + S-111 keys, union bounds.
+        if (portrayed && !s111_path.isEmpty()) {
+          s100::ChartSession chart;
+          s100::LoadError cerr;
+          std::string k101, k111;
+          k101 = chart.insert(ds);
+          if (!chart.open_and_insert(s111_path.toStdString(), &cerr, &k111) ||
+              !chart.find(k111) || !chart.find(k111)->current) {
+            msg += QString(" — S-111 overlay failed: %1")
+                       .arg(QString::fromStdString(cerr.message.empty() ? "no current"
+                                                                        : cerr.message));
+          } else {
+            auto& cur = *chart.find(k111)->current;
+            if (s111_frame >= 0) cur.set_active_frame(static_cast<std::size_t>(s111_frame));
+            if (!s111_time.isEmpty()) cur.set_active_time(s111_time.toStdString());
+            s100::DrawingInstructions cur_di;
+            std::string e111;
+            if (s100::portray_current(cur, cur_di, &e111)) {
+              ds.current = cur;  // paint + Dataset::bounds unions current envelope
+              instructions.insert(instructions.end(), cur_di.begin(), cur_di.end());
+              const auto ub = ds.bounds();
+              msg += QString(" — overlay %1 + %2 (S-111 Arrow +%3 frame=%4, bounds union "
+                             "[%5,%6]–[%7,%8])")
+                         .arg(QString::fromStdString(k101))
+                         .arg(QString::fromStdString(k111))
+                         .arg(static_cast<qulonglong>(cur_di.size()))
+                         .arg(static_cast<qulonglong>(cur.active_frame))
+                         .arg(ub.west, 0, 'f', 5)
+                         .arg(ub.south, 0, 'f', 5)
+                         .arg(ub.east, 0, 'f', 5)
+                         .arg(ub.north, 0, 'f', 5);
+            } else {
+              msg += QString(" — S-111 portray failed: %1").arg(QString::fromStdString(e111));
             }
           }
         }

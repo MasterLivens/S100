@@ -33,7 +33,9 @@ void test_layers_all_cells();
 void test_exchange_set_synthetic_and_chs();
 void run_s102_tests();
 void run_s104_tests();
+void run_s111_tests();
 void test_s104_open_frame();
+void test_s111_open_frame();
 void test_s102_deepen_multigrid();
 void test_association_faui_merge();
 
@@ -54,6 +56,15 @@ int main(int argc, char** argv) {
       return 1;
     }
     std::cout << "s104_open_frame ok\n";
+    return 0;
+  }
+  if (argc >= 2 && std::string(argv[1]) == "s111_open_frame") {
+    test_s111_open_frame();
+    if (failures) {
+      std::cerr << failures << " failure(s)\n";
+      return 1;
+    }
+    std::cout << "s111_open_frame ok\n";
     return 0;
   }
   test_pick_center();

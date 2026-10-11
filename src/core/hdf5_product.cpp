@@ -406,7 +406,7 @@ bool load_s102(const std::filesystem::path& path, CoverageDataset& out, LoadErro
 
 bool load_hdf5_product(ProductId id, const std::filesystem::path& path, Dataset& out,
                        LoadError* err) {
-  // Peek productSpecification / groups to route S-104 vs S-102 when id is Unknown.
+  // Peek productSpecification / groups to route S-104 / S-111 / S-102 when id is Unknown.
   auto peek_route = [&](ProductId* inferred) -> bool {
     *inferred = id;
     if (id != ProductId::Unknown) return true;
@@ -422,12 +422,14 @@ bool load_hdf5_product(ProductId id, const std::filesystem::path& path, Dataset&
     std::string spec;
     read_string_attr(file, "productSpecification", &spec);
     const bool has_wl = H5Lexists(file, "/WaterLevel", H5P_DEFAULT) > 0;
+    const bool has_sc = H5Lexists(file, "/SurfaceCurrent", H5P_DEFAULT) > 0;
     const bool has_bathy = H5Lexists(file, "/BathymetryCoverage", H5P_DEFAULT) > 0;
     H5Fclose(file);
     if (spec.find("S-104") != std::string::npos || spec.find("S104") != std::string::npos ||
-        (has_wl && !has_bathy)) {
+        (has_wl && !has_bathy && !has_sc)) {
       *inferred = ProductId::S104;
-    } else if (spec.find("S-111") != std::string::npos || spec.find("S111") != std::string::npos) {
+    } else if (spec.find("S-111") != std::string::npos || spec.find("S111") != std::string::npos ||
+               (has_sc && !has_bathy)) {
       *inferred = ProductId::S111;
     } else {
       *inferred = ProductId::S102;  // default HDF5 bathymetry path
@@ -448,6 +450,16 @@ bool load_hdf5_product(ProductId id, const std::filesystem::path& path, Dataset&
     out.water_level = std::move(wl);
     return true;
   }
+  if (route == ProductId::S111) {
+    CurrentDataset cur;
+    if (!load_s111(path, cur, err)) return false;
+    out = Dataset{};
+    out.product = ProductId::S111;
+    out.path = path;
+    out.dataset_name = cur.dataset_name;
+    out.current = std::move(cur);
+    return true;
+  }
   if (route == ProductId::S102 || route == ProductId::Unknown) {
     CoverageDataset cov;
     if (!load_s102(path, cov, err)) return false;
@@ -459,6 +471,13 @@ bool load_hdf5_product(ProductId id, const std::filesystem::path& path, Dataset&
           cov.product_specification.find("S104") != std::string::npos) {
         set_err(err, LoadErrorKind::Parse,
                 "S-104 HDF5 unreadable as water level (" + cov.product_specification +
+                    "): " + path.string());
+        return false;
+      }
+      if (cov.product_specification.find("S-111") != std::string::npos ||
+          cov.product_specification.find("S111") != std::string::npos) {
+        set_err(err, LoadErrorKind::Parse,
+                "S-111 HDF5 unreadable as surface current (" + cov.product_specification +
                     "): " + path.string());
         return false;
       }

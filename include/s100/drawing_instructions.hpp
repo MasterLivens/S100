@@ -37,7 +37,7 @@ struct TextStyle {
  *  renderer and later S-98 interoperability work on it). One entry per drawing command; the
  *  state commands in effect are folded into its fields. */
 struct DrawingInstruction {
-  enum class Kind { Point, Line, Area, Text, Coverage, Null };
+  enum class Kind { Point, Line, Area, Text, Coverage, Arrow, Null };
 
   std::uint64_t feature_id{0};
   Kind kind{Kind::Null};
