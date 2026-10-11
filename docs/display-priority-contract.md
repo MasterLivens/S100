@@ -1,4 +1,4 @@
-# Display priority / draw order (rev 1)
+# Display priority / draw order (rev 2)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-DISPLAY-PRIORITY`** (**Active**). Also closes backlog **`IHO-S101-DRAW-PRIORITY`**.
@@ -77,14 +77,14 @@ Synthetic DIs (no cell required):
 
 With `pc_planes == nullptr` (fallback ranks):
 
-**Expected sorted order (ids):** `P2`, `P5`, `P1`, `P4`, `P0`, `P3`
+**Expected sorted order (ids):** `P2`, `P5`, `P4`, `P1`, `P0`, `P3`
 
-Reason: Under/empty (rank 0) before Over (rank 1); within Under: prio 1,1,5 → P2 then P5 (stable) then P1; empty P4 prio 3; then Over prio 0 then 2.
+Reason: Under+empty share fallback rank 0 before Over (rank 1). Within rank 0 by `drawing_priority`: P2(1), P5(1 stable), P4(3), P1(5); then Over: P0(0), P3(2).
 
 Also MUST:
 
 1. DEF parse: string with `DrawingPriority:7;DisplayPlane:OverRadar` → fields 7 / `OverRadar`.
-2. With `pc_planes = {{"UnderRadar", 10}, {"OverRadar", 0}}` (inverted PC ranks): Over paints first — sorted ids start with `P0`, `P3`, … (exact: P0, P3, then Under/empty by priority). Pin full list: **`P0`, `P3`, `P2`, `P5`, `P4`, `P1`**.
+2. With `pc_planes = {{"UnderRadar", 10}, {"OverRadar", 0}}` (inverted PC ranks): Over=0, empty missing→fallback **0** (same rank as Over), Under=10. Full pin: **`P0`, `P3`, `P4`, `P2`, `P5`, `P1`** (rank0 by prio: P0(0), P3(2), P4(3); then Under: P2(1), P5(1), P1(5)).
 3. Viewer (or unit linking viewer comparator) uses core `draw_order_less` — test via core only is enough if viewer calls `sort_instructions_for_draw` / shared comparator (Eng documents one call site).
 
 ## MUST / WARN
