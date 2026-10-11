@@ -9,7 +9,15 @@ option(S100_BUILD_VIEWER "Build Qt6 map viewer" ON)
 
 add_subdirectory(third_party)
 
-find_package(HDF5 REQUIRED COMPONENTS C)
+# Prefer HDF Group config package (Windows zip); fall back to FindHDF5 module (Linux apt).
+find_package(HDF5 CONFIG QUIET COMPONENTS C shared)
+if(HDF5_FOUND)
+  set(S100_HDF5_LIBS hdf5::hdf5-shared)
+else()
+  find_package(HDF5 REQUIRED COMPONENTS C)
+  set(S100_HDF5_LIBS ${HDF5_LIBRARIES})
+  include_directories(${HDF5_INCLUDE_DIRS})
+endif()
 
 add_library(s100_core
   src/core/iso8211.cpp
@@ -27,9 +35,15 @@ add_library(s100_core
   src/core/session.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_include_directories(s100_core PRIVATE ${HDF5_INCLUDE_DIRS})
-target_link_libraries(s100_core PRIVATE s100_pugixml s100_lua ${HDF5_LIBRARIES})  # Qt-free (contract rule 4)
-target_compile_definitions(s100_core PRIVATE ${HDF5_DEFINITIONS})
+target_link_libraries(s100_core PRIVATE s100_pugixml s100_lua ${S100_HDF5_LIBS})  # Qt-free (contract rule 4)
+if(DEFINED HDF5_DEFINITIONS)
+  target_compile_definitions(s100_core PRIVATE ${HDF5_DEFINITIONS})
+endif()
+if(HDF5_FOUND AND TARGET hdf5::hdf5-shared)
+  # CONFIG package already carries includes
+elseif(HDF5_INCLUDE_DIRS)
+  target_include_directories(s100_core PRIVATE ${HDF5_INCLUDE_DIRS})
+endif()
 
 add_executable(s100_cli src/cli/main.cpp)
 target_link_libraries(s100_cli PRIVATE s100_core)

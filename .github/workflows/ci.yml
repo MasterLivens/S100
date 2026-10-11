@@ -34,23 +34,31 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Official HDF Group Windows VS2022 CMake zip (reproducible; choco package missing)
+          # Outer release zip only wraps HDF5-1.14.5-win64.zip (cmake/include/lib live inside).
           $url = "https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.5/hdf5-1.14.5-win-vs2022_cl.zip"
-          $zip = "$env:RUNNER_TEMP\hdf5.zip"
+          $zip = "$env:RUNNER_TEMP\hdf5-outer.zip"
+          $stage = "$env:RUNNER_TEMP\hdf5-stage"
           $dest = "C:\HDF5"
           Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $dest -Force
-          $root = Get-ChildItem $dest -Directory -Recurse -Filter "cmake" | Select-Object -First 1
-          if ($root) { $prefix = $root.Parent.FullName } else {
-            $prefix = (Get-ChildItem $dest -Directory | Select-Object -First 1).FullName
-          }
-          if (-not $prefix) { throw "HDF5 extract failed" }
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          Expand-Archive -Path $zip -DestinationPath $stage -Force
+          $inner = Get-ChildItem -Path $stage -Recurse -Filter "HDF5-*-win64.zip" | Select-Object -First 1
+          if (-not $inner) { throw "inner HDF5-*-win64.zip not found in release zip" }
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          Expand-Archive -Path $inner.FullName -DestinationPath $dest -Force
+          $prefix = Join-Path $dest "HDF5-1.14.5-win64"
+          if (-not (Test-Path (Join-Path $prefix "include\hdf5.h"))) { throw "hdf5.h missing under $prefix" }
           "HDF5_ROOT=$prefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "CMAKE_PREFIX_PATH=$prefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "HDF5_DIR=$prefix\cmake" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "HDF5_ROOT=$prefix"
-          Get-ChildItem $prefix | Select-Object -First 20 | ForEach-Object { Write-Host $_.Name }
-      - name: Configure
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=%HDF5_ROOT% -DHDF5_DIR=%HDF5_DIR%
       - name: Build
         run: cmake --build build --config Release
       - name: Test
