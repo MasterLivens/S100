@@ -18,15 +18,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake qt6-base-dev qt6-svg-dev \
-            libgl1-mesa-dev python3-pil
+            libgl1-mesa-dev python3-pil fonts-dejavu-core
       - name: Install Qt (Windows)
         if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.5.3'
+          # qtsvg is a default archive on modern Qt, not an aqt "module" — do not pass modules: qtsvg
+          version: '6.7.0'
           arch: win64_msvc2019_64
-          modules: qtsvg
-          setup-python: false
           cache: true
       - name: Install Pillow (Windows golden compares)
         if: runner.os == 'Windows'
@@ -39,3 +38,10 @@ jobs:
         run: ctest --test-dir build -C Release --output-on-failure
         env:
           S100_TESTDATA: testdata/s101
+      - name: Upload golden mismatch (Linux)
+        if: failure() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-iho-0008-ci
+          path: build/golden_iho_0008.png
+          if-no-files-found: ignore
