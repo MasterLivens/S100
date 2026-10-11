@@ -122,7 +122,7 @@ Details: `docs/s124-contract.md`.
 - S-111/S-124 MUST ship `S-10X_FC_2.0.0.xml` + `PC_2.0.0/portrayal_catalogue.xml` (sha + FC/PC edition pair).
 - S-104 MUST ship **FC only** (`S-104_FC_2.0.0.xml`); official PC is **N/A** for Ed.2.0.0 — never forge; provenance skips PC pairing for S-104.
 - Details: `docs/catalogue-complete-contract.md`. CTest `catalogue_provenance`: required-file/sha/pair failures → **FATAL** (S-104 PC checks N/A).
-- Wiring loaders to S-111/S-124 PC is follow-up (WARN).
+- **PC wiring Active:** `docs/pc-wire-contract.md` (`IHO-PC-WIRE-111-124`). S-124: Lua PC via `S124HostAdapter` / `portray_nav_warnings_pc`. S-111: Arrow `symbol_ref`→`SCAROW*` + ColorProfiles (XSLT host still WARN; **no** invented S-111 Lua).
 
 ## Stability
 

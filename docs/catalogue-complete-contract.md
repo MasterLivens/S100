@@ -46,7 +46,7 @@ S-104 SOURCE additionally MUST state PC is **officially N/A** for Ed.2.0.0 (PS Â
 
 ## Portray
 
-Minimal tokenized / engine portray for S-104 remains OK. Wiring S-111/S-124 loaders to new PC is WARN follow-up.
+Minimal tokenized / engine portray for S-104 remains OK. S-111/S-124 **PC wiring** is Active: `docs/pc-wire-contract.md` (`IHO-PC-WIRE-111-124`); XSLT engine for S-111 remains WARN.
 
 ## Supersedes
 

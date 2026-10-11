@@ -56,7 +56,11 @@ Dataset::bounds()                // MUST include nav_warnings.bounds() in the un
 
 ## Portray (all warnings in fixture)
 
-For **each** warning, emit:
+**Heuristic (pre-wire):** For **each** warning, emit:
+
+**After PC wire:** prefer `portray_nav_warnings_pc` per `docs/pc-wire-contract.md`; heuristic only if PC path fails.
+
+For **each** warning (heuristic), emit:
 
 | Kind | Rule |
 |------|------|
@@ -86,7 +90,8 @@ Key `S-124:<stem>`. Overlay with S-101.
 | `--s124` opens fixture | MUST |
 | ChartSession S-101+S-124 | MUST |
 | Soft pixel / exchange-set catalog member | WARN |
-| Official S-124 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` (supersedes defer). Portray→PC wiring WARN follow-up |
+| Official S-124 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` |
+| Portray→PC wiring (Lua Host) | **MUST** via `docs/pc-wire-contract.md` (`portray_nav_warnings_pc` / `S124HostAdapter`) |
 
 ## Non-goals
 

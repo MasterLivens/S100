@@ -49,7 +49,7 @@ Add `DrawingInstruction::Kind::Arrow`.
 | `geometries` | single Point anchor (WGS84) |
 | `rotation` | = `direction_deg` (PortrayalCRS / GeographicCRS as documented in emit) |
 | `scale_factor` | proportional to `speed_ms` (clamp in viewer) |
-| `symbol_ref` or `command` | arrow glyph id / `"Arrow"` |
+| `symbol_ref` | **PC id** `SCAROW01`…`SCAROW09` (band table in `pc-wire-contract`); interim `"Arrow"` superseded when PC wired |
 | `fill_ref` | colour token (default `CHGRD` if no PC) |
 
 Do not overload `Kind::Point` for currents.
@@ -83,7 +83,8 @@ MUST tests use this file — **no SKIP**.
 | Portray active frame: Arrow count follows stride; ≥1 Arrow | MUST |
 | ChartSession S-101+S-111 | MUST |
 | Soft pixel | WARN |
-| Official S-111 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` (supersedes defer). Portray→PC wiring WARN follow-up |
+| Official S-111 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` |
+| Portray→PC wiring (SCAROW + ColorProfiles) | **MUST** via `docs/pc-wire-contract.md` (XSLT engine WARN; no invented Lua) |
 
 ## Non-goals
 
