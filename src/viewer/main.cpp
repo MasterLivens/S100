@@ -11,6 +11,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
+#include <QSvgRenderer>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
@@ -23,6 +24,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -150,6 +152,83 @@ qreal mm_to_px(const QPaintDevice* dev, double mm) {
   return static_cast<qreal>(mm) * dpi / 25.4;
 }
 
+/** Rewrite S-100 PC SVG so QtSvg sees Day (or active) palette colours.
+ *  Official Symbols/*.svg use external daySvgStyle.css class tokens (fCHBLK / sCHBLK);
+ *  catalogues must stay untouched — we inject an embedded <style> at load time. */
+QByteArray remap_symbol_svg(const QByteArray& raw, const ColorPalette& palette) {
+  QByteArray out = raw;
+  // Drop xml-stylesheet PI pointing at day/dusk/night CSS (not loaded by QSvgRenderer).
+  const int pi = out.indexOf("<?xml-stylesheet");
+  if (pi >= 0) {
+    const int pe = out.indexOf("?>", pi);
+    if (pe > pi) out.remove(pi, pe - pi + 2);
+  }
+  QByteArray style;
+  style += "<style type=\"text/css\">";
+  style += ".layout{display:none}";  // symbolBox / svgBox / pivotPoint
+  style += ".f0{fill:none}";
+  style += ".sl{stroke-linecap:round;stroke-linejoin:round}";
+  for (auto it = palette.by_token.constBegin(); it != palette.by_token.constEnd(); ++it) {
+    const QByteArray tok = it.key().toUtf8();
+    const QByteArray hex = it.value().name(QColor::HexRgb).toLatin1();  // #rrggbb
+    style += ".f";
+    style += tok;
+    style += "{fill:";
+    style += hex;
+    style += "}";
+    style += ".s";
+    style += tok;
+    style += "{stroke:";
+    style += hex;
+    style += "}";
+  }
+  style += "</style>";
+  const int svg = out.indexOf("<svg");
+  if (svg < 0) return out;
+  const int gt = out.indexOf('>', svg);
+  if (gt < 0) return out;
+  out.insert(gt + 1, style);
+  return out;
+}
+
+/** Cached QSvgRenderer per symbol_ref (palette baked into remapped SVG). */
+struct SymbolCache {
+  const ColorPalette* palette{nullptr};
+  fs::path symbols_dir;
+  std::unordered_map<std::string, std::unique_ptr<QSvgRenderer>> by_ref;
+  // Negative cache: missing / invalid files — do not retry every paint.
+  std::unordered_map<std::string, bool> missing;
+
+  void reset(const ColorPalette* pal, fs::path dir) {
+    palette = pal;
+    symbols_dir = std::move(dir);
+    by_ref.clear();
+    missing.clear();
+  }
+
+  QSvgRenderer* get(const std::string& ref) {
+    if (ref.empty() || !palette || symbols_dir.empty()) return nullptr;
+    if (auto it = by_ref.find(ref); it != by_ref.end()) return it->second.get();
+    if (missing.count(ref)) return nullptr;
+    const fs::path path = symbols_dir / (ref + ".svg");
+    QFile f(QString::fromStdString(path.string()));
+    if (!f.open(QIODevice::ReadOnly)) {
+      missing[ref] = true;
+      return nullptr;
+    }
+    const QByteArray remapped = remap_symbol_svg(f.readAll(), *palette);
+    auto renderer = std::make_unique<QSvgRenderer>();
+    if (!renderer->load(remapped) || !renderer->isValid()) {
+      missing[ref] = true;
+      return nullptr;
+    }
+    QSvgRenderer* raw = renderer.get();
+    by_ref.emplace(ref, std::move(renderer));
+    return raw;
+  }
+};
+
+
 QPointF feature_anchor(const s100::Feature& f, const QRectF& r, double west, double south,
                        double east, double north) {
   switch (f.geometry.kind) {
@@ -204,6 +283,7 @@ class MapWidget : public QWidget {
     pc_ = pc;
     by_id_.clear();
     named_line_cache_.clear();
+    symbol_cache_.reset(&palette_, pc_root_ / "Symbols");
     if (dataset_) {
       by_id_.reserve(dataset_->features.size());
       for (const auto& f : dataset_->features) by_id_[f.id] = &f;
@@ -380,27 +460,27 @@ class MapWidget : public QWidget {
 
   void draw_point(QPainter& p, const QRectF& r, const s100::Feature& f,
                   const s100::DrawingInstruction& di) {
-    // Gap: SVG symbols under PC Symbols/ are not rendered this pass (S-100 SVG uses external
-    // CSS colour classes; QtSvg not linked). Minimal marker keyed by symbol_ref hash hue from
-    // palette tokens CHMGD / CHBLK.
-    const QColor ink = palette_.get("CHMGD", QColor(192, 69, 209));
-    const QColor outline = palette_.get("CHBLK", Qt::black);
+    // PointInstruction: PC Symbols/<symbol_ref>.svg via QSvgRenderer. CSS class tokens
+    // (fCHBLK / sSNDG1 / …) are remapped through the active Day colour profile at load.
+    QSvgRenderer* svg = symbol_cache_.get(di.symbol_ref);
     auto paint_one = [&](QPointF s) {
-      // Distinct marker size by a stable hash of the symbol name (still profile colours only).
-      const uint h = qHash(QString::fromStdString(di.symbol_ref));
-      const qreal rad = 2.0 + static_cast<qreal>(h % 3);
-      p.setPen(QPen(outline, 0.8));
-      p.setBrush(ink);
-      if ((h % 3) == 0) {
-        p.drawEllipse(s, rad, rad);
-      } else if ((h % 3) == 1) {
-        QPolygonF tri;
-        tri << QPointF(s.x(), s.y() - rad) << QPointF(s.x() - rad, s.y() + rad)
-            << QPointF(s.x() + rad, s.y() + rad);
-        p.drawPolygon(tri);
-      } else {
-        p.drawRect(QRectF(s.x() - rad, s.y() - rad, rad * 2, rad * 2));
+      const qreal ox = mm_to_px(this, di.offset_x);
+      const qreal oy = -mm_to_px(this, di.offset_y);  // LocalOffset y up in portrayal CRS
+      if (svg) {
+        p.save();
+        p.translate(s.x() + ox, s.y() + oy);
+        if (di.rotation != 0.0) p.rotate(di.rotation);
+        const qreal scale = (di.scale_factor > 0.0 ? di.scale_factor : 1.0) * mm_to_px(this, 1.0);
+        // SVG user units match mm (width/height "…mm" ≈ viewBox size). Pivot is (0,0).
+        const QRectF vb = svg->viewBoxF();
+        svg->render(&p, QRectF(vb.x() * scale, vb.y() * scale, vb.width() * scale, vb.height() * scale));
+        p.restore();
+        return;
       }
+      // Missing SVG file: tiny CHBLK dot (not magenta) so absent assets stay visible.
+      p.setPen(Qt::NoPen);
+      p.setBrush(palette_.get("CHBLK", Qt::black));
+      p.drawEllipse(QPointF(s.x() + ox, s.y() + oy), 2.0, 2.0);
     };
 
     if (f.geometry.kind == s100::GeometryKind::Point) {
@@ -457,6 +537,7 @@ class MapWidget : public QWidget {
   const s100::PortrayalCatalogue* pc_{nullptr};
   std::unordered_map<std::uint64_t, const s100::Feature*> by_id_;
   std::unordered_map<std::string, NamedLineStyle> named_line_cache_;
+  SymbolCache symbol_cache_;
   s100::LayerVisibility visibility_;  // session state, not in Dataset
   double west_{-0.05}, south_{-0.05}, east_{0.05}, north_{0.05};
   std::function<void(const QString&)> status_cb_;

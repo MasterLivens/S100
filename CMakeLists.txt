@@ -61,10 +61,10 @@ set_tests_properties(s100_tests PROPERTIES
 )
 
 if(S100_BUILD_VIEWER)
-  find_package(Qt6 REQUIRED COMPONENTS Widgets)
+  find_package(Qt6 REQUIRED COMPONENTS Widgets Svg)
   qt_standard_project_setup()
   add_executable(s100_viewer src/viewer/main.cpp)
-  target_link_libraries(s100_viewer PRIVATE s100_core Qt6::Widgets)
+  target_link_libraries(s100_viewer PRIVATE s100_core Qt6::Widgets Qt6::Svg)
   target_compile_definitions(s100_viewer PRIVATE
     S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
     S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0")

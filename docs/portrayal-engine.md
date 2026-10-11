@@ -109,8 +109,10 @@ apply; meta stays off by default. Status bar shows feature count, instruction co
 | Area `AreaFillReference` / patterns | **Gap** — needs AreaFills/ symbol tiling |
 | Line `_simple_` | Width / colour / dash from inline `LineStyleDef` |
 | Line named style | Colour + width from `LineStyles/<ref>.xml` (dashes simplified) |
-| Point | **Gap** — SVG under `Symbols/` not linked (CSS class colours); minimal marker (circle/triangle/square) in `CHMGD`/`CHBLK`, shape keyed by `symbol_ref` |
+| Point | PC `Symbols/<symbol_ref>.svg` via `QSvgRenderer` (Qt6::Svg). External CSS class tokens (`fCHBLK` / `sSNDG1` / …) remapped through the loaded Day colour profile into an embedded `<style>` at load; renderers cached by `symbol_ref`. Scale: SVG user unit = mm × `scale_factor` × DPI; `LocalOffset` + `rotation` applied; pivot `(0,0)`. Missing file → tiny `CHBLK` dot |
 | Text | Token colour + LocalOffset; font size from mm |
 
-Not yet: SpatialReference clipping, augmented geometry, CoverageFill, dusk/night palettes, SVG
-symbols (soundings are SVG digit composites — shown as markers until SVG lands).
+Not yet (architect priority after Symbols SVG): AreaFillReference / pattern tiling from `AreaFills/`,
+SpatialReference clipping, dusk/night palettes (CSS files exist; viewer still Day-only), augmented
+geometry, CoverageFill. Sounding digit composites are real SVG symbols now (each digit/`SOUNDG*`
+file); composite placement still follows whatever PointInstructions the rules emit.
