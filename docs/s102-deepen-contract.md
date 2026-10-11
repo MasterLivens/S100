@@ -32,7 +32,7 @@ Projected CRS: handled inside `CoverageGrid::sample_wgs84` (EPSG:4326 + UTM 326x
 
 ## CI fixture (MUST — no full SKIP)
 
-Ship a **synthetic multi-grid HDF5** under `testdata/s102/` (gittracked), e.g. two small regular grids with disjoint envelopes.  
+Ship **`testdata/s102/synthetic_multigrid_4326.h5`** (gittracked via `.gitignore` `!` exception; see `testdata/s102/SOURCE.md`): two small EPSG:4326 regular grids with disjoint envelopes.  
 MUST tests #1–3 below **must run on CI**, not SKIP.
 
 ## Palette / band oracle (locked)
