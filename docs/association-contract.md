@@ -1,60 +1,100 @@
-# Feature / information associations (FASC · INAS) — Bridge slice
+# Feature / information associations (FASC · INAS) — Bridge slice (rev 2)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Prerequisite for bridge / structure–equipment composites and Track B. Supersedes the exchange-set MVP stub for element-level merge.
+Prerequisite for bridge / structure–equipment composites and Track B.
 
 ## Goals
 
-1. Decode and update associations with **element-level** FAUI/IUIN (no whole-list replace when only some members change).
-2. Expose associations to portrayal through existing Part 9A Host calls — viewer never walks FASC itself.
-3. Enable Bridge and similar composites whose PC rules query associated features/information.
+1. Element-level FAUI/IUIN merge on updates (no stub whole-list replace when FAUI/IUIN is present).
+2. Portrayal sees associations only via Part 9A Host — viewer never walks FASC.
+3. Bridge / composite PC rules that call `HostFeatureGetAssociated*` work on real cells.
 
-## Data model (already largely present)
+## Identity & match keys
 
-`AssociationRef`: `{rcnm, rcid, association, role, attributes}` on:
-- `Feature::feature_associations` (FASC)
-- `Feature::information_associations` (INAS)
-- spatial / information records as already decoded
+Association member identity (used for Delete / Modify match):
 
-Association and role codes resolve via dataset code lists + FC (`feature_associations` / `information_associations` maps). Keep opaque string codes at the façade; do not invent parallel enums.
+```
+(rcnm, rcid, association, role)
+```
 
-## Update merge (this slice — must ship)
+- All four fields required for a match.
+- Multiple exact matches → Delete removes **all** of them; Modify updates **all** of them (same attribute patch).
+- Modify **must not** change identity fields; only `AssociationRef::attributes` is replaced from the update member.
 
-On feature (or information) **Modify**:
+FAUI / IUIN control byte (Part 10a): `1` Insert, `2` Delete, `3` Modify. Any other value → unknown.
 
-| Control | Meaning |
-|---------|---------|
-| FAUI / IUIN Insert | Append association member |
-| FAUI / IUIN Delete | Remove matching member (match on rcnm+rcid+association+role; if ambiguous, delete all exact matches) |
-| FAUI / IUIN Modify | Replace attributes on the matched member; identity fields unchanged |
-| Field absent | Leave existing list untouched |
-| Full-field replace without FAUI | Only if the update record carries a complete FASC/INAS set **and** no FAUI/IUIN substructure — keep current whole-list replace as fallback for that shape only |
+## Update merge
 
-Out-of-order / unknown FAUI → `LoadError`, do not partially apply that feature's associations.
+Applies when a feature (or information) record is **Modify** and carries FASC/INAS fields.
 
-Update `docs/exchange-set.md` status row from stub → **full** when this lands.
+| Shape | Behaviour |
+|-------|-----------|
+| Each FASC/INAS field carries FAUI/IUIN | Apply Insert / Delete / Modify in **field order** against the existing list |
+| Complete FASC/INAS set present and **no** FAUI/IUIN substructure | Whole-list replace (legacy shape) |
+| FASC/INAS fields absent | Leave existing list untouched |
 
-## Host surface (portrayal)
+### Failure granularity
 
-Required (already in `host-functions.txt`):
+- Unknown FAUI/IUIN value, truncated field, or Modify with **no** identity match → `LoadError` for **that update file application**.
+- Do **not** leave that feature's association list half-applied: on error, roll back association changes for the **current feature record** to the pre-record state (other features already applied in this update file stay). Prefer: apply association ops for one feature in a temporary copy, commit only on success.
+- Do **not** abort the entire exchange-set session; caller sees `LoadError` from `apply_s101_update` / `open_dataset_with_updates`.
+
+When this lands, set `docs/exchange-set.md` FASC row to **full** and remove the stub sentence from `docs/api-contracts.md` (synced in this rev).
+
+## Host surface
+
+### Feature associations (FASC / INAS filters)
 
 - `HostFeatureGetAssociatedFeatureIDs(featureId, associationCode, roleCode)`
-- `HostFeatureGetAssociatedInformationIDs(...)`
-- `HostSpatialGetAssociatedFeatureIDs` / `...InformationIDs`
+- `HostFeatureGetAssociatedInformationIDs(featureId, associationCode, roleCode)`
 
-Rules:
+| Argument | Rule |
+|----------|------|
+| `associationCode` | **Required** (non-empty). Empty / nil → Host error (Lua error), do not treat as wildcard. |
+| `roleCode` | Optional. `nil` or `""` = **any role** for that association. Non-empty → exact role match. |
 
-1. Filter by association + role codes from the PC call; empty role/association means "any" only if Part 9A / PortrayalAPI does that — match whatever `PortrayalAPI.lua` passes through, do not invent wildcards beyond it.
-2. Return IDs that exist in the current `Dataset` after updates; dangling rcid → omit + debug log / `HostDebuggerEntry`, do not crash Lua.
-3. **No viewer-side joins.** Bridge drawing comes only from instructions emitted by official Lua that already walked associations via Host.
+Return only peer IDs that exist in the current `Dataset`. Dangling `rcid` → omit + `HostDebuggerEntry`; never crash Lua.
 
-## Bridge / composite scope (this slice)
+### Spatial associations (separate API — do not mix)
 
-- Ensure Host association queries work on IHO + CHS cells that contain Bridge / structure–equipment graphs.
-- Add CTest: after a synthetic or real update that uses FAUI insert/delete, association lists match expected members; Host query returns the expected peer IDs.
-- Do **not** hand-write Bridge symbology in Qt. If a cell's PC emits nothing useful for Bridge, fix Host/data, not the renderer.
-- Text collision still out of scope.
+- `HostSpatialGetAssociatedFeatureIDs(spatialId)` / `HostSpatialGetAssociatedInformationIDs(spatialId)`
 
-## Explicitly later
+These are **ID-only** (no association/role filter). They return features/information linked via spatial topology / SPAS, not FASC. Do not add FASC filters to these entry points.
 
-S-98 interoperability association catalogues, Cross-dataset associations, Track B alert associations.
+### Viewer
+
+No viewer-side joins. Bridge drawing = official Lua instructions only.
+
+## Test oracles (CTest sketches)
+
+Add under `tests/` (names suggestive; Tester may rename):
+
+1. **`association_faui_merge`**
+   - Fixture: minimal in-memory or tiny `.000` + `.001` under `testdata/s101/assoc/` (or build Dataset in C++).
+   - Start: feature A has FASC → B (`assoc=supports`, `role=supportedBy`).
+   - Update Insert: A → C same assoc/role → list size 2, contains B and C.
+   - Update Delete: remove A→B by identity → only C remains.
+   - Update Modify: change attributes on A→C → identity unchanged, attributes equal patch.
+   - Unknown FAUI=`9` → `apply_s101_update` returns false; A's list unchanged from pre-update.
+
+2. **`association_host_query`**
+   - After load (CHS or fixture with known Bridge graph, or synthetic):
+   - `HostFeatureGetAssociatedFeatureIDs(A, "supports", "")` returns expected peer id set (order irrelevant).
+   - Same with `roleCode="supportedBy"` filters correctly.
+   - Empty `associationCode` errors.
+   - Dangling rcid in list does not appear in returned IDs.
+
+3. **`association_spatial_no_fasc_filter`** (smoke)
+   - `HostSpatialGetAssociatedFeatureIDs` callable with spatial id only; documenting no assoc/role args.
+
+Engineer delivers tests + implementation together; Tester owns pass/fail and fixtures.toml style data if files are used.
+
+## Bridge scope
+
+- Host queries work on IHO/CHS cells that have Bridge / structure–equipment associations.
+- No hand-written Bridge symbology in Qt.
+- Text collision still later.
+
+## Later
+
+S-98 IO catalogues, cross-dataset associations, Track B alerts.

@@ -76,7 +76,9 @@ Parallel to `open_dataset` — do not overload the single-file entry. Details: `
 - `open_dataset` rejects lone `.001`… (`LoadErrorKind::Invalid`); use `open_dataset_with_updates` / `ChartSession`.
 - Updates apply in DSID ED/UPD order (catalogue metadata validated when present); mismatch → `LoadError`, no partial apply.
 - `ChartSession` is shared across products; member key = `ProductId` + dataset identity (`S-101:cellStem`).
-- FASC/INAS FAUI/IUIN element merge remains stub (whole-list replace) until Bridge / Track B.
+- FASC/INAS: element-level FAUI/IUIN merge required for Bridge slice — see `docs/association-contract.md`.
+  Match key `(rcnm,rcid,association,role)`; unknown FAUI → LoadError with per-feature association rollback.
+  Host: `associationCode` required; empty `roleCode` = any role. Spatial Host APIs stay ID-only (no FASC filter).
 - Coverage products (S-102 `.h5`) are members of the same `ChartSession` map (`S-102:<stem>`); `open_cell_series` routes them through `open_dataset`.
 
 ## Stability
