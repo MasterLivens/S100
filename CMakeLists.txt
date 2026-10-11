@@ -19,6 +19,8 @@ target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_executable(s100_cli src/cli/main.cpp)
 target_link_libraries(s100_cli PRIVATE s100_core)
+target_compile_definitions(s100_cli PRIVATE
+  S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml")
 
 enable_testing()
 add_executable(s100_tests
@@ -46,6 +48,8 @@ if(S100_BUILD_VIEWER)
   qt_standard_project_setup()
   add_executable(s100_viewer src/viewer/main.cpp)
   target_link_libraries(s100_viewer PRIVATE s100_core Qt6::Widgets)
+  target_compile_definitions(s100_viewer PRIVATE
+    S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml")
 endif()
 
 install(TARGETS s100_core s100_cli RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)

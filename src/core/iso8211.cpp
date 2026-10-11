@@ -159,17 +159,6 @@ std::vector<Attribute> parse_attributes(const std::vector<std::uint8_t>& b,
   return out;
 }
 
-LayerId layer_for_feature_type(const std::string& name) {
-  if (name == "LandArea" || name == "LandRegion" || name == "ShorelineConstruction" ||
-      name == "Dam" || name == "Dyke" || name == "Causeway") {
-    return LayerId::LAND;
-  }
-  if (name == "DepthArea" || name == "DepthContour" || name == "QualityOfBathymetricData" ||
-      name == "SoundingDatum" || name == "SeaAreaNamedWaterArea") {
-    return LayerId::DEPARE;
-  }
-  return LayerId::Other;
-}
 
 struct SpatialKey {
   std::uint8_t rcnm{0};
@@ -415,8 +404,6 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
   out = Dataset{};
   out.path = path;
   out.product = ProductId::S101;
-  out.layers.register_layer(LayerId::LAND, "LAND");
-  out.layers.register_layer(LayerId::DEPARE, "DEPARE");
 
   std::uint64_t next_id = 1;
   for (const auto& rec : records) {
@@ -431,7 +418,6 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
     Feature feat;
     feat.id = next_id++;
     feat.feature_type = fname;
-    feat.layer = layer_for_feature_type(fname);
     feat.geometry.kind = GeometryKind::Empty;
     if (auto* attr = rec.find("ATTR")) feat.attributes = parse_attributes(attr->data, atcs);
 

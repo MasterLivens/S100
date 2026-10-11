@@ -43,7 +43,6 @@ void test_load_samples() {
                       .count();
   CHECK(ms < 5000);
   CHECK(ds.stats().feature_count > 0);
-  CHECK(ds.layers.size() >= 2);
   const auto b = ds.bounds();
   CHECK(b.valid);
   CHECK(b.west <= b.east);

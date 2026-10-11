@@ -31,7 +31,6 @@ struct Geometry {
   std::vector<Point3> multipoint;  // MultiPoint (e.g. Sounding) with Z
 };
 
-enum class LayerId { LAND, DEPARE, Other };
 
 /** One S-101 attribute instance (ATTR field). Complex attributes have an empty value
  *  and their sub-attributes point back to them through `parent` (1-based index, 0 = top level). */
@@ -45,8 +44,7 @@ struct Attribute {
 
 struct Feature {
   std::uint64_t id{0};
-  std::string feature_type;
-  LayerId layer{LayerId::Other};
+  std::string feature_type;  // FC feature type code; also the layer key (classify_layers)
   Geometry geometry;
   std::vector<Attribute> attributes;
 
