@@ -11,6 +11,7 @@ Pairs with FC/PC **3.0.0** under `catalogues/S-102/` (provenance + hash pairing 
 4. **One `ChartSession`.** Member key `S-102:<dataset-id>` (stem or catalogue id). `Dataset.features` stays empty for coverage; geometry/values via `bounds`/`sample` + CoverageFill instructions. Overlay view Datasets attach `coverage` onto the S-101 member; `Dataset::bounds()` is the **union** of feature and coverage geographic envelopes.
 5. **Same `DrawingInstructions`.** Viewer paints CoverageFill from `CoverageColor`/`LookupEntry` tokens (Day/Dusk/Night); engine may emit instructions before the renderer paints cells. Open `.h5` alone or overlay with `s100_viewer <S-101.000> --s102 <path.h5>`.
 
-## Out of this slice
+## Out of first slice (see deepen)
 
-Text collision, S-98 interoperability ordering, S-104/S-111 time axis, FASC/INAS element merge.
+Multi-grid / palette refinement → `docs/s102-deepen-contract.md`.
+S-98 interoperability, S-104/S-111 time axis.
