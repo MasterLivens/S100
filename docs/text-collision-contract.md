@@ -7,7 +7,7 @@ Case id: **`IHO-S101-TEXT-COLLISION`** (also list in `docs/testing/iho-ctest-cas
 
 Reduce overlapping chart text in `s100_viewer` **after** portrayal. Official PC Lua and `catalogues/` stay read-only.
 
-**MVP covers only `DrawingInstruction::Kind::Text`.** Labels baked into point-symbol SVGs / non-Text kinds are a later slice.
+**This slice covers unpaired `Kind::Text` only.** Point-companion Text labels → `docs/point-symbol-text-collision-contract.md`. No SVG text parsing.
 
 ## Rules
 
@@ -37,4 +37,4 @@ Dropped-label count may show in CLI/status for debug; not a CI failure by itself
 
 ## Out of scope
 
-Point-symbol / SVG-embedded text, full ECDIS text-group tables, leader lines, EncDotNet pixel-equality, S-164 auto compare (after this slice signs off).
+Point-companion labels and SVG-embedded text → see `docs/point-symbol-text-collision-contract.md`. Full ECDIS text-group tables, leader lines, EncDotNet pixel-equality.

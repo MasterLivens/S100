@@ -1,40 +1,59 @@
-# Point-symbol text collision (next slice)
+# Point-symbol text collision (rev 2)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Extends `docs/text-collision-contract.md` (Kind::Text already shipped). Case id: **`IHO-S101-POINT-LABEL-COLLISION`**.
+Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLLISION`**.
 
-## Scope
+## 1. PointLabel identity (pinned)
 
-Avoidance for **labels attached to point symbols**, not `Kind::Text` alone.
+A **PointLabel** is a `Kind::Text` instruction that is the **companion** of a `Kind::Point` instruction from the **same** `portray` output:
 
-Sources of point labels (MVP — pick what instructions already expose; do not invent fields in Lua):
+```
+same feature_id
+AND Text instruction appears in the instruction list associated with that point
+AND pairing rule: nearest Text with that feature_id whose anchor lies within N screen pixels of the Point anchor
+   (N = 48 px at 1280×800 reference; document constant in code)
+```
 
-1. Point `DrawingInstruction`s that carry a non-empty text/label string alongside `symbol_ref`, **or**
-2. A documented companion Text instruction sharing the same `feature_id` and anchor (if the engine already emits that pattern).
+- There is **no** `Point.text` field today — do not invent one and do not parse Symbols/*.svg.
+- Unpaired Text stays class `Text` (existing collision path).
+- Unpaired Point has **no** PointLabel (symbol only).
 
-If neither exists for a feature, **skip** (no SVG font parsing in MVP). Parsing text out of Symbols/*.svg is **out of scope**.
+## 2. Box model (pick one — locked)
 
-## Rules
+**Label-beside box only:** PointLabel's collision box is the **text AABB** placed at the Text instruction anchor (after any offset attempts).  
+The Point symbol uses a separate **symbol AABB** that participates only as an obstacle for *other* labels (optional MVP: symbol boxes block Text/PointLabel).  
+**Do not** inflate the symbol AABB to include the label.
 
-1. Same viewer-side layout pass as Text collision; one shared placer, two input classes: `Text` + `PointLabel`.
-2. Default **ON** with the same master flag (`text_collision_avoidance` / `--no-text-collision`). No second CLI flag in MVP.
-3. Greedy order: drawing priority, then Text before PointLabel at equal priority (Text wins ties), then stable instruction order.
-4. PointLabel box = symbol screen AABB **inflated** by label metrics (or label-only box beside the symbol if the instruction separates them). On conflict: offset set then **drop label only** — never drop the symbol glyph.
-5. Official Lua / catalogues / SVGs read-only. Soft golden / palette / snapshot captures keep `--no-text-collision`.
-6. Do not require bit-identical pixels.
+On failure to place: **drop the Text (PointLabel) instruction** only; Point glyph always draws.
 
-## Tests
+## 3. Shared flag
 
-Fixture: `101AA00DS0008.000`, Day, 1280×800.
+Same master switch as Text collision: default ON; `--no-text-collision` forces OFF for Text **and** PointLabel. No second flag.
 
-| # | Assertion |
-|---|-----------|
-| 1 | `--no-text-collision` still forces OFF for both Text and PointLabel. |
-| 2 | Oracle: pairwise overlaps among **PointLabel boxes** (and optionally Text∩PointLabel): `pairs_off >= pairs_on` and `pairs_off > 0` if the fixture has point labels; if zero point labels on 0008, use a tiny synthetic instruction list in CTest instead and document it. |
-| 3 | Symbols remain visible when labels drop (count of point symbols drawn ON == OFF). |
-| 4 | Existing `viewer_text_collision` (Kind::Text) stays green. |
-| 5 | Case id in `iho-ctest-case-ids.md`. |
+Greedy order: drawing priority → at equal priority **unpaired Text before PointLabel** → stable list order.
+
+## 4. Dump / oracle
+
+`--dump-text-boxes` lines include `class=Text|PointLabel` (and feature_id, box).
+
+**Overlap oracle counts only PointLabel–PointLabel pairs** (not Text∩PointLabel in the primary assert).  
+Assert `pairs_off >= pairs_on` and `pairs_off > 0`.
+
+If `101AA00DS0008.000` yields zero PointLabels under the pairing rule, ship a **named synthetic fixture** `testdata/s101/point_label_collision_synth` (or C++-built instruction list in CTest named `point_label_collision_synth`) that produces ≥1 PointLabel pair when OFF.
+
+## 5. Symbol survival (pinned metric)
+
+```
+point_glyphs_drawn(ON) == point_glyphs_drawn(OFF)
+```
+
+Count = number of `Kind::Point` instructions actually submitted to the symbol painter (not dropped). Labels may drop; this count must not.
+
+## 6. Cross-links
+
+- `docs/text-collision-contract.md` Out of scope → points here for point-companion labels / SVG text.
+- `docs/testing/iho-ctest-case-ids.md` registers `IHO-S101-POINT-LABEL-COLLISION`.
 
 ## Non-goals
 
-SVG-embedded path text, full ECDIS text groups, leader lines, S-102 deepen.
+SVG-embedded path text, Text∩PointLabel as hard CI metric, leader lines, S-102 deepen.
