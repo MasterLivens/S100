@@ -73,6 +73,7 @@ std::uint16_t read_u16(const std::uint8_t* p) {
 struct Dssi {
   double cmfx{1e7};
   double cmfy{1e7};
+  double cmfz{1};
   bool ok{false};
 };
 
@@ -84,6 +85,10 @@ Dssi parse_dssi(const std::vector<std::uint8_t>& b) {
   std::int32_t cmfy = read_i32(b.data() + 28);
   if (cmfx != 0) d.cmfx = static_cast<double>(cmfx);
   if (cmfy != 0) d.cmfy = static_cast<double>(cmfy);
+  if (b.size() >= 36) {
+    const std::int32_t cmfz = read_i32(b.data() + 32);
+    if (cmfz != 0) d.cmfz = static_cast<double>(cmfz);
+  }
   d.ok = true;
   return d;
 }
@@ -95,6 +100,20 @@ std::vector<Point> decode_c2(const std::vector<std::uint8_t>& blob, double cmfx,
     const auto y = read_i32(blob.data() + i);
     const auto x = read_i32(blob.data() + i + 4);
     pts.push_back(Point{static_cast<double>(x) / cmfx, static_cast<double>(y) / cmfy});
+  }
+  return pts;
+}
+
+/** C3IL: VCID(u8) then repeating YCOO, XCOO, ZCOO (int32 each, latitude first). */
+std::vector<Point3> decode_c3(const std::vector<std::uint8_t>& blob, double cmfx, double cmfy,
+                              double cmfz) {
+  std::vector<Point3> pts;
+  for (std::size_t i = 1; i + 12 <= blob.size(); i += 12) {
+    const auto y = read_i32(blob.data() + i);
+    const auto x = read_i32(blob.data() + i + 4);
+    const auto z = read_i32(blob.data() + i + 8);
+    pts.push_back(Point3{static_cast<double>(x) / cmfx, static_cast<double>(y) / cmfy,
+                         static_cast<double>(z) / cmfz});
   }
   return pts;
 }
@@ -289,6 +308,7 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
   // Topology primitives keyed by (RCNM, RCID): 110 point, 120 curve, 125 composite, 130 surface.
   std::unordered_map<SpatialKey, Point, SpatialKeyHash> points;
   std::unordered_map<SpatialKey, std::vector<Point>, SpatialKeyHash> curves;
+  std::unordered_map<SpatialKey, std::vector<Point3>, SpatialKeyHash> multipoints;  // 115
   struct Ref { SpatialKey key; bool reverse{false}; std::uint8_t usage{1}; };
   std::unordered_map<SpatialKey, std::vector<Ref>, SpatialKeyHash> composites;
   std::unordered_map<SpatialKey, std::vector<Ref>, SpatialKeyHash> surfaces;
@@ -306,6 +326,13 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
       if (auto* id = rec.find("PRID")) {
         auto pts = decode_c2(c2it->data, dssi.cmfx, dssi.cmfy);
         if (!pts.empty()) points[key_from_name_id(id->data)] = pts[0];
+      }
+    }
+    if (auto* c3il = rec.find("C3IL")) {
+      if (auto* id = rec.find("MRID")) {
+        auto& dst = multipoints[key_from_name_id(id->data)];
+        auto pts = decode_c3(c3il->data, dssi.cmfx, dssi.cmfy, dssi.cmfz);
+        dst.insert(dst.end(), pts.begin(), pts.end());
       }
     }
     if (auto* c2il = rec.find("C2IL")) {
@@ -420,6 +447,13 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
           if (pts.size() >= 2) {
             feat.geometry.kind = GeometryKind::LineString;
             feat.geometry.line.insert(feat.geometry.line.end(), pts.begin(), pts.end());
+          }
+        } else if (k.rcnm == 115) {
+          auto mit = multipoints.find(k);
+          if (mit != multipoints.end()) {
+            feat.geometry.kind = GeometryKind::MultiPoint;
+            feat.geometry.multipoint.insert(feat.geometry.multipoint.end(), mit->second.begin(),
+                                            mit->second.end());
           }
         } else if (k.rcnm == 110) {
           auto pit = points.find(k);

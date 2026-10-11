@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <vector>
 #include "s100/s100.hpp"
 
 #include <QApplication>
@@ -64,7 +66,24 @@ class MapWidget : public QWidget {
       return;
     }
     const QRectF r = rect();
-    for (const auto& f : dataset_->features) {
+    // Paint order: areas, then lines, then points and soundings, so labels stay on top.
+    std::vector<const s100::Feature*> order;
+    order.reserve(dataset_->features.size());
+    for (const auto& f : dataset_->features) order.push_back(&f);
+    auto rank = [](s100::GeometryKind k) {
+      switch (k) {
+        case s100::GeometryKind::Polygon: return 0;
+        case s100::GeometryKind::LineString: return 1;
+        case s100::GeometryKind::Point: return 2;
+        case s100::GeometryKind::MultiPoint: return 3;
+        default: return 4;
+      }
+    };
+    std::stable_sort(order.begin(), order.end(), [&](const s100::Feature* a, const s100::Feature* b) {
+      return rank(a->geometry.kind) < rank(b->geometry.kind);
+    });
+    for (const s100::Feature* fp : order) {
+      const auto& f = *fp;
       if (!layers_.is_visible(f.layer)) continue;
       QColor color = f.layer == s100::LayerId::LAND ? QColor(210, 180, 140)
                                                     : QColor(160, 200, 230);
@@ -77,6 +96,20 @@ class MapWidget : public QWidget {
         if (pts.size() >= 2) {
           p.setPen(QPen(color, 1.5));
           for (int i = 1; i < pts.size(); ++i) p.drawLine(pts[i-1], pts[i]);
+        }
+        continue;
+      }
+      if (f.geometry.kind == s100::GeometryKind::MultiPoint) {
+        // Soundings: depth label in metres, one decimal under 31 m (simplified S-52 style).
+        QFont font = p.font();
+        font.setPointSizeF(7.0);
+        p.setFont(font);
+        p.setPen(QColor(40, 40, 40));
+        for (const auto& s : f.geometry.multipoint) {
+          const auto pos = project(r, west_, south_, east_, north_, s.lon, s.lat);
+          const QString label = s.z < 31.0 ? QString::number(s.z, 'f', 1)
+                                           : QString::number(static_cast<int>(s.z));
+          p.drawText(QRectF(pos.x() - 20, pos.y() - 8, 40, 16), Qt::AlignCenter, label);
         }
         continue;
       }

@@ -20,6 +20,7 @@ Bounds Dataset::bounds() const {
   for (const auto& f : features) {
     const auto& g = f.geometry;
     if (g.kind == GeometryKind::Empty) continue;
+    for (const auto& p : g.multipoint) consider(p.lon, p.lat);
     if (g.kind == GeometryKind::Point) consider(g.point.lon, g.point.lat);
     else if (g.kind == GeometryKind::LineString) {
       for (const auto& p : g.line) consider(p.lon, p.lat);

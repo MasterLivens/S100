@@ -10,17 +10,25 @@ struct Point {
   double lat{0};
 };
 
+/** 3-D point: WGS84 lon/lat plus Z. For S-101 soundings Z is depth in metres (positive down). */
+struct Point3 {
+  double lon{0};
+  double lat{0};
+  double z{0};
+};
+
 struct Ring {
   std::vector<Point> points;
 };
 
-enum class GeometryKind { Empty, Point, LineString, Polygon };
+enum class GeometryKind { Empty, Point, LineString, Polygon, MultiPoint };
 
 struct Geometry {
   GeometryKind kind{GeometryKind::Empty};
   Point point{};
   std::vector<Point> line;
   std::vector<Ring> polygon;
+  std::vector<Point3> multipoint;  // MultiPoint (e.g. Sounding) with Z
 };
 
 enum class LayerId { LAND, DEPARE, Other };

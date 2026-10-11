@@ -28,8 +28,10 @@ add_executable(s100_tests
   tests/test_aggregates.cpp
   tests/test_chs_bounds.cpp
   tests/test_attributes.cpp
+  tests/test_soundings.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
+target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")
 target_compile_definitions(s100_tests PRIVATE S100_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME s100_tests COMMAND s100_tests)
 set_tests_properties(s100_tests PROPERTIES
