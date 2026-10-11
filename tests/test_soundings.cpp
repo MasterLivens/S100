@@ -28,12 +28,13 @@ void test_soundings() {
     s100::LoadError err;
     CHECK(s100::open_dataset(e.path(), ds, &err));
     std::size_t soundings = 0, points = 0;
-    // Envelope of every feature except soundings: bounds() includes soundings, so
-    // checking soundings against it would always pass. Computed once (full scan).
-    s100::Dataset others;
+    // Reference area from the producer, not from our own decode: envelope of the
+    // cell's DataCoverage features (bounds() includes soundings, so it would be circular).
+    s100::Dataset coverage;
     for (const auto& f : ds.features)
-      if (f.feature_type != "Sounding") others.features.push_back(f);
-    const auto b = others.bounds();
+      if (f.feature_type == "DataCoverage") coverage.features.push_back(f);
+    CHECK(!coverage.features.empty());
+    const auto b = coverage.bounds();
     CHECK(b.valid);
     for (const auto& f : ds.features) {
       if (f.feature_type != "Sounding") continue;
