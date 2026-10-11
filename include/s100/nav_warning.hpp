@@ -1,6 +1,8 @@
 #pragma once
 // S-124 navigational warnings: GML list + overlay (docs/s124-contract.md).
 #include "s100/drawing_instructions.hpp"
+#include "s100/feature_catalogue.hpp"
+#include "s100/portrayal_catalogue.hpp"
 #include "s100/product.hpp"
 #include "s100/types.hpp"
 #include <filesystem>
@@ -35,9 +37,15 @@ struct NavWarningDataset {
  *  wrong product → Invalid/Parse and leaves out empty. */
 bool load_s124(const std::filesystem::path& path, NavWarningDataset& out, LoadError* err = nullptr);
 
-/** Emit geom DI (Point/Line/Area) + Text title per warning; fill/line token CHYLW.
- *  Fixture → ≥2 geom + ≥2 Text. */
+/** Heuristic geom DI (Point/Line/Area) + Text title per warning; fill/line token CHYLW.
+ *  Internal fallback only when PC path fails (docs/pc-wire-contract.md / s124-contract.md). */
 bool portray_nav_warnings(const NavWarningDataset& nw, DrawingInstructions& out,
                           std::string* err = nullptr);
+
+/** Official S-124 PC path: PortrayalEngine + S124HostAdapter (name locked).
+ *  Returns false only with Host/Lua error string in *err. Prefer this when FC+PC load. */
+bool portray_nav_warnings_pc(const NavWarningDataset& nw, const FeatureCatalogue& fc,
+                             const PortrayalCatalogue& pc, DrawingInstructions& out,
+                             PortrayalStats* stats = nullptr, std::string* err = nullptr);
 
 }  // namespace s100

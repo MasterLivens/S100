@@ -1,6 +1,8 @@
 #include "s100/portrayal_engine.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -96,6 +98,42 @@ setmetatable(_G, { __index = function(t, k)
 end })
 )lua";
 
+
+/** Case-insensitive require searcher for PC Rules/ (Linux). Upvalue 1 = rules dir path. */
+int case_insensitive_rules_searcher(lua_State* L) {
+  const char* modname = luaL_checkstring(L, 1);
+  const char* rules_dir = lua_tostring(L, lua_upvalueindex(1));
+  if (!rules_dir || !modname) return 0;
+  namespace fs = std::filesystem;
+  const fs::path want = std::string(modname) + ".lua";
+  const fs::path exact = fs::path(rules_dir) / want;
+  if (fs::is_regular_file(exact)) {
+    if (luaL_loadfile(L, exact.string().c_str()) != 0) return lua_error(L);
+    return 1;
+  }
+  auto ieq = [](char a, char b) {
+    return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+  };
+  std::error_code ec;
+  if (!fs::is_directory(rules_dir, ec)) return 0;
+  for (const auto& ent : fs::directory_iterator(rules_dir, ec)) {
+    if (!ent.is_regular_file(ec)) continue;
+    const std::string fn = ent.path().filename().string();
+    if (fn.size() != want.string().size()) continue;
+    bool match = true;
+    for (std::size_t i = 0; i < fn.size(); ++i) {
+      if (!ieq(fn[i], want.string()[i])) {
+        match = false;
+        break;
+      }
+    }
+    if (!match) continue;
+    if (luaL_loadfile(L, ent.path().string().c_str()) != 0) return lua_error(L);
+    return 1;
+  }
+  return 0;
+}
+
 }  // namespace
 
 bool PortrayalEngine::run(HostAdapter& host, const PortrayalContext& ctx, DrawingInstructions& out,
@@ -130,7 +168,27 @@ bool PortrayalEngine::run(HostAdapter& host, const PortrayalContext& ctx, Drawin
   lua_setfield(L, -2, "cpath");
   lua_pushnil(L);
   lua_setfield(L, -2, "loadlib");
-  lua_pop(L, 1);
+  // Linux case sensitivity: PC XML/FC codes may be Navwarn* while on-disk Rules are NAVWARN*.
+  // Official trees stay read-only — resolve require() case-insensitively under Rules/.
+  {
+    lua_getfield(L, -1, "loaders");  // Lua 5.1
+    if (!lua_istable(L, -1)) {
+      lua_pop(L, 1);
+      lua_getfield(L, -1, "searchers");  // Lua 5.2+
+    }
+    if (lua_istable(L, -1)) {
+      const int n = static_cast<int>(lua_objlen(L, -1));
+      for (int i = n; i >= 1; --i) {
+        lua_rawgeti(L, -1, i);
+        lua_rawseti(L, -2, i + 1);
+      }
+      lua_pushstring(L, pc_->rules_dir().string().c_str());
+      lua_pushcclosure(L, case_insensitive_rules_searcher, 1);
+      lua_rawseti(L, -2, 1);
+    }
+    lua_pop(L, 1);  // loaders/searchers
+  }
+  lua_pop(L, 1);  // package
 
   // Host functions from the product registry; each gets the adapter as upvalue.
   for (const auto& name : host.registry().names()) {

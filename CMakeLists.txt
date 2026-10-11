@@ -53,7 +53,11 @@ add_executable(s100_cli src/cli/main.cpp)
 target_link_libraries(s100_cli PRIVATE s100_core)
 target_compile_definitions(s100_cli PRIVATE
   S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
-  S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0")
+  S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0"
+  S100_DEFAULT_S111_FC="${CMAKE_SOURCE_DIR}/catalogues/S-111/S-111_FC_2.0.0.xml"
+  S100_DEFAULT_S111_PC="${CMAKE_SOURCE_DIR}/catalogues/S-111/PC_2.0.0"
+  S100_DEFAULT_S124_FC="${CMAKE_SOURCE_DIR}/catalogues/S-124/S-124_FC_2.0.0.xml"
+  S100_DEFAULT_S124_PC="${CMAKE_SOURCE_DIR}/catalogues/S-124/PC_2.0.0")
 
 enable_testing()
 add_executable(s100_tests
@@ -73,6 +77,7 @@ add_executable(s100_tests
   tests/test_s104.cpp
   tests/test_s111.cpp
   tests/test_s124.cpp
+  tests/test_pc_wire_111_124.cpp
   tests/test_session_pick.cpp
   tests/test_associations.cpp
 )
@@ -85,6 +90,7 @@ add_test(NAME s104_open_frame COMMAND s100_tests s104_open_frame)
 add_test(NAME s111_open_frame COMMAND s100_tests s111_open_frame)
 add_test(NAME s124_open_list COMMAND s100_tests s124_open_list)
 add_test(NAME session_pick_unified COMMAND s100_tests session_pick_unified)
+add_test(NAME pc_wire_111_124 COMMAND s100_tests pc_wire_111_124)
 add_test(NAME third_party_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_third_party.cmake)
 add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_catalogues.cmake)
 add_executable(s100_portrayal_tests tests/test_portrayal.cpp)
@@ -107,7 +113,11 @@ if(S100_BUILD_VIEWER)
     S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
     S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0"
     S100_DEFAULT_S102_FC="${CMAKE_SOURCE_DIR}/catalogues/S-102/S-102_FC_3.0.0.xml"
-    S100_DEFAULT_S102_PC="${CMAKE_SOURCE_DIR}/catalogues/S-102/PC_3.0.0")
+    S100_DEFAULT_S102_PC="${CMAKE_SOURCE_DIR}/catalogues/S-102/PC_3.0.0"
+    S100_DEFAULT_S111_FC="${CMAKE_SOURCE_DIR}/catalogues/S-111/S-111_FC_2.0.0.xml"
+    S100_DEFAULT_S111_PC="${CMAKE_SOURCE_DIR}/catalogues/S-111/PC_2.0.0"
+    S100_DEFAULT_S124_FC="${CMAKE_SOURCE_DIR}/catalogues/S-124/S-124_FC_2.0.0.xml"
+    S100_DEFAULT_S124_PC="${CMAKE_SOURCE_DIR}/catalogues/S-124/PC_2.0.0")
   # Offscreen smoke: paints DrawingInstructions and writes a PNG (no display required).
   add_test(NAME viewer_snapshot
     COMMAND s100_viewer

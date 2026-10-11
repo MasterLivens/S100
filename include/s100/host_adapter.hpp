@@ -12,6 +12,7 @@
 #include "s100/types.hpp"
 #include "s100/coverage.hpp"
 #include "s100/dataset.hpp"
+#include "s100/nav_warning.hpp"
 
 struct lua_State;  // Lua stays out of public headers
 
@@ -125,6 +126,47 @@ class S102HostAdapter : public HostAdapter {
   const CoverageDataset* cov_;
   std::unordered_map<std::string, std::size_t> index_;
   friend struct S102HostImpl;
+};
+
+
+/** S-124 host: each NavWarning exposed as NavwarnPart for official PC Lua (docs/pc-wire-contract.md). */
+class S124HostAdapter : public HostAdapter {
+ public:
+  S124HostAdapter(const NavWarningDataset& nw, const FeatureCatalogue& fc);
+  std::size_t feature_count() const override;
+  bool feature_id_of(const std::string& lua_id, std::uint64_t& out) const override;
+
+  const NavWarningDataset& dataset() const { return *nw_; }
+  /** Synthetic host feature for tests / geometry attach (1-based feature_id == index+1). */
+  struct HostFeature {
+    std::uint64_t id{0};
+    std::string lua_id;
+    std::string code{"NavwarnPart"};
+    std::vector<Attribute> attributes;
+    std::vector<SpatialRef> spatial;
+    std::size_t warning_index{0};
+  };
+  const HostFeature* feature(const std::string& lua_id) const;
+  const HostFeature* feature_by_id(std::uint64_t id) const;
+  const std::vector<HostFeature>& host_features() const { return features_; }
+  /** Spatial id -> feature lua ids that reference it (for GetAssociatedFeatures). */
+  const std::vector<std::string>& features_of_spatial(const std::string& sid) const;
+  // Synthetic spatial store: Point (110) or Surface (130) backed by warning geometries.
+  struct Spatial {
+    std::uint8_t rcnm{0};
+    std::uint32_t rcid{0};
+    Geometry geom;  // Point or Polygon (Surface exterior)
+  };
+  const Spatial* find_spatial(const std::string& sid) const;
+
+ private:
+  const NavWarningDataset* nw_;
+  std::vector<HostFeature> features_;
+  std::unordered_map<std::string, std::size_t> index_;
+  std::vector<Spatial> spatials_;
+  std::unordered_map<std::string, std::size_t> spatial_index_;  // "P1"/"S1" -> spatials_
+  std::unordered_map<std::string, std::vector<std::string>> spatial_features_;
+  friend struct S124HostImpl;
 };
 
 }  // namespace s100

@@ -15,6 +15,10 @@ namespace s100 {
 /** Emit Arrow DI every kS111ArrowStride cells on each axis (edges inclusive). */
 inline constexpr std::size_t kS111ArrowStride = 2;
 
+/** Interim C++ mirror of catalogues/S-111/PC_2.0.0/Rules/select_arrow.xsl speed bands
+ *  (geLtInterval). Returns empty for zero / non-finite (no Arrow). SCAROW01…09 otherwise. */
+std::string scarow_symbol_ref(float speed_ms);
+
 struct CurrentSample {
   float speed_ms{0};       // m/s, >= 0
   float direction_deg{0};  // from-direction, deg clockwise from true N, in [0, 360)
@@ -49,7 +53,8 @@ struct CurrentDataset {
   }
 };
 
-/** Emit Arrow instructions for the active frame (stride kS111ArrowStride). ≥1 Arrow. */
+/** Emit Arrow instructions for the active frame (stride kS111ArrowStride).
+ *  symbol_ref = SCAROW01…09 from scarow_symbol_ref (select_arrow.xsl band mirror). ≥1 Arrow. */
 bool portray_current(const CurrentDataset& cur, DrawingInstructions& out,
                      std::string* err = nullptr);
 

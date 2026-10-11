@@ -301,6 +301,22 @@ bool CurrentDataset::sample_wgs84(double lon, double lat, CurrentSample& out) co
   return true;
 }
 
+
+// Interim mirror of catalogues/S-111/PC_2.0.0/Rules/select_arrow.xsl (geLtInterval bands).
+// Forbidden: invent S-111 Lua HostAdapter — XSLT host remains WARN (docs/pc-wire-contract.md).
+std::string scarow_symbol_ref(float speed_ms) {
+  if (!(speed_ms > 0.f) || !std::isfinite(speed_ms)) return {};  // zero / fill / noData → no Arrow
+  if (speed_ms < 0.50f) return "SCAROW01";
+  if (speed_ms < 1.00f) return "SCAROW02";
+  if (speed_ms < 2.00f) return "SCAROW03";
+  if (speed_ms < 3.00f) return "SCAROW04";
+  if (speed_ms < 5.00f) return "SCAROW05";
+  if (speed_ms < 7.00f) return "SCAROW06";
+  if (speed_ms < 10.00f) return "SCAROW07";
+  if (speed_ms < 13.00f) return "SCAROW08";
+  return "SCAROW09";
+}
+
 bool portray_current(const CurrentDataset& cur, DrawingInstructions& out, std::string* err) {
   out.clear();
   const CurrentFrame* fr = cur.active();
@@ -326,15 +342,18 @@ bool portray_current(const CurrentDataset& cur, DrawingInstructions& out, std::s
       const std::size_t i = r * speed.ncols + c;
       if (speed.is_fill_depth(speed.depth[i])) continue;
       const float spd = speed.depth[i];
-      if (!(spd >= 0.f) || !std::isfinite(spd)) continue;
+      const std::string scarow = scarow_symbol_ref(spd);
+      if (scarow.empty()) continue;  // zero / fill / noData — match PC note (select_arrow.xsl)
       const float dir = normalize_dir_deg(direction.depth[i]);
 
       DrawingInstruction di;
       di.feature_id = fid;
       di.kind = DrawingInstruction::Kind::Arrow;
       di.command = "Arrow";
-      di.symbol_ref = "Arrow";
-      di.fill_ref = "CHGRD";
+      // PC symbol id from select_arrow.xsl band table (interim C++ mirror; no S-111 Lua).
+      di.symbol_ref = scarow;
+      // Optional PC colour token SCBN1…9 aligned with band index.
+      di.fill_ref = "SCBN" + std::to_string(scarow.back() - '0');  // SCAROW0N → SCBNN
       di.rotation = static_cast<double>(dir);
       di.rotation_crs = "GeographicCRS";
       // scale_factor proportional to speed_ms (viewer clamps paint length).

@@ -340,6 +340,165 @@ struct Common {
   }
 };
 
+
+struct S124HostImpl {
+  static S124HostAdapter* host(lua_State* L) { return static_cast<S124HostAdapter*>(self(L)); }
+
+  static const S124HostAdapter::HostFeature& feature(lua_State* L, int i) {
+    const std::string id = arg_string(L, i);
+    const auto* f = host(L)->feature(id);
+    if (!f) luaL_error(L, "host: unknown S-124 feature ID '%s'", id.c_str());
+    return *f;
+  }
+
+  static int GetFeatureIDs(lua_State* L) {
+    const auto& fs = host(L)->host_features();
+    lua_createtable(L, static_cast<int>(fs.size()), 0);
+    for (std::size_t i = 0; i < fs.size(); ++i) {
+      lua_pushstring(L, fs[i].lua_id.c_str());
+      lua_rawseti(L, -2, static_cast<int>(i + 1));
+    }
+    return 1;
+  }
+  static int FeatureGetCode(lua_State* L) {
+    lua_pushstring(L, feature(L, 1).code.c_str());
+    return 1;
+  }
+  static int FeatureGetSimpleAttribute(lua_State* L) {
+    return push_simple_values(L, feature(L, 1).attributes, opt_string(L, 2), arg_string(L, 3));
+  }
+  static int FeatureGetComplexAttributeCount(lua_State* L) {
+    return push_complex_count(L, feature(L, 1).attributes, opt_string(L, 2), arg_string(L, 3));
+  }
+  static int NoInformation(lua_State* L) {
+    return luaL_error(L, "host: unknown information ID '%s' (S-124 host has no information types)",
+                      luaL_checkstring(L, 1));
+  }
+  static int FeatureGetAssociations(lua_State* L) {
+    feature(L, 1);
+    luaL_checkstring(L, 2);
+    lua_newtable(L);
+    return 1;
+  }
+
+  static const char* spatial_type_name(std::uint8_t rcnm) {
+    switch (rcnm) {
+      case 110: return "Point";
+      case 130: return "Surface";
+      case 120: return "Curve";
+      default: return nullptr;
+    }
+  }
+
+  static void push_spatial_association(lua_State* L, const SpatialRef& r) {
+    const char* type = spatial_type_name(r.rcnm);
+    if (!type) luaL_error(L, "host: unsupported S-124 spatial type %d", r.rcnm);
+    get_function(L, "CreateSpatialAssociation");
+    lua_pushstring(L, type);
+    char buf[32];
+    const char* p = r.rcnm == 110 ? "P" : r.rcnm == 130 ? "S" : r.rcnm == 120 ? "C" : "?";
+    std::snprintf(buf, sizeof buf, "%s%u", p, r.rcid);
+    lua_pushstring(L, buf);
+    lua_pushstring(L, r.reverse ? "Reverse" : "Forward");
+    lua_pushnil(L);
+    lua_pushnil(L);
+    lua_call(L, 5, 1);
+  }
+
+  static int FeatureGetSpatialAssociations(lua_State* L) {
+    const auto& f = feature(L, 1);
+    lua_createtable(L, static_cast<int>(f.spatial.size()), 0);
+    int n = 0;
+    for (const auto& r : f.spatial) {
+      push_spatial_association(L, r);
+      lua_rawseti(L, -2, ++n);
+    }
+    return 1;
+  }
+
+  static bool parse_sid(const std::string& s, std::uint8_t& rcnm, std::uint32_t& rcid) {
+    if (s.size() < 2) return false;
+    switch (s[0]) {
+      case 'P': rcnm = 110; break;
+      case 'S': rcnm = 130; break;
+      case 'C': rcnm = 120; break;
+      default: return false;
+    }
+    char* end = nullptr;
+    rcid = static_cast<std::uint32_t>(std::strtoul(s.c_str() + 1, &end, 10));
+    return end && *end == 0;
+  }
+
+  static void push_point(lua_State* L, double lon, double lat) {
+    char x[32], y[32];
+    std::snprintf(x, sizeof x, "%.10g", lon);
+    std::snprintf(y, sizeof y, "%.10g", lat);
+    get_function(L, "CreatePoint");
+    lua_pushstring(L, x);
+    lua_pushstring(L, y);
+    lua_pushnil(L);
+    lua_call(L, 3, 1);
+  }
+
+  static int GetSpatial(lua_State* L) {
+    const std::string sid = arg_string(L, 1);
+    auto* h = host(L);
+    const auto* spp = h->find_spatial(sid);
+    if (!spp)
+      return luaL_error(L, "host: unknown S-124 spatial ID '%s'", sid.c_str());
+    const auto& sp = *spp;
+    if (sp.rcnm == 110) {
+      if (sp.geom.kind != GeometryKind::Point)
+        return luaL_error(L, "host: S-124 point spatial has no Point geometry");
+      push_point(L, sp.geom.point.lon, sp.geom.point.lat);
+      return 1;
+    }
+    // Surface / Curve: NavwarnPart Surface rules do not read feature.Spatial; return a
+    // MultiPoint of exterior vertices so HostGetSpatial is never nil for the id.
+    const std::vector<Point>* pts = nullptr;
+    std::vector<Point> scratch;
+    if (sp.geom.kind == GeometryKind::Polygon && !sp.geom.polygon.empty())
+      pts = &sp.geom.polygon.front().points;
+    else if (sp.geom.kind == GeometryKind::LineString) {
+      scratch = sp.geom.line;
+      pts = &scratch;
+    } else if (sp.geom.kind == GeometryKind::Point) {
+      scratch.push_back(sp.geom.point);
+      pts = &scratch;
+    }
+    if (!pts || pts->empty())
+      return luaL_error(L, "host: S-124 spatial '%s' has no coordinates", sid.c_str());
+    get_function(L, "CreateMultiPoint");
+    lua_createtable(L, static_cast<int>(pts->size()), 0);
+    int n = 0;
+    for (const auto& p : *pts) {
+      char x[32], y[32];
+      std::snprintf(x, sizeof x, "%.10g", p.lon);
+      std::snprintf(y, sizeof y, "%.10g", p.lat);
+      get_function(L, "CreatePoint");
+      lua_pushstring(L, x);
+      lua_pushstring(L, y);
+      lua_pushstring(L, "0");
+      lua_call(L, 3, 1);
+      lua_rawseti(L, -2, ++n);
+    }
+    lua_call(L, 1, 1);
+    return 1;
+  }
+
+  static int SpatialGetAssociatedFeatureIDs(lua_State* L) {
+    const std::string sid = arg_string(L, 1);
+    push_strings(L, host(L)->features_of_spatial(sid));
+    return 1;
+  }
+  static int SpatialGetAssociatedInformationIDs(lua_State* L) {
+    arg_string(L, 1);
+    arg_string(L, 2);
+    lua_newtable(L);
+    return 1;
+  }
+};
+
 }  // namespace
 
 // =================================================================== S-101
@@ -828,4 +987,133 @@ const CoverageFeature* S102HostAdapter::feature(const std::string& lua_id) const
   return it == index_.end() ? nullptr : &cov_->features[it->second];
 }
 
+
+S124HostAdapter::S124HostAdapter(const NavWarningDataset& nw, const FeatureCatalogue& fc)
+    : HostAdapter("S-124", fc), nw_(&nw) {
+  features_.reserve(nw.warnings.size());
+  for (std::size_t i = 0; i < nw.warnings.size(); ++i) {
+    const auto& w = nw.warnings[i];
+    HostFeature hf;
+    hf.id = static_cast<std::uint64_t>(i + 1);
+    hf.lua_id = std::to_string(hf.id);
+    hf.code = "NavwarnPart";
+    hf.warning_index = i;
+
+    // featureName complex: name / language / nameUsage for GetFeatureName (title).
+    Attribute complex;
+    complex.code = "featureName";
+    complex.index = 1;
+    complex.parent = 0;
+    complex.instruction = 1;
+    hf.attributes.push_back(complex);
+    auto add_sub = [&](const char* code, const std::string& val) {
+      Attribute a;
+      a.code = code;
+      a.value = val;
+      a.index = 1;
+      a.parent = 1;  // 1-based position of featureName in attributes
+      a.instruction = 1;
+      hf.attributes.push_back(std::move(a));
+    };
+    add_sub("name", w.title.empty() ? w.id : w.title);
+    add_sub("language", "eng");
+    add_sub("nameUsage", "1");
+
+    // Synthetic spatial from first drawable geometry.
+    if (!w.geometries.empty()) {
+      const Geometry& g = w.geometries.front();
+      Spatial sp;
+      sp.rcid = static_cast<std::uint32_t>(i + 1);
+      sp.geom = g;
+      SpatialRef ref;
+      ref.rcid = sp.rcid;
+      if (g.kind == GeometryKind::Point) {
+        sp.rcnm = 110;
+        ref.rcnm = 110;
+      } else if (g.kind == GeometryKind::Polygon) {
+        sp.rcnm = 130;
+        ref.rcnm = 130;
+        ref.usage = 1;
+      } else if (g.kind == GeometryKind::LineString) {
+        sp.rcnm = 120;
+        ref.rcnm = 120;
+      } else {
+        sp.rcnm = 110;
+        ref.rcnm = 110;
+      }
+      const char* pfx = sp.rcnm == 110 ? "P" : sp.rcnm == 130 ? "S" : "C";
+      const std::string sid = pfx + std::to_string(sp.rcid);
+      spatial_index_[sid] = spatials_.size();
+      spatials_.push_back(std::move(sp));
+      hf.spatial.push_back(ref);
+      spatial_features_[sid].push_back(hf.lua_id);
+    }
+
+    index_[hf.lua_id] = features_.size();
+    features_.push_back(std::move(hf));
+  }
+
+  auto& r = registry_;
+  r.add("HostGetFeatureIDs", &S124HostImpl::GetFeatureIDs);
+  r.add("HostFeatureGetCode", &S124HostImpl::FeatureGetCode);
+  r.add_alias("HostFeatureTypeGetCode", "HostFeatureGetCode");
+  r.add("HostFeatureGetSimpleAttribute", &S124HostImpl::FeatureGetSimpleAttribute);
+  r.add("HostFeatureGetComplexAttributeCount", &S124HostImpl::FeatureGetComplexAttributeCount);
+  r.add_alias("HostGetSimpleAttribute", "HostFeatureGetSimpleAttribute");
+  r.add_alias("HostGetComplexAttributeCount", "HostFeatureGetComplexAttributeCount");
+  r.add("HostInformationTypeGetCode", &S124HostImpl::NoInformation);
+  r.add("HostInformationTypeGetSimpleAttribute", &S124HostImpl::NoInformation);
+  r.add("HostInformationTypeGetComplexAttributeCount", &S124HostImpl::NoInformation);
+  r.add("HostFeatureGetSpatialAssociations", &S124HostImpl::FeatureGetSpatialAssociations);
+  r.add("HostFeatureGetAssociatedFeatureIDs", &S124HostImpl::FeatureGetAssociations);
+  r.add("HostFeatureGetAssociatedInformationIDs", &S124HostImpl::FeatureGetAssociations);
+  r.add("HostGetSpatial", &S124HostImpl::GetSpatial);
+  r.add("HostSpatialGetAssociatedFeatureIDs", &S124HostImpl::SpatialGetAssociatedFeatureIDs);
+  r.add("HostSpatialGetAssociatedInformationIDs", &S124HostImpl::SpatialGetAssociatedInformationIDs);
+  r.add("HostGetFeatureTypeCodes", &Common::GetFeatureTypeCodes);
+  r.add("HostGetInformationTypeCodes", &Common::GetInformationTypeCodes);
+  r.add("HostGetSimpleAttributeTypeCodes", &Common::GetSimpleAttributeTypeCodes);
+  r.add("HostGetComplexAttributeTypeCodes", &Common::GetComplexAttributeTypeCodes);
+  r.add("HostGetRoleTypeCodes", &Common::GetRoleTypeCodes);
+  r.add("HostGetInformationAssociationTypeCodes", &Common::GetInformationAssociationTypeCodes);
+  r.add("HostGetFeatureAssociationTypeCodes", &Common::GetFeatureAssociationTypeCodes);
+  r.add("HostGetFeatureTypeInfo", &Common::GetFeatureTypeInfo);
+  r.add("HostGetInformationTypeInfo", &Common::GetInformationTypeInfo);
+  r.add("HostGetSimpleAttributeTypeInfo", &Common::GetSimpleAttributeTypeInfo);
+  r.add("HostGetComplexAttributeTypeInfo", &Common::GetComplexAttributeTypeInfo);
+  r.add("HostPortrayalEmit", &Common::PortrayalEmit);
+  r.add("HostDebuggerEntry", &Common::DebuggerEntry);
+}
+
+std::size_t S124HostAdapter::feature_count() const { return features_.size(); }
+
+bool S124HostAdapter::feature_id_of(const std::string& lua_id, std::uint64_t& out) const {
+  auto it = index_.find(lua_id);
+  if (it == index_.end()) return false;
+  out = features_[it->second].id;
+  return true;
+}
+
+const S124HostAdapter::HostFeature* S124HostAdapter::feature(const std::string& lua_id) const {
+  auto it = index_.find(lua_id);
+  return it == index_.end() ? nullptr : &features_[it->second];
+}
+
+const S124HostAdapter::HostFeature* S124HostAdapter::feature_by_id(std::uint64_t id) const {
+  if (id == 0 || id > features_.size()) return nullptr;
+  return &features_[static_cast<std::size_t>(id - 1)];
+}
+
+
+const S124HostAdapter::Spatial* S124HostAdapter::find_spatial(const std::string& sid) const {
+  auto it = spatial_index_.find(sid);
+  if (it == spatial_index_.end()) return nullptr;
+  return &spatials_[it->second];
+}
+
+const std::vector<std::string>& S124HostAdapter::features_of_spatial(const std::string& sid) const {
+  static const std::vector<std::string> none;
+  auto it = spatial_features_.find(sid);
+  return it == spatial_features_.end() ? none : it->second;
+}
 }  // namespace s100

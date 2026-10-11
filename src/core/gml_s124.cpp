@@ -1,5 +1,7 @@
 #include "s100/nav_warning.hpp"
 #include "s100/dataset.hpp"
+#include "s100/host_adapter.hpp"
+#include "s100/portrayal_engine.hpp"
 
 #include <pugixml.hpp>
 
@@ -419,6 +421,60 @@ bool portray_nav_warnings(const NavWarningDataset& nw, DrawingInstructions& out,
   if (out.empty()) {
     if (err) *err = "S-124 portray: no drawable geometries";
     return false;
+  }
+  return true;
+}
+
+
+bool portray_nav_warnings_pc(const NavWarningDataset& nw, const FeatureCatalogue& fc,
+                             const PortrayalCatalogue& pc, DrawingInstructions& out,
+                             PortrayalStats* stats, std::string* err) {
+  out.clear();
+  if (nw.warnings.empty()) {
+    if (err) *err = "S-124 portray_nav_warnings_pc: no navigational warnings";
+    return false;
+  }
+  S124HostAdapter host(nw, fc);
+  PortrayalEngine engine(pc);
+  auto ctx = PortrayalContext::defaults(pc);
+  PortrayalStats local;
+  PortrayalStats* st = stats ? stats : &local;
+  if (!engine.run(host, ctx, out, st, err)) {
+    if (err && err->empty()) *err = "S-124 PortrayalEngine failed";
+    return false;
+  }
+
+  // Attach NavWarning geometries so the viewer can paint without Feature mirroring.
+  for (auto& di : out) {
+    const auto* hf = host.feature_by_id(di.feature_id);
+    if (!hf || hf->warning_index >= nw.warnings.size()) continue;
+    const auto& w = nw.warnings[hf->warning_index];
+    if (w.geometries.empty()) continue;
+    if (!di.geometries.empty()) continue;
+    const Geometry& g = w.geometries.front();
+    if (di.kind == DrawingInstruction::Kind::Point || di.kind == DrawingInstruction::Kind::Text) {
+      Geometry anchor;
+      anchor.kind = GeometryKind::Point;
+      anchor.point = centroid_of(g);
+      di.geometries.push_back(std::move(anchor));
+    } else if (di.kind == DrawingInstruction::Kind::Line) {
+      if (g.kind == GeometryKind::LineString) {
+        di.geometries.push_back(g);
+      } else if (g.kind == GeometryKind::Polygon && !g.polygon.empty()) {
+        Geometry line;
+        line.kind = GeometryKind::LineString;
+        line.line = g.polygon.front().points;
+        di.geometries.push_back(std::move(line));
+      } else {
+        di.geometries.push_back(g);
+      }
+    } else if (di.kind == DrawingInstruction::Kind::Area) {
+      di.geometries.push_back(g);
+    } else if (di.kind == DrawingInstruction::Kind::Null) {
+      // explicit Null — leave geometries empty
+    } else {
+      di.geometries.push_back(g);
+    }
   }
   return true;
 }

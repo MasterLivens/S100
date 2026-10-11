@@ -12,15 +12,28 @@
 #ifndef S100_DEFAULT_PC
 #define S100_DEFAULT_PC ""
 #endif
+#ifndef S100_DEFAULT_S111_FC
+#define S100_DEFAULT_S111_FC ""
+#endif
+#ifndef S100_DEFAULT_S111_PC
+#define S100_DEFAULT_S111_PC ""
+#endif
+#ifndef S100_DEFAULT_S124_FC
+#define S100_DEFAULT_S124_FC ""
+#endif
+#ifndef S100_DEFAULT_S124_PC
+#define S100_DEFAULT_S124_PC ""
+#endif
 
 static const char* kUsage =
-    "usage: s100_cli <file.000|.h5|.gml> [--fc <FC.xml>] [--layers]\n"
+    "usage: s100_cli <file.000|.h5|.gml> [--fc <FC.xml>] [--pc <PC dir>] [--layers]\n"
     "                [--s102 <path.h5>] [--s104 <path.h5>] [--s111 <path.h5>] [--s124 <path.gml>]\n"
     "                [--session-pick <lon> <lat>]\n"
     "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
     "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
     "                [--fc <FC.xml>] [--layers] [--session-pick <lon> <lat>]\n"
-    "  note: lone .001 updates are rejected; use exchange set / with_updates\n";
+    "  note: lone .001 updates are rejected; use exchange set / with_updates\n"
+  "  note: --fc/--pc default to pinned S-101; S-111/S-124 use catalogues/S-111|S-124\n";
 
 static long long ms_since(std::chrono::steady_clock::time_point t0) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0)
@@ -161,8 +174,37 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
     if (ds.product == s100::ProductId::S124 && ds.nav_warnings) {
       s100::DrawingInstructions di;
       std::string e;
-      portrayed = s100::portray_nav_warnings(*ds.nav_warnings, di, &e);
+      s100::FeatureCatalogue fc124 = fc;
+      s100::PortrayalCatalogue pc124;
+      bool used_pc = false;
+      // Product-pinned defaults (docs/pc-wire-contract.md); --fc/--pc override when set to
+      // non-S-101 paths — prefer explicit S-124 literals when still on S-101 defaults.
+      std::string fc_use = std::string(S100_DEFAULT_S124_FC);
+      std::string pc_use = std::string(S100_DEFAULT_S124_PC);
+      if (!fc_path.empty() && fc_path != std::filesystem::path(S100_DEFAULT_FC))
+        fc_use = fc_path.string();
+      if (!pc_path.empty() && pc_path != std::filesystem::path(S100_DEFAULT_PC))
+        pc_use = pc_path.string();
+      if (!fc_use.empty() && !pc_use.empty() &&
+          s100::load_feature_catalogue(fc_use, fc124, &e) &&
+          s100::load_portrayal_catalogue(pc_use, pc124, &e)) {
+        portrayed = s100::portray_nav_warnings_pc(*ds.nav_warnings, fc124, pc124, di, nullptr, &e);
+        used_pc = portrayed;
+      }
+      if (!portrayed) {
+        e.clear();
+        di.clear();
+        portrayed = s100::portray_nav_warnings(*ds.nav_warnings, di, &e);
+      }
       std::cout << "portray " << path.filename().string() << " S-124 instructions=" << di.size()
+                << (used_pc ? " (PC)" : " (heuristic)")
+                << (portrayed ? "" : " FAILED: " + e) << "\n";
+    } else if (ds.product == s100::ProductId::S111 && ds.current) {
+      s100::DrawingInstructions di;
+      std::string e;
+      portrayed = s100::portray_current(*ds.current, di, &e);
+      std::cout << "portray " << path.filename().string() << " S-111 arrows=" << di.size()
+                << (portrayed && !di.empty() ? " symbol=" + di.front().symbol_ref : "")
                 << (portrayed ? "" : " FAILED: " + e) << "\n";
     } else {
       s100::PortrayalCatalogue pc;

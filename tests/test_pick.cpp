@@ -39,6 +39,7 @@ void test_s111_open_frame();
 void test_s124_open_list();
 void test_session_pick_unified();
 void run_s124_tests();
+void test_pc_wire_111_124();
 void test_s102_deepen_multigrid();
 void test_association_faui_merge();
 
@@ -77,6 +78,15 @@ int main(int argc, char** argv) {
       return 1;
     }
     std::cout << "s124_open_list ok\n";
+    return 0;
+  }
+  if (argc >= 2 && std::string(argv[1]) == "pc_wire_111_124") {
+    test_pc_wire_111_124();
+    if (failures) {
+      std::cerr << failures << " failure(s)\n";
+      return 1;
+    }
+    std::cout << "pc_wire_111_124 ok\n";
     return 0;
   }
   if (argc >= 2 && std::string(argv[1]) == "session_pick_unified") {

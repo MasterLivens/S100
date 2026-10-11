@@ -46,6 +46,18 @@
 #ifndef S100_DEFAULT_S102_PC
 #define S100_DEFAULT_S102_PC ""
 #endif
+#ifndef S100_DEFAULT_S111_FC
+#define S100_DEFAULT_S111_FC ""
+#endif
+#ifndef S100_DEFAULT_S111_PC
+#define S100_DEFAULT_S111_PC ""
+#endif
+#ifndef S100_DEFAULT_S124_FC
+#define S100_DEFAULT_S124_FC ""
+#endif
+#ifndef S100_DEFAULT_S124_PC
+#define S100_DEFAULT_S124_PC ""
+#endif
 
 namespace {
 
@@ -872,7 +884,26 @@ class MapWidget : public QWidget {
 
  private:
   void draw_arrow(QPainter& p, const QRectF& r, const s100::DrawingInstruction& di) {
-    // S-111 surface current: simple line/triangle arrow (do not overload Kind::Point).
+    // S-111: prefer PC SCAROW*.svg via SymbolCache; else private triangle glyph.
+    if (!di.symbol_ref.empty() && di.symbol_ref != "Arrow") {
+      QSvgRenderer* svg = symbol_cache_.get(di.symbol_ref);
+      if (svg) {
+        for (const auto& g : di.geometries) {
+          if (g.kind != s100::GeometryKind::Point) continue;
+          const QPointF s = project(r, west_, south_, east_, north_, g.point.lon, g.point.lat);
+          p.save();
+          p.translate(s);
+          p.rotate(di.rotation);
+          const qreal scale = (di.scale_factor > 0.0 ? std::max(0.4, di.scale_factor) : 0.4) *
+                              mm_to_px(this, 1.0);
+          const QRectF vb = svg->viewBoxF();
+          svg->render(&p, QRectF(vb.x() * scale, vb.y() * scale, vb.width() * scale, vb.height() * scale));
+          p.restore();
+        }
+        return;
+      }
+    }
+    // Fallback triangle (pre-PC "Arrow" glyph).
     const std::string token = di.fill_ref.empty() ? "CHGRD" : di.fill_ref;
     const QColor col = palette_.get(token, QColor(80, 80, 80));
     // Length proportional to scale_factor (speed_ms); clamp for visibility.
@@ -1286,9 +1317,9 @@ int main(int argc, char** argv) {
   s100::FeatureCatalogue fc;
   s100::PortrayalCatalogue pc;
   std::string fc_err, pc_err;
-  const bool have_fc = !fc_path.isEmpty() &&
+  bool have_fc = !fc_path.isEmpty() &&
                        s100::load_feature_catalogue(fc_path.toStdString(), fc, &fc_err);
-  const bool have_pc = !pc_path.isEmpty() &&
+  bool have_pc = !pc_path.isEmpty() &&
                        s100::load_portrayal_catalogue(pc_path.toStdString(), pc, &pc_err);
 
   // Colour profile path (official XML; catalogues untouched). Palette name selects which
@@ -1412,7 +1443,26 @@ int main(int argc, char** argv) {
           msg = QString("S-104 portray failed: %1").arg(QString::fromStdString(perr));
         }
       } else if (ds.product == s100::ProductId::S111 && ds.current) {
-        // S-111 alone: Arrow DI for active frame (PC deferred).
+        // S-111 alone: Arrow DI with SCAROW* from PC bands; load pinned FC+PC + ColorProfiles.
+        if (!fc_set && QString(S100_DEFAULT_S111_FC).size() > 0) {
+          std::string e111;
+          if (s100::load_feature_catalogue(std::string(S100_DEFAULT_S111_FC), fc, &e111)) {
+            fc_path = S100_DEFAULT_S111_FC;
+            have_fc = true;
+          }
+        }
+        if (!pc_set && QString(S100_DEFAULT_S111_PC).size() > 0) {
+          std::string e111;
+          if (s100::load_portrayal_catalogue(std::string(S100_DEFAULT_S111_PC), pc, &e111)) {
+            pc_path = S100_DEFAULT_S111_PC;
+            have_pc = true;
+            color_profile_xml = pc.root / "ColorProfiles" / "colorProfile.xml";
+            if (!pc.color_profiles.empty() && !pc.color_profiles.front().file_name.empty())
+              color_profile_xml = pc.root / "ColorProfiles" / pc.color_profiles.front().file_name;
+            QString perr_pal;
+            load_palette(color_profile_xml, palette_name, palette, &perr_pal);
+          }
+        }
         if (s111_frame >= 0) ds.current->set_active_frame(static_cast<std::size_t>(s111_frame));
         if (!s111_time.isEmpty()) ds.current->set_active_time(s111_time.toStdString());
         std::string perr;
@@ -1420,7 +1470,7 @@ int main(int argc, char** argv) {
           portrayed = true;
           ps.instructions = instructions.size();
           const auto* fr = ds.current->active();
-          msg = QString("loaded S-111 %1 — frames=%2 active=%3 time=%4 arrows=%5")
+          msg = QString("loaded S-111 %1 — frames=%2 active=%3 time=%4 arrows=%5 (PC SCAROW)")
                     .arg(cell)
                     .arg(static_cast<qulonglong>(ds.current->frames.size()))
                     .arg(static_cast<qulonglong>(ds.current->active_frame))
@@ -1430,9 +1480,39 @@ int main(int argc, char** argv) {
           msg = QString("S-111 portray failed: %1").arg(QString::fromStdString(perr));
         }
       } else if (ds.product == s100::ProductId::S124 && ds.nav_warnings) {
-        // S-124 alone: geom + Text title per warning (PC deferred).
+        // S-124 alone: prefer official PC via portray_nav_warnings_pc; heuristic only on fail.
+        if (!fc_set && QString(S100_DEFAULT_S124_FC).size() > 0) {
+          std::string e124;
+          if (s100::load_feature_catalogue(std::string(S100_DEFAULT_S124_FC), fc, &e124)) {
+            fc_path = S100_DEFAULT_S124_FC;
+            have_fc = true;
+          }
+        }
+        if (!pc_set && QString(S100_DEFAULT_S124_PC).size() > 0) {
+          std::string e124;
+          if (s100::load_portrayal_catalogue(std::string(S100_DEFAULT_S124_PC), pc, &e124)) {
+            pc_path = S100_DEFAULT_S124_PC;
+            have_pc = true;
+            color_profile_xml = pc.root / "ColorProfiles" / "colorProfile.xml";
+            if (!pc.color_profiles.empty() && !pc.color_profiles.front().file_name.empty())
+              color_profile_xml = pc.root / "ColorProfiles" / pc.color_profiles.front().file_name;
+            QString perr_pal;
+            load_palette(color_profile_xml, palette_name, palette, &perr_pal);
+          }
+        }
         std::string perr;
-        if (s100::portray_nav_warnings(*ds.nav_warnings, instructions, &perr)) {
+        bool ok = false;
+        if (have_fc && have_pc) {
+          ok = s100::portray_nav_warnings_pc(*ds.nav_warnings, fc, pc, instructions, &ps, &perr);
+        }
+        if (!ok) {
+          // Explicit fail fallback to heuristic CHYLW path (documented).
+          perr.clear();
+          instructions.clear();
+          ok = s100::portray_nav_warnings(*ds.nav_warnings, instructions, &perr);
+          if (ok) perr = "heuristic fallback after PC fail";
+        }
+        if (ok) {
           portrayed = true;
           ps.instructions = instructions.size();
           msg = QString("loaded S-124 %1 — warnings=%2 instructions=%3")
@@ -1602,7 +1682,25 @@ int main(int argc, char** argv) {
             const auto& nw = *chart.find(k124)->nav_warnings;
             s100::DrawingInstructions nw_di;
             std::string e124;
-            if (s100::portray_nav_warnings(nw, nw_di, &e124)) {
+            bool nw_ok = false;
+            {
+              s100::FeatureCatalogue fc124;
+              s100::PortrayalCatalogue pc124;
+              std::string e_cat;
+              const std::string fc124p = S100_DEFAULT_S124_FC;
+              const std::string pc124p = S100_DEFAULT_S124_PC;
+              if (!fc124p.empty() && !pc124p.empty() &&
+                  s100::load_feature_catalogue(fc124p, fc124, &e_cat) &&
+                  s100::load_portrayal_catalogue(pc124p, pc124, &e_cat)) {
+                nw_ok = s100::portray_nav_warnings_pc(nw, fc124, pc124, nw_di, nullptr, &e124);
+              }
+            }
+            if (!nw_ok) {
+              e124.clear();
+              nw_di.clear();
+              nw_ok = s100::portray_nav_warnings(nw, nw_di, &e124);
+            }
+            if (nw_ok) {
               ds.nav_warnings = nw;  // paint + Dataset::bounds unions nav_warnings envelope
               instructions.insert(instructions.end(), nw_di.begin(), nw_di.end());
               const auto ub = ds.bounds();
