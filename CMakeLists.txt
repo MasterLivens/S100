@@ -32,6 +32,7 @@ add_library(s100_core
   src/core/feature_catalogue.cpp
   src/core/portrayal_catalogue.cpp
   src/core/drawing_instructions.cpp
+  src/core/scale_filter.cpp
   src/core/host_adapter.cpp
   src/core/portrayal_engine.cpp
   src/core/exchange_set.cpp
@@ -80,6 +81,7 @@ add_executable(s100_tests
   tests/test_pc_wire_111_124.cpp
   tests/test_session_pick.cpp
   tests/test_associations.cpp
+  tests/test_scamin_filter.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")
@@ -90,6 +92,7 @@ add_test(NAME s104_open_frame COMMAND s100_tests s104_open_frame)
 add_test(NAME s111_open_frame COMMAND s100_tests s111_open_frame)
 add_test(NAME s124_open_list COMMAND s100_tests s124_open_list)
 add_test(NAME session_pick_unified COMMAND s100_tests session_pick_unified)
+add_test(NAME scamin_filter COMMAND s100_tests scamin_filter)
 add_test(NAME pc_wire_111_124 COMMAND s100_tests pc_wire_111_124)
 add_test(NAME third_party_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_third_party.cmake)
 add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_catalogues.cmake)

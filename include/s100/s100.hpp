@@ -12,6 +12,7 @@
 #include "s100/types.hpp"
 #include "s100/portrayal_catalogue.hpp"
 #include "s100/drawing_instructions.hpp"
+#include "s100/scale_filter.hpp"
 #include "s100/host_adapter.hpp"
 #include "s100/portrayal_engine.hpp"
 #include "s100/exchange_set.hpp"

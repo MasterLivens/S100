@@ -1,5 +1,6 @@
 #include "s100/s100.hpp"
 #include <cctype>
+#include <map>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -30,10 +31,13 @@ static const char* kUsage =
     "                [--s102 <path.h5>] [--s104 <path.h5>] [--s111 <path.h5>] [--s124 <path.gml>]\n"
     "                [--session-pick <lon> <lat>]\n"
     "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
+    "                [--view-scale <N>] [--ignore-scamin]\n"
     "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
     "                [--fc <FC.xml>] [--layers] [--session-pick <lon> <lat>]\n"
     "  note: lone .001 updates are rejected; use exchange set / with_updates\n"
-  "  note: --fc/--pc default to pinned S-101; S-111/S-124 use catalogues/S-111|S-124\n";
+  "  note: --fc/--pc default to pinned S-101; S-111/S-124 use catalogues/S-111|S-124\n"
+  "  note: --view-scale <N> filters portray dump by SCAMIN/SCAMAX (omit = no scale filter)\n"
+  "  note: --ignore-scamin skips scale_minimum checks only (SCAMAX still applies)\n";
 
 static long long ms_since(std::chrono::steady_clock::time_point t0) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0)
@@ -50,6 +54,24 @@ static bool looks_like_exchange_set(const std::filesystem::path& path) {
   auto lower = path.filename().string();
   for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return lower == "catalog.xml";
+}
+
+
+static bool context_ignore_scamin(const std::vector<std::pair<std::string, std::string>>& settings,
+                                  bool flag) {
+  if (flag) return true;
+  for (const auto& [k, v] : settings)
+    if (k == "IgnoreScaleMinimum" && (v == "true" || v == "True" || v == "1")) return true;
+  return false;
+}
+
+static void apply_view_scale_filter(s100::DrawingInstructions& di, long view_scale_denom,
+                                    bool ignore_scale_minimum) {
+  const std::size_t before = di.size();
+  s100::filter_instructions_by_scale(di, view_scale_denom, ignore_scale_minimum);
+  std::cout << "scale-filter view=1:" << view_scale_denom
+            << " ignore_scamin=" << (ignore_scale_minimum ? "true" : "false")
+            << " instructions " << before << " -> " << di.size() << "\n";
 }
 
 static const char* kind_name(s100::SessionPickHit::Kind k) {
@@ -97,7 +119,8 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
                            bool show_errors,
                            const std::vector<std::pair<std::string, std::string>>& settings,
                            const std::vector<std::filesystem::path>& overlay_paths, bool do_session_pick,
-                           double pick_lon, double pick_lat) {
+                           double pick_lon, double pick_lat, bool have_view_scale, long view_scale_denom,
+                           bool ignore_scamin_flag) {
   // Session path: primary + overlays (used for --session-pick and multi-product loads).
   const bool use_session = do_session_pick || !overlay_paths.empty();
   if (use_session) {
@@ -196,6 +219,10 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
         di.clear();
         portrayed = s100::portray_nav_warnings(*ds.nav_warnings, di, &e);
       }
+      if (have_view_scale && portrayed) {
+        const bool ign = context_ignore_scamin(settings, ignore_scamin_flag);
+        apply_view_scale_filter(di, view_scale_denom, ign);
+      }
       std::cout << "portray " << path.filename().string() << " S-124 instructions=" << di.size()
                 << (used_pc ? " (PC)" : " (heuristic)")
                 << (portrayed ? "" : " FAILED: " + e) << "\n";
@@ -203,6 +230,10 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
       s100::DrawingInstructions di;
       std::string e;
       portrayed = s100::portray_current(*ds.current, di, &e);
+      if (have_view_scale && portrayed) {
+        const bool ign = context_ignore_scamin(settings, ignore_scamin_flag);
+        apply_view_scale_filter(di, view_scale_denom, ign);
+      }
       std::cout << "portray " << path.filename().string() << " S-111 arrows=" << di.size()
                 << (portrayed && !di.empty() ? " symbol=" + di.front().symbol_ref : "")
                 << (portrayed ? "" : " FAILED: " + e) << "\n";
@@ -223,13 +254,32 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
       const auto t1 = std::chrono::steady_clock::now();
       const auto* di = session.portray(ds, &ps, &e);
       portrayed = di != nullptr && ps.lua_errors == 0;
+      s100::DrawingInstructions filtered;
+      const s100::DrawingInstructions* dump = di;
+      if (have_view_scale && di) {
+        filtered = *di;
+        bool ign = ignore_scamin_flag;
+        auto it = session.context().values.find("IgnoreScaleMinimum");
+        if (it != session.context().values.end() &&
+            (it->second == "true" || it->second == "True" || it->second == "1"))
+          ign = true;
+        apply_view_scale_filter(filtered, view_scale_denom, ign);
+        dump = &filtered;
+      }
       std::cout << "portray " << path.filename().string() << " pc=" << pc.product << " " << pc.version
                 << " features=" << ps.features << " emitted=" << ps.emitted_features
-                << " instructions=" << ps.instructions << " lua_errors=" << ps.lua_errors
+                << " instructions=" << (dump ? dump->size() : ps.instructions)
+                << " lua_errors=" << ps.lua_errors
                 << " unparsed=" << ps.unparsed
                 << " features_without_instructions=" << ps.features_without_instructions.size()
                 << " ms=" << ms_since(t1) << (di ? "" : " FAILED: " + e) << "\n";
-      for (const auto& [cmd, n] : ps.by_command) std::cout << "  " << cmd << " " << n << "\n";
+      if (have_view_scale && dump) {
+        std::map<std::string, std::size_t> by_cmd;
+        for (const auto& d : *dump) ++by_cmd[d.command];
+        for (const auto& [cmd, n] : by_cmd) std::cout << "  " << cmd << " " << n << "\n";
+      } else {
+        for (const auto& [cmd, n] : ps.by_command) std::cout << "  " << cmd << " " << n << "\n";
+      }
       for (const auto& [cmd, n] : ps.unparsed_commands)
         std::cout << "  unparsed " << cmd << " " << n << "\n";
       if (show_errors)
@@ -343,6 +393,9 @@ int main(int argc, char** argv) {
   std::vector<std::filesystem::path> overlay_paths;
   bool do_session_pick = false;
   double pick_lon = 0, pick_lat = 0;
+  bool have_view_scale = false;
+  long view_scale_denom = 0;
+  bool ignore_scamin_flag = false;
   for (int i = 1; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--fc") && i + 1 < argc)
       fc_path = argv[++i];
@@ -385,8 +438,18 @@ int main(int argc, char** argv) {
         return 2;
       }
       settings.emplace_back(kv.substr(0, eq), kv.substr(eq + 1));
+    } else if (!std::strcmp(argv[i], "--view-scale") && i + 1 < argc) {
+      have_view_scale = true;
+      view_scale_denom = std::atol(argv[++i]);
+    } else if (!std::strcmp(argv[i], "--ignore-scamin")) {
+      ignore_scamin_flag = true;
     } else
       path = argv[i];
+  }
+
+  if (have_view_scale && view_scale_denom <= 0) {
+    std::cerr << "error: --view-scale must be > 0 (got " << view_scale_denom << ")\n";
+    return 2;
   }
 
   if (path.empty() && overlay_paths.empty()) {
@@ -403,5 +466,6 @@ int main(int argc, char** argv) {
     overlay_paths.erase(overlay_paths.begin());
   }
   return run_single_cell(path, fc_path, pc_path, list_layers, do_portray, show_errors, settings,
-                         overlay_paths, do_session_pick, pick_lon, pick_lat);
+                         overlay_paths, do_session_pick, pick_lon, pick_lat, have_view_scale,
+                         view_scale_denom, ignore_scamin_flag);
 }

@@ -302,6 +302,25 @@ qreal mm_to_px(const QPaintDevice* dev, double mm) {
   return static_cast<qreal>(mm) * dpi / 25.4;
 }
 
+
+/** View scale denominator 1:N from current geographic extent and widget width.
+ *  SOURCE (IHO-style): assume 0.28 mm pixel; metres-per-pixel at mid-latitude
+ *  mpp = (east-west deg) * 111320 * cos(mid_lat_rad) / width_px;
+ *  view_scale_denom = round(mpp / 0.00028). Override with --view-scale. */
+long compute_view_scale_denom(double west, double south, double east, double north, int width_px) {
+  if (width_px <= 0) return 0;
+  const double mid_lat = (south + north) * 0.5;
+  const double deg_lon = east - west;
+  if (!(deg_lon > 0.0)) return 0;
+  constexpr double kMetresPerDegLonEq = 111320.0;
+  constexpr double kPixelMetres = 0.00028;  // 0.28 mm
+  const double mpp = deg_lon * kMetresPerDegLonEq * std::cos(mid_lat * 3.14159265358979323846 / 180.0) /
+                     static_cast<double>(width_px);
+  if (!(mpp > 0.0) || !(kPixelMetres > 0.0)) return 0;
+  const long n = static_cast<long>(std::llround(mpp / kPixelMetres));
+  return n > 0 ? n : 0;
+}
+
 /** Rewrite S-100 PC SVG so QtSvg sees Day (or active) palette colours.
  *  Official Symbols/*.svg use external daySvgStyle.css class tokens (fCHBLK / sCHBLK);
  *  catalogues must stay untouched — we inject an embedded <style> at load time AND promote
@@ -583,6 +602,8 @@ class MapWidget : public QWidget {
   void setStatusCallback(std::function<void(const QString&)> cb) { status_cb_ = std::move(cb); }
   void setTextCollisionEnabled(bool on) { text_collision_ = on; update(); }
   void setDumpTextBoxesPath(std::string path) { dump_text_boxes_path_ = std::move(path); }
+  void setViewScaleOverride(long n) { view_scale_override_ = n; }  // >0 pins 1:N; 0 = compute
+  void setIgnoreScaleMinimum(bool on) { ignore_scale_minimum_ = on; update(); }
 
   // PointLabel pairing: nearest same-feature Text within this many screen px of a Point
   // anchor (reference viewport 1280x800). docs/point-symbol-text-collision-contract.md
@@ -753,10 +774,18 @@ class MapWidget : public QWidget {
 
     const QRectF r = rect();
     // Paint order: display-plane order, then drawing priority (contract / PC).
+    // SCAMIN/SCAMAX: filter by view scale before paint (docs/scamin-contract.md).
+    const long view_scale =
+        view_scale_override_ > 0
+            ? view_scale_override_
+            : compute_view_scale_denom(west_, south_, east_, north_, width());
     std::vector<const s100::DrawingInstruction*> order;
     order.reserve(instructions_.size());
     for (const auto& di : instructions_) {
       if (di.kind == s100::DrawingInstruction::Kind::Null) continue;
+      if (view_scale > 0 &&
+          !s100::visible_at_scale(di, view_scale, ignore_scale_minimum_))
+        continue;
       order.push_back(&di);
     }
     auto plane_order = [&](const std::string& plane) -> int {
@@ -1225,6 +1254,8 @@ class MapWidget : public QWidget {
   bool text_collision_{true};
   std::string dump_text_boxes_path_;
   std::size_t point_glyphs_drawn_{0};  // Kind::Point submitted to symbol painter this paint
+  long view_scale_override_{0};        // --view-scale; 0 = compute from extent
+  bool ignore_scale_minimum_{false};   // --ignore-scamin / IgnoreScaleMinimum
 };
 
 }  // namespace
@@ -1242,6 +1273,9 @@ int main(int argc, char** argv) {
   int s111_frame = -1;
   bool fc_set = false, pc_set = false;
   bool text_collision = true;  // default ON (docs/text-collision-contract.md)
+  bool have_view_scale = false;
+  long view_scale_denom = 0;
+  bool ignore_scamin = false;
   for (int i = 1; i < argc; ++i) {
     const QString a = argv[i];
     if (a == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
@@ -1261,7 +1295,16 @@ int main(int argc, char** argv) {
     else if (a == "--dump-layers" && i + 1 < argc) dump_layers = argv[++i];
     else if (a == "--layers-on" && i + 1 < argc) layers_on = argv[++i];
     else if (a == "--layers-off" && i + 1 < argc) layers_off = argv[++i];
-    else if (cell.isEmpty()) cell = a;
+    else if (a == "--view-scale" && i + 1 < argc) {
+      have_view_scale = true;
+      view_scale_denom = QString(argv[++i]).toLong();
+    } else if (a == "--ignore-scamin") {
+      ignore_scamin = true;
+    } else if (cell.isEmpty()) cell = a;
+  }
+  if (have_view_scale && view_scale_denom <= 0) {
+    std::fprintf(stderr, "error: --view-scale must be > 0 (got %ld)\n", view_scale_denom);
+    return 2;
   }
   const bool cell_is_hdf5 =
       cell.endsWith(QLatin1String(".h5"), Qt::CaseInsensitive) ||
@@ -1312,6 +1355,8 @@ int main(int argc, char** argv) {
   map->setStatusCallback([&](const QString& s) { win.statusBar()->showMessage(s); });
   map->setTextCollisionEnabled(text_collision);
   if (!dump_text_boxes.isEmpty()) map->setDumpTextBoxesPath(dump_text_boxes.toStdString());
+  if (have_view_scale) map->setViewScaleOverride(view_scale_denom);
+  map->setIgnoreScaleMinimum(ignore_scamin);
 
   // FC / PC are product-level: load once per session. Context lives outside Dataset.
   s100::FeatureCatalogue fc;
@@ -1531,6 +1576,11 @@ int main(int argc, char** argv) {
         if (di) {
           instructions = *di;
           portrayed = true;
+          // Honour PC context IgnoreScaleMinimum when portray session has it.
+          auto it = session.context().values.find("IgnoreScaleMinimum");
+          if (it != session.context().values.end() &&
+              (it->second == "true" || it->second == "True" || it->second == "1"))
+            ignore_scamin = true;
           msg = QString("loaded %1 — features=%2 instructions=%3 lua_errors=%4 (FC %5 %6, PC %7 %8)")
                     .arg(cell)
                     .arg(static_cast<qulonglong>(ps.features))
@@ -1721,6 +1771,7 @@ int main(int argc, char** argv) {
         }
       }
 
+      map->setIgnoreScaleMinimum(ignore_scamin);
       map->setPortrayal(std::move(ds), portrayed ? std::move(instructions) : s100::DrawingInstructions{},
                         ps, palette, pc.root, &pc);
       auto apply_layer_csv = [&](const QString& csv, bool on) {

@@ -41,6 +41,7 @@ void test_session_pick_unified();
 void run_s124_tests();
 void test_pc_wire_111_124();
 void test_s102_deepen_multigrid();
+void test_scamin_filter();
 void test_association_faui_merge();
 
 int main(int argc, char** argv) {
@@ -89,6 +90,15 @@ int main(int argc, char** argv) {
     std::cout << "pc_wire_111_124 ok\n";
     return 0;
   }
+  if (argc >= 2 && std::string(argv[1]) == "scamin_filter") {
+    test_scamin_filter();
+    if (failures) {
+      std::cerr << failures << " failure(s)\n";
+      return 1;
+    }
+    std::cout << "scamin_filter ok\n";
+    return 0;
+  }
   if (argc >= 2 && std::string(argv[1]) == "session_pick_unified") {
     test_session_pick_unified();
     if (failures) {
@@ -116,6 +126,7 @@ int main(int argc, char** argv) {
   run_s124_tests();
   test_session_pick_unified();
   test_association_faui_merge();
+  test_scamin_filter();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;
