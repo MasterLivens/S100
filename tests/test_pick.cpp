@@ -23,6 +23,7 @@ void test_layers();
 void test_attributes();
 void test_fixtures_pick_0008();
 void test_aggregates_empty_geometry();
+void test_chs_bounds_vs_catalog();
 
 int main() {
   test_pick_center();
@@ -31,6 +32,7 @@ int main() {
   test_attributes();
   test_fixtures_pick_0008();
   test_aggregates_empty_geometry();
+  test_chs_bounds_vs_catalog();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;
