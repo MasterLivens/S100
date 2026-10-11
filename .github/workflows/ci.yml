@@ -13,12 +13,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install Qt (Linux)
+      - name: Install Qt + HDF5 (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake qt6-base-dev qt6-svg-dev \
-            libgl1-mesa-dev python3-pil fonts-dejavu-core
+            libgl1-mesa-dev python3-pil fonts-dejavu-core libhdf5-dev
       - name: Install Qt (Windows)
         if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@v4
@@ -34,16 +34,21 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $ver = "1.14.5"
-          $zip = "hdf5-$ver-win64.zip"
-          # Conda-forge style layout is awkward; use HDF Group CMake binary when present.
-          # Fallback: chocolatey (community) package.
-          choco install hdf5 --yes --no-progress
-          if (Test-Path "C:/Program Files/HDF_Group/HDF5") {
-            $hdf = (Get-ChildItem "C:/Program Files/HDF_Group/HDF5" | Select-Object -First 1).FullName
-            echo "HDF5_ROOT=$hdf" >> $env:GITHUB_ENV
-            echo "CMAKE_PREFIX_PATH=$hdf" >> $env:GITHUB_ENV
+          # Official HDF Group Windows VS2022 CMake zip (reproducible; choco package missing)
+          $url = "https://github.com/HDFGroup/hdf5/releases/download/hdf5_1.14.5/hdf5-1.14.5-win-vs2022_cl.zip"
+          $zip = "$env:RUNNER_TEMP\hdf5.zip"
+          $dest = "C:\HDF5"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          $root = Get-ChildItem $dest -Directory -Recurse -Filter "cmake" | Select-Object -First 1
+          if ($root) { $prefix = $root.Parent.FullName } else {
+            $prefix = (Get-ChildItem $dest -Directory | Select-Object -First 1).FullName
           }
+          if (-not $prefix) { throw "HDF5 extract failed" }
+          "HDF5_ROOT=$prefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CMAKE_PREFIX_PATH=$prefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "HDF5_ROOT=$prefix"
+          Get-ChildItem $prefix | Select-Object -First 20 | ForEach-Object { Write-Host $_.Name }
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
