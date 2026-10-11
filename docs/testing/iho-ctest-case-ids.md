@@ -1,0 +1,45 @@
+# IHO 对照 → 第一批 CTest 用例 ID
+
+Derived from `iho-s101-test-datasets-matrix.md`.  
+**不改变当前路线**：进行中仍是 CI 绿 → Viewer CoverageFill → S-102 叠显 → 桥/组合要素 → 文字碰撞。本清单只给 Tester 挂 ID，能复用现有测试的标 Reuse，新开的标 Backlog。
+
+Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档，不插队。
+
+| Case ID | IHO 来源 | 断言要点 | 落点 | 状态 |
+|---------|----------|----------|------|------|
+| `IHO-S101-LOAD-0008` | cells/0008 + Sec.8 | 5s 内加载，features>0 | `test_load` | Reuse |
+| `IHO-S101-LOAD-0003` | cells/0003 + Sec.3 | 加载成功，面几何合法 | `test_load` / geom | Reuse |
+| `IHO-S101-LOAD-0006` | cells/0006 + Sec.6 | Bridge 等无 SPAS 聚合可空几何 | `test_load` Bridge | Reuse |
+| `IHO-S101-GEOM-FC` | Sec.3–4 GEOMOD | 几何类型∈FC 允许集 | FC geometry check | Reuse |
+| `IHO-S101-ATTR-BASIC` | Sec.7 | ATTR 解析，code 可查 | ATTR tests | Reuse |
+| `IHO-S101-LAYER-FC` | Sec.1/8 | classify_layers，无 unknown | `test_layers` | Reuse |
+| `IHO-S101-PICK-WGS84` | 拾取 + fixtures | ≤1e-5°；bounds↔CATALOG/DataCoverage | pick / fixtures | Reuse |
+| `IHO-S101-PORTRAY-ZERO-ERR` | Sec.5/8 + PC 2.0.0 | 样例 portray lua_errors 可控 | portrayal tests | Reuse |
+| `IHO-S101-SAFETY-CONTOUR` | S-164 7.0 | 改 SafetyContour → DepthArea 指令变 | colour/safety tests | Reuse |
+| `IHO-S101-UPD-CHS` | S-164 2.2.2 类 | `.000`+`.001` 要素数变化、ED/UPD | exchange-set | Reuse |
+| `IHO-S101-UPD-REJECT-BARE` | 契约 | 拒单独 `open_dataset(.001)` | exchange-set | Reuse |
+| `IHO-S101-CATALOGUE-PIN` | FC/PC 配对 | sha256 + 版本一致 | `catalogue_provenance` | Reuse |
+| `IHO-S102-OPEN-SAMPLE` | S-102 产品 | open/bounds/sample WGS84 | s102 tests | Reuse/in flight |
+| `IHO-S102-OVERLAY-SESSION` | 叠显契约 | ChartSession 键叠 S-101 | session | Reuse/in flight |
+| `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
+
+## Backlog（不插队，挂在现计划之后）
+
+| Case ID | IHO 来源 | 依赖 | 说明 |
+|---------|----------|------|------|
+| `IHO-S101-LOAD-0004..0010` | Sec.4–10 cells | 扩 `testdata/s101` | 扩样例，不改引擎接口 |
+| `IHO-S164-UPD-SEQ` | 2.2.3 Invalid Sequence | 拉 S-164 包 | 乱序必须失败 |
+| `IHO-S164-UPD-CORRUPT` | 2.2.1 / 2.1.5 | 拉 S-164 包 | 坏数据/坏更新拒绝 |
+| `IHO-S164-CANCEL-REISSUE` | 2.2.6 / 2.2.7 | 交换集 | 取消/再版 |
+| `IHO-S101-SCAMIN` | 3.7.7 / Sec.9–10 | 显示比例尺 | 现计划未做 |
+| `IHO-S101-DRAW-PRIORITY` | 3.6 Display Priorities | LayerInfo | portrayal 稳定后 |
+| `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞 | **已排在 S-102 叠显之后** |
+| `IHO-DISP-REF-COMPARE` | Display Test Template | 参考实现截图 | 替代「只靠像素漂移」谈观感 |
+| `IHO-S164-POWERUP` | 2.1.1 | Track B | 认证启动包 |
+| `IHO-S164-SIG` | CertificatesAndKeys | Track B | Part 15 |
+
+## Tester 操作建议
+
+1. 现有 Reuse 行：在测试名或 `docs/testing/hooks-ctest.md` 里挂上 Case ID，零改计划。  
+2. Backlog：等当前 S-102 刀次签收后再开，一次只捞与当前模块相关的 1–2 个 ID。  
+3. 准推规则不变：新 Case 进 `main` 仍由 SoftwareTester 放行。
