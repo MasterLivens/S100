@@ -2,9 +2,9 @@
 
 | File | Cell | Notes |
 |------|------|-------|
-| `iho_0008.png` | `101AA00DS0008.000` | Official PC **Day** palette (default; Dusk/Night selectable in viewer without re-portray) via DrawingInstructions + AreaFillReference symbolFill tiling + SpatialReference clip (engine-resolved geometries). Soft compare in CTest `viewer_golden` (size + Day colour anchors + ≤2% pixel drift + no magenta). Per-palette goldens may follow later. |
+| `iho_0008.png` | `101AA00DS0008.000` | Official PC **Day** palette (default; Dusk/Night selectable in viewer without re-portray) via DrawingInstructions + AreaFillReference symbolFill tiling + SpatialReference clip (engine-resolved geometries). Soft compare in CTest `viewer_golden` (size + Day colour anchors + ≤25% pixel drift (CI/local fonts); Day colour anchors still required + no magenta). Per-palette goldens may follow later. |
 
-CHS goldens stay local (test-licence data is gitignored). Byte-identical PNG hashes are not required — Qt font AA drifts between runs.
+CHS goldens stay local (test-licence data is gitignored). Baseline is the Linux CI offscreen render (Actions artifact). Local fonts may drift ~20%; anchors + 25% cap keep the check meaningful.
 
 Regenerate after intentional render changes:
 
