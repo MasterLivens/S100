@@ -1,0 +1,25 @@
+# Catalogue provenance + FC/PC pairing check (run: cmake -DSRC=<repo> -P check_catalogues.cmake).
+# Hashes must equal the values recorded in catalogues/*/SOURCE.md.
+set(C "${SRC}/catalogues")
+function(expect_sha file want)
+  file(SHA256 "${file}" got)
+  if(NOT got STREQUAL want)
+    message(FATAL_ERROR "sha256 mismatch: ${file}\n  got  ${got}\n  want ${want}")
+  endif()
+  message(STATUS "sha256 ok ${file}")
+endfunction()
+expect_sha("${C}/S-101/S-101_FC_2.0.0.xml" 2743d0689d8a2130f9b809554591d794f01cd9953f222f065ac891b590bd3cfc)
+expect_sha("${C}/S-101/PC_2.0.0/portrayal_catalogue.xml" a6165e950084dbb4ee6f75144a467f398809d57d8548d8d10ae80d715ac37962)
+expect_sha("${C}/S-102/PC_3.0.0/portrayal_catalogue.xml" 381606dfcea27d6f38be26f3f0574e79ad4149e7cc4e3e20ae176579d2f756d2)
+
+# FC and PC must be the same S-101 edition (upgrade together).
+file(READ "${C}/S-101/S-101_FC_2.0.0.xml" fc)
+string(REGEX MATCH "<S100FC:versionNumber>([^<]+)</S100FC:versionNumber>" _ "${fc}")
+set(fc_ver "${CMAKE_MATCH_1}")
+file(READ "${C}/S-101/PC_2.0.0/portrayal_catalogue.xml" pc)
+string(REGEX MATCH "productId=\"S-101\" version=\"([^\"]+)\"" _ "${pc}")
+set(pc_ver "${CMAKE_MATCH_1}")
+if(fc_ver STREQUAL "" OR NOT fc_ver STREQUAL pc_ver)
+  message(FATAL_ERROR "S-101 FC/PC edition mismatch: FC='${fc_ver}' PC='${pc_ver}'")
+endif()
+message(STATUS "S-101 FC/PC pair ok: ${fc_ver}")

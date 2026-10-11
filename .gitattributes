@@ -1,0 +1,2 @@
+# Catalogues are hashed byte-for-byte (catalogues/*/SOURCE.md); never let git convert line endings.
+catalogues/** -text
