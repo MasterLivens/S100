@@ -387,6 +387,30 @@ void spatial_reference_resolve() {
 
 }  // namespace
 
+
+/** Colour tokens on instructions stay symbolic names; Day/Dusk/Night remap must not rewrite them. */
+void colour_tokens_symbolic() {
+  auto ds = open_cell(kSrc / "testdata/s101/101AA00DS0008.000");
+  s100::PortrayalSession session(s101_fc(), pc_at(kS101Pc));
+  s100::PortrayalStats st;
+  std::string err;
+  const auto* di = session.portray(ds, &st, &err);
+  CHECK(di);
+  std::size_t named = 0;
+  for (const auto& d : *di) {
+    if (!d.fill_ref.empty()) {
+      CHECK(d.fill_ref[0] != '#');
+      CHECK(d.fill_ref.size() >= 3 && d.fill_ref.size() <= 16);
+      ++named;
+    }
+    if (!d.text_style.font_colour.empty()) {
+      CHECK(d.text_style.font_colour[0] != '#');
+    }
+  }
+  CHECK(named > 0);
+  std::cout << "colour tokens symbolic: " << named << " ColorFill refs\n";
+}
+
 int main(int argc, char** argv) {
   const std::map<std::string, std::function<void()>> cases = {
       {"portrayal_all_cells", portrayal_all_cells},
@@ -396,6 +420,7 @@ int main(int argc, char** argv) {
       {"s102_engine", s102_engine},
       {"drawing_instruction_parser", drawing_instruction_parser},
       {"spatial_reference_resolve", spatial_reference_resolve},
+      {"colour_tokens_symbolic", colour_tokens_symbolic},
   };
   if (argc < 2) {
     for (const auto& [n, f] : cases) f();
