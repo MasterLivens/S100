@@ -67,7 +67,7 @@ struct WaterLevelDataset {
 | ChartSession S-101 + S-104 loads | **MUST** |
 | Instruction / band **token** change when switching frames (if tokens encode level bands) | **MUST** when using tokenized surface |
 | Soft pixel diff frame0 vs frame1 snapshot | **WARN-only** |
-| Official S-104 FC/PC vendored + provenance | **WARN** if deferred this slice — minimal tokenized surface allowed; full PC follow-up |
+| Official S-104 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` / `catalogue_provenance` (this row superseded). Portray wiring to PC still WARN follow-up; minimal tokens OK until then |
 
 Day→Dusk: tokens stable, RGB remap only (same as S-102).
 

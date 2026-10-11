@@ -85,7 +85,8 @@ Key `S-124:<stem>`. Overlay with S-101.
 | Portray: ≥2 geom + ≥2 Text; each warning represented | MUST |
 | `--s124` opens fixture | MUST |
 | ChartSession S-101+S-124 | MUST |
-| Soft pixel / official FC/PC / exchange-set catalog member | WARN |
+| Soft pixel / exchange-set catalog member | WARN |
+| Official S-124 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` (supersedes defer). Portray→PC wiring WARN follow-up |
 
 ## Non-goals
 

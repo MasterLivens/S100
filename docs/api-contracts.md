@@ -116,6 +116,14 @@ Details: `docs/s124-contract.md`.
 - `ChartSession` key `S-124:<stem>`. Fixture shipped at `testdata/s124/synthetic_navwarning.gml`.
 - CTest `s124_open_list` / case `IHO-S124-OPEN-LIST` MUST not SKIP.
 
+## Catalogues (FC/PC)
+
+- S-101/S-102 pinned as today; S-104/S-111/S-124 MUST ship
+  `catalogues/S-10X/S-10X_FC_2.0.0.xml` + `PC_2.0.0/portrayal_catalogue.xml`
+  with SOURCE sha + edition pairing (`docs/catalogue-complete-contract.md`).
+- CTest `catalogue_provenance` (`tests/check_catalogues.cmake`): missing file / sha / edition mismatch → **FATAL**, no SKIP.
+- Wiring loaders to new PC is follow-up (WARN); presence on disk is MUST.
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.

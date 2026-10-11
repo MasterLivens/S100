@@ -1,50 +1,63 @@
-# Official FC/PC completeness (next slice)
+# Official FC/PC completeness (rev 2)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-CATALOGUE-COMPLETE`**. CTest: extend **`catalogue_provenance`** (keep name; add asserts).
+Case id: **`IHO-CATALOGUE-COMPLETE`** (Active). CTest: **`catalogue_provenance`** (extend `tests/check_catalogues.cmake`).
 
 ## Goal
 
-Pin **official** Feature Catalogues + Portrayal Catalogues for every product we already load (S-101…S-124), with SOURCE/commit/SHA and version pairing. `catalogue_provenance` stays green and grows coverage. No silent hand-edited catalogues.
+Vendor official FC+PC for S-104 / S-111 / S-124 with pinned paths, sha256, and edition pairing. Missing file / bad hash / edition mismatch → **`message(FATAL_ERROR)`** (no SKIP). Portray wiring to new PC remains WARN/follow-up; this slice does **not** require `open_dataset` LoadError when catalogues absent (files must be present in CI tree).
 
-## Already done (must remain)
+## Unchanged
 
-| Product | FC | PC | Pairing |
-|---------|----|----|---------|
-| S-101 | 2.0.0 | 2.0.0 | already pinned |
-| S-102 | 3.0.0 | 3.0.0 | already pinned |
+| Product | Paths | Pairing |
+|---------|-------|---------|
+| S-101 | `S-101/S-101_FC_2.0.0.xml`, `S-101/PC_2.0.0/portrayal_catalogue.xml` | FC `versionNumber` == PC `productId="S-101" version="…"` |
+| S-102 | `S-102/S-102_FC_3.0.0.xml`, `S-102/PC_3.0.0/portrayal_catalogue.xml` | same pattern for S-102 |
 
-Do not bump S-101/S-102 editions in this slice.
+Do not bump these editions.
 
-## Missing — MUST vendor this slice
+## MUST vendor — exact on-disk names
 
-| Product | Target editions (IHO in-force / matching product spec we claim) | Layout |
-|---------|------------------------------------------------------------------|--------|
-| S-104 | FC + PC matching **Ed.2.0.0** water level (pin exact filenames in SOURCE) | `catalogues/S-104/` + `SOURCE.md` |
-| S-111 | FC + PC matching **Ed.2.0.0** surface current | `catalogues/S-111/` + `SOURCE.md` |
-| S-124 | FC + PC matching **Ed.2.0.0** navigational warnings | `catalogues/S-124/` + `SOURCE.md` |
+| Product | FC path | PC path |
+|---------|---------|---------|
+| S-104 | `catalogues/S-104/S-104_FC_2.0.0.xml` | `catalogues/S-104/PC_2.0.0/portrayal_catalogue.xml` |
+| S-111 | `catalogues/S-111/S-111_FC_2.0.0.xml` | `catalogues/S-111/PC_2.0.0/portrayal_catalogue.xml` |
+| S-124 | `catalogues/S-124/S-124_FC_2.0.0.xml` | `catalogues/S-124/PC_2.0.0/portrayal_catalogue.xml` |
 
-If an official combo is only published under a different patch label, pin that label and document why (same major.minor as product claim).
+Also ship full PC tree assets as published (Lua/symbols/…) under each `PC_2.0.0/`; provenance MUST hash at least the `portrayal_catalogue.xml` (and FC xml). Optional: tree digest in SOURCE.
 
-## Rules
+## Pairing (align `check_catalogues.cmake`)
 
-1. **SOURCE.md** per product: upstream URL/repo, tag or commit, date fetched, sha256 of FC XML + PC `portrayal_catalogue.xml` (and note if whole PC tree hashed).
-2. **Unsigned OK** for R&D (same as S-101); note “unsigned; replace with signed for type approval”.
-3. **Read-only** in git after land — no drive-by Lua edits.
-4. **Version pairing:** FC `versionNumber` == PC declared FC dependency / same edition string; CTest fails on mismatch (mirror S-101/S-102 checks).
-5. **Loaders:** S-104/S-111/S-124 open paths may keep minimal portrayal if PC wiring is large; this slice’s MUST is **files on disk + provenance CTest**. Wiring portray to new PC is **WARN/follow-up** unless already trivial.
-6. Windows `.gitattributes` already forces binary/LF under `catalogues/` — keep it.
+For each of S-104/111/124:
+
+1. `expect_sha` on FC + PC xml vs SOURCE.md  
+2. Read FC `<S100FC:versionNumber>` (or product-equivalent tag if schema differs — prefer S100FC)  
+3. Read PC `productId="S-10X" version="…"`  
+4. Require both non-empty and **equal** → else `FATAL_ERROR`  
+5. Missing file → CMake/`file(SHA256)` failure → FATAL (not SKIP)
+
+## SOURCE.md (SHOULD content, required file)
+
+Each of `catalogues/S-104|S-111|S-124/SOURCE.md`:
+
+- Upstream URL / IHO registry or GitHub tag/commit  
+- Fetch date  
+- sha256 of FC xml + PC `portrayal_catalogue.xml`  
+- **unsigned** R&D note + link/terms of upstream redistribution  
+- Edition 2.0.0 claim
 
 ## MUST / WARN
 
 | Check | Sev |
 |-------|-----|
-| Three new SOURCE.md + FC/PC paths exist | MUST |
-| sha256 matches SOURCE for each new FC + PC xml | MUST |
-| FC/PC version pairing for S-104/111/124 | MUST |
-| Existing S-101/S-102 provenance still green | MUST |
-| Portray engines consume new PC | WARN (follow-up OK) |
+| Paths exist; sha match; edition pair for 104/111/124 | MUST (`catalogue_provenance` FATAL on fail) |
+| S-101/S-102 still green | MUST |
+| Engines consume new PC / open_dataset requires catalogues | **WARN** follow-up |
+
+## Supersedes
+
+Product-slice WARN rows that said “official FC/PC may defer” in `docs/s104-contract.md`, `docs/s111-contract.md`, `docs/s124-contract.md` are **replaced by this MUST**. Minimal tokenized portray may continue until PC wiring lands.
 
 ## Non-goals
 
-S-127/S-131, signed IHO packs for MED, S-98 IO catalogues, bumping S-101 to 2.1.0.
+S-127/131, signed MED packs, S-101→2.1.0, S-98 IO catalogues.

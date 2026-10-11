@@ -82,7 +82,8 @@ MUST tests use this file — **no SKIP**.
 | Wrong product → LoadError, `current` empty | MUST |
 | Portray active frame: Arrow count follows stride; ≥1 Arrow | MUST |
 | ChartSession S-101+S-111 | MUST |
-| Soft pixel / PC provenance | WARN |
+| Soft pixel | WARN |
+| Official S-111 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` (supersedes defer). Portray→PC wiring WARN follow-up |
 
 ## Non-goals
 
