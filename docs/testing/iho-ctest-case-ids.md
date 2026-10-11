@@ -24,6 +24,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S102-DEEPEN-MULTIGRID` | S-102 deepen | grids≥2 合成夹具；sample 路由；N×CoverageFill；FourShades/SafetyContour | `s102_deepen_multigrid` | Active |
 | `IHO-S104-OPEN-FRAME` | S-104 first slice | open≥2 frames；sample 随帧变；单帧 portray；ChartSession 叠 S-101 | `s104_open_frame` | Active |
 | `IHO-S111-OPEN-FRAME` | S-111 first slice | open≥2 frames；sample speed/dir；Arrow stride；ChartSession 叠 S-101 | `s111_open_frame` | Active |
+| `IHO-S124-OPEN-LIST` | S-124 first slice | GML open；`warnings.size()==2`；列表；叠图一帧；ChartSession | `s124_open_list` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 
@@ -49,4 +50,3 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 2. Backlog：等当前 S-102 刀次签收后再开，一次只捞与当前模块相关的 1–2 个 ID。  
 3. 准推规则不变：新 Case 进 `main` 仍由 SoftwareTester 放行。
 
-| `IHO-S124-OPEN-LIST` | S-124 first slice | GML open≥2 NW；列表；叠图一帧 | `s124_open_list` | Next |
