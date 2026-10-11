@@ -1,11 +1,20 @@
-if(EXISTS "${BIN}/s100_viewer${CMAKE_EXECUTABLE_SUFFIX}")
-  set(_viewer "${BIN}/s100_viewer${CMAKE_EXECUTABLE_SUFFIX}")
-elseif(EXISTS "${BIN}/Release/s100_viewer${CMAKE_EXECUTABLE_SUFFIX}")
-  set(_viewer "${BIN}/Release/s100_viewer${CMAKE_EXECUTABLE_SUFFIX}")
-elseif(EXISTS "${BIN}/Debug/s100_viewer${CMAKE_EXECUTABLE_SUFFIX}")
-  set(_viewer "${BIN}/Debug/s100_viewer${CMAKE_EXECUTABLE_SUFFIX}")
-else()
-  message(FATAL_ERROR "s100_viewer not found under ${BIN}")
+set(_viewer "")
+foreach(_cand
+    "${BIN}/s100_viewer"
+    "${BIN}/s100_viewer.exe"
+    "${BIN}/Release/s100_viewer"
+    "${BIN}/Release/s100_viewer.exe"
+    "${BIN}/Debug/s100_viewer"
+    "${BIN}/Debug/s100_viewer.exe"
+    "${BIN}/RelWithDebInfo/s100_viewer.exe"
+    "${BIN}/MinSizeRel/s100_viewer.exe")
+  if(EXISTS "${_cand}")
+    set(_viewer "${_cand}")
+    break()
+  endif()
+endforeach()
+if(_viewer STREQUAL "")
+  message(FATAL_ERROR "s100_viewer not found under ${BIN} (tried uni-config and Release/Debug .exe)")
 endif()
 foreach(PAL IN ITEMS Day Dusk Night)
   string(TOLOWER ${PAL} pal_l)
