@@ -28,6 +28,9 @@ jobs:
           modules: qtsvg
           setup-python: false
           cache: true
+      - name: Install Pillow (Windows golden compares)
+        if: runner.os == 'Windows'
+        run: python -m pip install --upgrade pip pillow
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
