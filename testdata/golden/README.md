@@ -11,3 +11,8 @@ Regenerate after intentional render changes:
 ```
 QT_QPA_PLATFORM=offscreen ./build/s100_viewer testdata/s101/101AA00DS0008.000 --snapshot testdata/golden/iho_0008.png
 ```
+
+## Final visual acceptance (S-164)
+
+See [`s164-ref/`](s164-ref/) — IHO S-164 Sub-Group Display Base / Standard reference plots.
+Used for **final** portrayal acceptance; does not replace or tighten `viewer_golden` until we wire automated checks.
