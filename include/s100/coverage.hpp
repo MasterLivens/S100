@@ -30,11 +30,12 @@ struct CoverageSample {
  * Regular-grid bathymetry (S-102 dataCodingFormat = Regular Grid).
  * Values are row-major: index = row * ncols + col, matching HDF5 dims
  * (numPointsLatitudinal, numPointsLongitudinal). Grid origin / spacing are in the
- * dataset horizontal CRS (EPSG); geographic_bounds always come from root WGS84 attrs.
+ * dataset horizontal CRS (EPSG); geographic_bounds always come from root WGS84 attrs
+ * (or per-instance geographic attrs for multi-grid EPSG:4326).
  */
 struct CoverageGrid {
   int horizontal_crs{0};  // EPSG code (4326 = WGS84 lon/lat grid axes)
-  double west{0}, south{0}, east{0}, north{0};  // root geographic envelope
+  double west{0}, south{0}, east{0}, north{0};  // geographic envelope (WGS84)
   bool bounds_valid{false};
   double origin_x{0}, origin_y{0};  // gridOriginLongitude / Latitude (native CRS)
   double spacing_x{0}, spacing_y{0};
@@ -64,15 +65,23 @@ struct CoverageGrid {
 
 /**
  * Coverage product payload (S-102+). Host portrayal uses `features`
- * (typically one BathymetryCoverage instance).
+ * (one BathymetryCoverage instance per loaded grid).
  */
 struct CoverageDataset {
   ProductId product{ProductId::S102};
   std::filesystem::path path;
   std::string dataset_name;
   std::string product_specification;  // e.g. INT.IHO.S-102.3.0.0
-  CoverageGrid grid;
+  std::vector<CoverageGrid> grids;    // size >= 1 after successful open
   std::vector<CoverageFeature> features;
+
+  /** Temporary shim → grids[0] (one release; prefer grids / sample_wgs84). */
+  CoverageGrid& grid() { return grids.at(0); }
+  const CoverageGrid& grid() const { return grids.at(0); }
+
+  /** Among grids whose geographic envelope contains (lon,lat), pick smallest
+   *  enclosing area then lowest index; else false. */
+  bool sample_wgs84(double lon, double lat, CoverageSample& out) const;
 };
 
 }  // namespace s100

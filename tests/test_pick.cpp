@@ -1,6 +1,7 @@
 #include "s100/pick.hpp"
 #include <cstdlib>
 #include <iostream>
+#include <string>
 
 static int failures = 0;
 
@@ -31,9 +32,19 @@ void test_fc_permitted_primitives();
 void test_layers_all_cells();
 void test_exchange_set_synthetic_and_chs();
 void run_s102_tests();
+void test_s102_deepen_multigrid();
 void test_association_faui_merge();
 
-int main() {
+int main(int argc, char** argv) {
+  if (argc >= 2 && std::string(argv[1]) == "s102_deepen_multigrid") {
+    test_s102_deepen_multigrid();
+    if (failures) {
+      std::cerr << failures << " failure(s)\n";
+      return 1;
+    }
+    std::cout << "s102_deepen_multigrid ok\n";
+    return 0;
+  }
   test_pick_center();
   test_layers();
   test_load_samples();

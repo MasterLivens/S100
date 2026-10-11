@@ -847,7 +847,20 @@ class MapWidget : public QWidget {
   void draw_coverage(QPainter& p, const QRectF& r, const s100::DrawingInstruction& di) {
     if (di.command != "CoverageFill") return;
     if (!dataset_ || !dataset_->coverage) return;
-    const s100::CoverageGrid& grid = dataset_->coverage->grid;
+    const auto& cov = *dataset_->coverage;
+    if (cov.grids.empty()) return;
+    std::size_t grid_index = 0;
+    bool found = false;
+    for (std::size_t i = 0; i < cov.features.size(); ++i) {
+      if (cov.features[i].id == di.feature_id) {
+        grid_index = i < cov.grids.size() ? i : 0;
+        found = true;
+        break;
+      }
+    }
+    if (!found && di.feature_id >= 1 && di.feature_id <= cov.grids.size())
+      grid_index = static_cast<std::size_t>(di.feature_id - 1);
+    const s100::CoverageGrid& grid = cov.grids[grid_index];
     if (grid.ncols == 0 || grid.nrows == 0 || !grid.bounds_valid) return;
     const auto bands = parse_coverage_bands(di);
     if (bands.empty()) return;
@@ -1294,8 +1307,8 @@ int main(int argc, char** argv) {
           portrayed = true;
           msg = QString("loaded S-102 %1 — coverage %2x%3 instructions=%4 lua_errors=%5 (FC %6 %7, PC %8 %9)")
                     .arg(cell)
-                    .arg(static_cast<qulonglong>(ds.coverage->grid.ncols))
-                    .arg(static_cast<qulonglong>(ds.coverage->grid.nrows))
+                    .arg(static_cast<qulonglong>(ds.coverage->grid().ncols))
+                    .arg(static_cast<qulonglong>(ds.coverage->grid().nrows))
                     .arg(static_cast<qulonglong>(ps.instructions))
                     .arg(static_cast<qulonglong>(ps.lua_errors))
                     .arg(QString::fromStdString(fc.product))

@@ -4,7 +4,7 @@
 
 | File | Role |
 |------|------|
-| `synthetic_multigrid_4326.h5` | **Gittracked.** Two small EPSG:4326 regular grids with disjoint envelopes for `IHO-S102-DEEPEN-MULTIGRID` / CTest `s102_deepen_multigrid`. Built by Eng in the deepen slice (see `docs/s102-deepen-contract.md`). |
+| `synthetic_multigrid_4326.h5` | **Gittracked.** Two small EPSG:4326 regular grids with disjoint envelopes for `IHO-S102-DEEPEN-MULTIGRID` / CTest `s102_deepen_multigrid`. Built with h5py: `BathymetryCoverage.01` (lon/lat≈0–0.4, depth=5) and `.02` (≈10–10.4, depth=50). See `docs/s102-deepen-contract.md`. |
 
 ## Local / gitignored (`*.h5` except the synthetic above)
 

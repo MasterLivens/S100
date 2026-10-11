@@ -2,6 +2,7 @@
 
 #include <hdf5.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -267,6 +268,28 @@ bool CoverageGrid::sample_wgs84(double lon, double lat, CoverageSample& out) con
   return sample_cell(row, col, out);
 }
 
+bool CoverageDataset::sample_wgs84(double lon, double lat, CoverageSample& out) const {
+  out = {};
+  struct Cand {
+    std::size_t index;
+    double area;
+  };
+  std::vector<Cand> cands;
+  for (std::size_t i = 0; i < grids.size(); ++i) {
+    const CoverageGrid& g = grids[i];
+    if (!g.bounds_valid) continue;
+    if (lon < g.west || lon > g.east || lat < g.south || lat > g.north) continue;
+    const double area = std::fabs((g.east - g.west) * (g.north - g.south));
+    cands.push_back(Cand{i, area});
+  }
+  if (cands.empty()) return false;
+  std::sort(cands.begin(), cands.end(), [](const Cand& a, const Cand& b) {
+    if (a.area != b.area) return a.area < b.area;
+    return a.index < b.index;
+  });
+  return grids[cands.front().index].sample_wgs84(lon, lat, out);
+}
+
 bool load_s102(const std::filesystem::path& path, CoverageDataset& out, LoadError* err) {
   out = CoverageDataset{};
   out.product = ProductId::S102;
@@ -287,20 +310,13 @@ bool load_s102(const std::filesystem::path& path, CoverageDataset& out, LoadErro
 
   read_string_attr(file, "productSpecification", &out.product_specification);
   int crs = 0;
-  if (read_scalar_int(file, "horizontalCRS", &crs)) out.grid.horizontal_crs = crs;
+  read_scalar_int(file, "horizontalCRS", &crs);
 
-  double w = 0, e = 0, s = 0, n = 0;
-  const bool bw = read_scalar_double(file, "westBoundLongitude", &w);
-  const bool be = read_scalar_double(file, "eastBoundLongitude", &e);
-  const bool bs = read_scalar_double(file, "southBoundLatitude", &s);
-  const bool bn = read_scalar_double(file, "northBoundLatitude", &n);
-  if (bw && be && bs && bn) {
-    out.grid.west = w;
-    out.grid.east = e;
-    out.grid.south = s;
-    out.grid.north = n;
-    out.grid.bounds_valid = true;
-  }
+  double root_w = 0, root_e = 0, root_s = 0, root_n = 0;
+  const bool root_bounds = read_scalar_double(file, "westBoundLongitude", &root_w) &&
+                           read_scalar_double(file, "eastBoundLongitude", &root_e) &&
+                           read_scalar_double(file, "southBoundLatitude", &root_s) &&
+                           read_scalar_double(file, "northBoundLatitude", &root_n);
 
   if (!H5Lexists(file, "/BathymetryCoverage", H5P_DEFAULT)) {
     close_file();
@@ -308,53 +324,84 @@ bool load_s102(const std::filesystem::path& path, CoverageDataset& out, LoadErro
     return false;
   }
 
-  // Prefer BathymetryCoverage.01; fall back to first BathymetryCoverage.* child.
-  std::string inst_path = "/BathymetryCoverage/BathymetryCoverage.01";
-  if (!H5Lexists(file, inst_path.c_str(), H5P_DEFAULT)) {
-    hid_t bc = H5Gopen(file, "/BathymetryCoverage", H5P_DEFAULT);
-    if (bc < 0) {
-      close_file();
-      set_err(err, LoadErrorKind::Parse, "cannot open /BathymetryCoverage");
-      return false;
-    }
-    H5G_info_t info{};
-    H5Gget_info(bc, &info);
-    inst_path.clear();
-    for (hsize_t i = 0; i < info.nlinks; ++i) {
-      char name[256];
-      ssize_t len = H5Lget_name_by_idx(bc, ".", H5_INDEX_NAME, H5_ITER_INC, i, name, sizeof(name),
-                                       H5P_DEFAULT);
-      if (len <= 0) continue;
-      if (std::strncmp(name, "BathymetryCoverage", 18) == 0) {
-        inst_path = std::string("/BathymetryCoverage/") + name;
-        break;
-      }
-    }
-    H5Gclose(bc);
-    if (inst_path.empty()) {
-      close_file();
-      set_err(err, LoadErrorKind::Parse, "S-102 has no BathymetryCoverage.* instance");
-      return false;
-    }
-  }
-
-  hid_t inst = H5Gopen(file, inst_path.c_str(), H5P_DEFAULT);
-  if (inst < 0) {
+  // Collect all BathymetryCoverage.* instances in stable name order.
+  std::vector<std::string> inst_names;
+  hid_t bc = H5Gopen(file, "/BathymetryCoverage", H5P_DEFAULT);
+  if (bc < 0) {
     close_file();
-    set_err(err, LoadErrorKind::Parse, "cannot open " + inst_path);
+    set_err(err, LoadErrorKind::Parse, "cannot open /BathymetryCoverage");
     return false;
   }
-  const bool grid_ok = load_instance_grid(file, inst, out.grid, err);
-  H5Gclose(inst);
-  close_file();
-  if (!grid_ok) return false;
+  H5G_info_t info{};
+  H5Gget_info(bc, &info);
+  for (hsize_t i = 0; i < info.nlinks; ++i) {
+    char name[256];
+    ssize_t len = H5Lget_name_by_idx(bc, ".", H5_INDEX_NAME, H5_ITER_INC, i, name, sizeof(name),
+                                     H5P_DEFAULT);
+    if (len <= 0) continue;
+    if (std::strncmp(name, "BathymetryCoverage.", 19) == 0) inst_names.emplace_back(name);
+  }
+  H5Gclose(bc);
+  std::sort(inst_names.begin(), inst_names.end());
+  if (inst_names.empty()) {
+    close_file();
+    set_err(err, LoadErrorKind::Parse, "S-102 has no BathymetryCoverage.* instance");
+    return false;
+  }
 
-  // Portrayal host feature: one BathymetryCoverage instance (PC 3.0.0 BathymetryCoverage.lua).
-  CoverageFeature feat;
-  feat.id = 1;
-  feat.code = "BathymetryCoverage";
-  out.features.push_back(std::move(feat));
-  return true;
+  for (const std::string& name : inst_names) {
+    const std::string inst_path = "/BathymetryCoverage/" + name;
+    hid_t inst = H5Gopen(file, inst_path.c_str(), H5P_DEFAULT);
+    if (inst < 0) {
+      close_file();
+      set_err(err, LoadErrorKind::Parse, "cannot open " + inst_path);
+      return false;
+    }
+    CoverageGrid grid;
+    grid.horizontal_crs = crs;
+    const bool grid_ok = load_instance_grid(file, inst, grid, err);
+    if (!grid_ok) {
+      H5Gclose(inst);
+      close_file();
+      return false;
+    }
+
+    // Geographic envelope: prefer instance attrs (multi-grid 4326); else root; else derive 4326.
+    double iw = 0, ie = 0, isouth = 0, inorth = 0;
+    const bool ib = read_scalar_double(inst, "westBoundLongitude", &iw) &&
+                    read_scalar_double(inst, "eastBoundLongitude", &ie) &&
+                    read_scalar_double(inst, "southBoundLatitude", &isouth) &&
+                    read_scalar_double(inst, "northBoundLatitude", &inorth);
+    if (crs == 4326 && ib) {
+      grid.west = iw;
+      grid.east = ie;
+      grid.south = isouth;
+      grid.north = inorth;
+      grid.bounds_valid = true;
+    } else if (root_bounds) {
+      grid.west = root_w;
+      grid.east = root_e;
+      grid.south = root_s;
+      grid.north = root_n;
+      grid.bounds_valid = true;
+    } else if (crs == 4326 && grid.ncols > 0 && grid.nrows > 0) {
+      grid.west = grid.origin_x;
+      grid.south = grid.origin_y;
+      grid.east = grid.origin_x + static_cast<double>(grid.ncols - 1) * grid.spacing_x;
+      grid.north = grid.origin_y + static_cast<double>(grid.nrows - 1) * grid.spacing_y;
+      grid.bounds_valid = true;
+    }
+    H5Gclose(inst);
+
+    CoverageFeature feat;
+    feat.id = static_cast<std::uint64_t>(out.grids.size() + 1);
+    feat.code = "BathymetryCoverage";
+    out.grids.push_back(std::move(grid));
+    out.features.push_back(std::move(feat));
+  }
+
+  close_file();
+  return !out.grids.empty();
 }
 
 bool load_hdf5_product(ProductId id, const std::filesystem::path& path, Dataset& out,

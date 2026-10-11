@@ -37,8 +37,11 @@ Bounds Dataset::bounds() const {
         for (const auto& p : ring.points) consider(p.lon, p.lat);
     }
   }
-  if (coverage && coverage->grid.bounds_valid)
-    consider_bounds(coverage->grid.geographic_bounds());
+  if (coverage) {
+    for (const auto& g : coverage->grids) {
+      if (g.bounds_valid) consider_bounds(g.geographic_bounds());
+    }
+  }
   b.valid = any;
   return b;
 }
