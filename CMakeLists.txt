@@ -100,6 +100,7 @@ if(S100_BUILD_VIEWER)
   add_test(NAME viewer_snapshot
     COMMAND s100_viewer
       "${CMAKE_SOURCE_DIR}/testdata/s101/101AA00DS0003.000"
+      --no-text-collision
       --snapshot "${CMAKE_BINARY_DIR}/viewer_snapshot.png")
   set_tests_properties(viewer_snapshot PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_OPENGL=software;S100_TESTDATA=${CMAKE_SOURCE_DIR}/testdata/s101"
@@ -113,6 +114,11 @@ if(S100_BUILD_VIEWER)
       -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
       -P ${CMAKE_SOURCE_DIR}/tests/check_viewer_palettes.cmake)
   set_tests_properties(viewer_golden viewer_palettes PROPERTIES TIMEOUT 90)
+  add_test(NAME viewer_text_collision
+    COMMAND ${CMAKE_COMMAND}
+      -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
+      -P ${CMAKE_SOURCE_DIR}/tests/check_text_collision.cmake)
+  set_tests_properties(viewer_text_collision PROPERTIES TIMEOUT 90)
 
   if(S100_ENCDOTNET_ORACLE)
     add_test(NAME viewer_encdotnet_oracle

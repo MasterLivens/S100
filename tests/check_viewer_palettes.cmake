@@ -23,6 +23,7 @@ foreach(PAL IN ITEMS Day Dusk Night)
             ${_viewer}
             ${SRC}/testdata/s101/101AA00DS0008.000
             --palette ${PAL}
+            --no-text-collision
             --snapshot ${BIN}/palette_${pal_l}.png
     RESULT_VARIABLE rc)
   if(NOT rc EQUAL 0)

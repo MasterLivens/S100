@@ -22,6 +22,7 @@ execute_process(
   COMMAND ${CMAKE_COMMAND} -E env QT_QPA_PLATFORM=offscreen
           ${_viewer}
           ${SRC}/testdata/s101/101AA00DS0008.000
+          --no-text-collision
           --snapshot ${BIN}/golden_iho_0008.png
   RESULT_VARIABLE rc)
 if(NOT rc EQUAL 0)

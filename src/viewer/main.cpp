@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFile>
+#include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QImage>
@@ -17,6 +18,7 @@
 #include <QSvgRenderer>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QTextStream>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -567,6 +569,107 @@ class MapWidget : public QWidget {
   const s100::PortrayalStats& stats() const { return stats_; }
   s100::LayerVisibility& visibility() { return visibility_; }
   void setStatusCallback(std::function<void(const QString&)> cb) { status_cb_ = std::move(cb); }
+  void setTextCollisionEnabled(bool on) { text_collision_ = on; update(); }
+  void setDumpTextBoxesPath(std::string path) { dump_text_boxes_path_ = std::move(path); }
+
+  struct TextJob {
+    const s100::DrawingInstruction* di{nullptr};
+    const s100::Feature* f{nullptr};
+    QPointF anchor;
+    QString text;
+    QFont font;
+    QColor color;
+    int align{Qt::AlignCenter};
+    QRectF box;
+    bool draw{true};
+  };
+
+  bool prepare_text_job(const QRectF& r, const s100::Feature& f, const s100::DrawingInstruction& di,
+                        TextJob& job) const {
+    if (di.text.empty()) return false;
+    job.di = &di;
+    job.f = &f;
+    job.text = QString::fromStdString(di.text);
+    job.color = palette_.get_alpha(di.text_style.font_colour, di.text_style.font_colour_transparency,
+                                   palette_.get("CHBLK", Qt::black));
+    job.font = font();
+    const qreal px = mm_to_px(this, di.text_style.font_size > 0 ? di.text_style.font_size : 2.5);
+    job.font.setPixelSize(std::max(8, static_cast<int>(std::lround(px))));
+    if (di.text_style.font_weight == "Bold") job.font.setBold(true);
+    if (di.text_style.font_slant == "Italics" || di.text_style.font_slant == "Italic")
+      job.font.setItalic(true);
+    job.align = Qt::AlignCenter;
+    if (di.text_style.halign == "Start" || di.text_style.halign == "Left")
+      job.align = (job.align & ~Qt::AlignHorizontal_Mask) | Qt::AlignLeft;
+    else if (di.text_style.halign == "End" || di.text_style.halign == "Right")
+      job.align = (job.align & ~Qt::AlignHorizontal_Mask) | Qt::AlignRight;
+    const auto geoms = paint_geometries(di, f);
+    if (geoms.empty()) return false;
+    const QPointF s = geometry_anchor(*geoms.front(), r, west_, south_, east_, north_);
+    const qreal ox = mm_to_px(this, di.offset_x);
+    const qreal oy = -mm_to_px(this, di.offset_y);
+    job.anchor = QPointF(s.x() + ox, s.y() + oy);
+    const QFontMetrics fm(job.font);
+    const QRect br = fm.boundingRect(QRect(0, 0, 2000, 400), job.align, job.text);
+    // Anchor at centre of a box sized to the text (same spirit as the old ±40×±12 box).
+    const qreal w = std::max(8.0, static_cast<qreal>(br.width()) + 4.0);
+    const qreal h = std::max(8.0, static_cast<qreal>(br.height()) + 2.0);
+    job.box = QRectF(job.anchor.x() - w * 0.5, job.anchor.y() - h * 0.5, w, h);
+    job.draw = true;
+    return true;
+  }
+
+  static bool boxes_overlap(const QRectF& a, const QRectF& b) {
+    return a.intersects(b);
+  }
+
+  void layout_text_jobs(std::vector<TextJob>& texts) const {
+    if (!text_collision_) return;
+    // Greedy by already-sorted paint order (priority). Try small N/E/S/W/diagonal offsets; else drop.
+    const qreal step = 12.0;
+    const QPointF offsets[] = {
+        {0, 0}, {0, -step}, {step, 0}, {0, step}, {-step, 0},
+        {step, -step}, {-step, -step}, {step, step}, {-step, step},
+        {0, -2 * step}, {2 * step, 0}, {0, 2 * step}, {-2 * step, 0},
+    };
+    std::vector<QRectF> placed;
+    placed.reserve(texts.size());
+    for (auto& job : texts) {
+      const QRectF base = job.box;
+      bool ok = false;
+      for (const QPointF& off : offsets) {
+        const QRectF cand = base.translated(off);
+        bool hit = false;
+        for (const QRectF& p : placed) {
+          if (boxes_overlap(cand, p)) {
+            hit = true;
+            break;
+          }
+        }
+        if (!hit) {
+          job.box = cand;
+          job.draw = true;
+          placed.push_back(cand);
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) job.draw = false;  // drop label (MVP: no font shrink)
+    }
+  }
+
+  void dump_text_boxes(const std::vector<TextJob>& texts) const {
+    QFile f(QString::fromStdString(dump_text_boxes_path_));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) return;
+    QTextStream out(&f);
+    out << "x,y,w,h,drawn,text\n";
+    for (const auto& job : texts) {
+      out << job.box.x() << ',' << job.box.y() << ',' << job.box.width() << ',' << job.box.height()
+          << ',' << (job.draw ? 1 : 0) << ','
+          << '"' << QString(job.text).replace('"', "\"") << '"' << '\n';
+    }
+  }
+
 
  protected:
   void paintEvent(QPaintEvent*) override {
@@ -606,6 +709,8 @@ class MapWidget : public QWidget {
                        return a->drawing_priority < b->drawing_priority;
                      });
 
+    std::vector<TextJob> texts;
+
     for (const s100::DrawingInstruction* dip : order) {
       const auto& di = *dip;
       // CoverageFill is coverage-grid backed (S-102); no Dataset::features / layer toggle.
@@ -630,13 +735,25 @@ class MapWidget : public QWidget {
         case s100::DrawingInstruction::Kind::Point:
           draw_point(p, r, f, di);
           break;
-        case s100::DrawingInstruction::Kind::Text:
-          draw_text(p, r, f, di);
+        case s100::DrawingInstruction::Kind::Text: {
+          TextJob job;
+          if (!prepare_text_job(r, f, di, job)) break;
+          texts.push_back(std::move(job));
           break;
+        }
         default:
           break;
       }
     }
+
+    layout_text_jobs(texts);
+    for (const auto& job : texts) {
+      if (!job.draw) continue;
+      p.setFont(job.font);
+      p.setPen(job.color);
+      p.drawText(job.box, job.align, job.text);
+    }
+    if (!dump_text_boxes_path_.empty()) dump_text_boxes(texts);
   }
 
   void mousePressEvent(QMouseEvent* e) override {
@@ -894,37 +1011,6 @@ class MapWidget : public QWidget {
     }
   }
 
-  void draw_text(QPainter& p, const QRectF& r, const s100::Feature& f,
-                 const s100::DrawingInstruction& di) {
-    if (di.text.empty()) return;
-    const QColor col = palette_.get_alpha(di.text_style.font_colour,
-                                          di.text_style.font_colour_transparency,
-                                          palette_.get("CHBLK", Qt::black));
-    QFont font = p.font();
-    // FontSize is in mm (Part 9a); map to point size roughly.
-    const qreal px = mm_to_px(this, di.text_style.font_size > 0 ? di.text_style.font_size : 2.5);
-    font.setPixelSize(std::max(8, static_cast<int>(std::lround(px))));
-    if (di.text_style.font_weight == "Bold") font.setBold(true);
-    if (di.text_style.font_slant == "Italics" || di.text_style.font_slant == "Italic")
-      font.setItalic(true);
-    p.setFont(font);
-    p.setPen(col);
-
-    int align = Qt::AlignCenter;
-    if (di.text_style.halign == "Start" || di.text_style.halign == "Left")
-      align = (align & ~Qt::AlignHorizontal_Mask) | Qt::AlignLeft;
-    else if (di.text_style.halign == "End" || di.text_style.halign == "Right")
-      align = (align & ~Qt::AlignHorizontal_Mask) | Qt::AlignRight;
-
-    const auto geoms = paint_geometries(di, f);
-    if (geoms.empty()) return;
-    const QPointF s = geometry_anchor(*geoms.front(), r, west_, south_, east_, north_);
-    const qreal ox = mm_to_px(this, di.offset_x);
-    const qreal oy = -mm_to_px(this, di.offset_y);  // LocalOffset y up in portrayal CRS
-    p.drawText(QRectF(s.x() + ox - 40, s.y() + oy - 12, 80, 24), align,
-               QString::fromStdString(di.text));
-  }
-
   const NamedLineStyle& named_line(const std::string& ref) {
     auto it = named_line_cache_.find(ref);
     if (it != named_line_cache_.end()) return it->second;
@@ -952,6 +1038,8 @@ class MapWidget : public QWidget {
   s100::LayerVisibility visibility_;  // session state, not in Dataset
   double west_{-0.05}, south_{-0.05}, east_{0.05}, north_{0.05};
   std::function<void(const QString&)> status_cb_;
+  bool text_collision_{true};
+  std::string dump_text_boxes_path_;
 };
 
 }  // namespace
@@ -959,11 +1047,12 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
-  QString cell, snapshot, s102_path;
+  QString cell, snapshot, s102_path, dump_text_boxes;
   QString fc_path = S100_DEFAULT_FC;
   QString pc_path = S100_DEFAULT_PC;
   QString palette_name = QStringLiteral("Day");  // Day | Dusk | Night
   bool fc_set = false, pc_set = false;
+  bool text_collision = true;  // default ON (docs/text-collision-contract.md)
   for (int i = 1; i < argc; ++i) {
     const QString a = argv[i];
     if (a == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
@@ -971,6 +1060,8 @@ int main(int argc, char** argv) {
     else if (a == "--pc" && i + 1 < argc) { pc_path = argv[++i]; pc_set = true; }
     else if (a == "--palette" && i + 1 < argc) palette_name = argv[++i];
     else if (a == "--s102" && i + 1 < argc) s102_path = argv[++i];
+    else if (a == "--no-text-collision") text_collision = false;
+    else if (a == "--dump-text-boxes" && i + 1 < argc) dump_text_boxes = argv[++i];
     else if (cell.isEmpty()) cell = a;
   }
   const bool cell_is_hdf5 =
@@ -1020,6 +1111,8 @@ int main(int argc, char** argv) {
   layout->addWidget(split, 1);
   win.setCentralWidget(central);
   map->setStatusCallback([&](const QString& s) { win.statusBar()->showMessage(s); });
+  map->setTextCollisionEnabled(text_collision);
+  if (!dump_text_boxes.isEmpty()) map->setDumpTextBoxesPath(dump_text_boxes.toStdString());
 
   // FC / PC are product-level: load once per session. Context lives outside Dataset.
   s100::FeatureCatalogue fc;
@@ -1216,14 +1309,20 @@ int main(int argc, char** argv) {
   win.resize(1280, 800);
   win.show();
 
-  // Headless smoke: s100_viewer <cell> --snapshot out.png  (QT_QPA_PLATFORM=offscreen)
-  if (!snapshot.isEmpty()) {
+  // Headless: --snapshot and/or --dump-text-boxes (QT_QPA_PLATFORM=offscreen)
+  if (!snapshot.isEmpty() || !dump_text_boxes.isEmpty()) {
     QTimer::singleShot(200, [&win, snapshot]() {
-      const bool ok = win.grab().save(snapshot);
-      std::fprintf(ok ? stdout : stderr, "snapshot %s %s\n", ok ? "saved" : "FAILED",
-                   snapshot.toUtf8().constData());
+      bool ok = true;
+      if (!snapshot.isEmpty()) {
+        ok = win.grab().save(snapshot);
+        std::fprintf(ok ? stdout : stderr, "snapshot %s %s\n", ok ? "saved" : "FAILED",
+                     snapshot.toUtf8().constData());
+      } else {
+        (void)win.grab();  // force paint → dump-text-boxes
+      }
       QApplication::exit(ok ? 0 : 1);
     });
   }
   return app.exec();
 }
+

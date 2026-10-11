@@ -33,7 +33,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S164-CANCEL-REISSUE` | 2.2.6 / 2.2.7 | 交换集 | 取消/再版 |
 | `IHO-S101-SCAMIN` | 3.7.7 / Sec.9–10 | 显示比例尺 | 现计划未做 |
 | `IHO-S101-DRAW-PRIORITY` | 3.6 Display Priorities | LayerInfo | portrayal 稳定后 |
-| `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞 | **已排在 S-102 叠显之后** |
+| `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞开/关重叠对数 | `viewer_text_collision` | Active |
 | `IHO-DISP-REF-COMPARE` | Display Test Template | 参考实现截图 | 替代「只靠像素漂移」谈观感 |
 | `IHO-S164-POWERUP` | 2.1.1 | Track B | 认证启动包 |
 | `IHO-S164-SIG` | CertificatesAndKeys | Track B | Part 15 |
