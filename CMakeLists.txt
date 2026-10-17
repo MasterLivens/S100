@@ -34,6 +34,7 @@ add_library(s100_core
   src/core/drawing_instructions.cpp
   src/core/scale_filter.cpp
   src/core/draw_order.cpp
+  src/core/timeline.cpp
   src/core/host_adapter.cpp
   src/core/portrayal_engine.cpp
   src/core/exchange_set.cpp
@@ -84,10 +85,14 @@ add_executable(s100_tests
   tests/test_associations.cpp
   tests/test_scamin_filter.cpp
   tests/test_display_priority_order.cpp
+  tests/test_timeline_ui.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")
 target_compile_definitions(s100_tests PRIVATE S100_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_compile_definitions(s100_tests PRIVATE S100_CLI_PATH="${CMAKE_BINARY_DIR}/s100_cli")
+add_dependencies(s100_tests s100_cli)
+add_test(NAME timeline_ui COMMAND s100_tests timeline_ui)
 add_test(NAME s100_tests COMMAND s100_tests)
 add_test(NAME s102_deepen_multigrid COMMAND s100_tests s102_deepen_multigrid)
 add_test(NAME s104_open_frame COMMAND s100_tests s104_open_frame)

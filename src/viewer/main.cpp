@@ -8,11 +8,13 @@
 #include <QHBoxLayout>
 #include <QHash>
 #include <QImage>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QSlider>
 #include <QPainterPath>
 #include <QPen>
 #include <QSvgRenderer>
@@ -556,6 +558,7 @@ class MapWidget : public QWidget {
   explicit MapWidget(QWidget* parent = nullptr) : QWidget(parent) {
     setMinimumSize(640, 480);
     setMouseTracking(true);
+    setFocusPolicy(Qt::StrongFocus);
   }
 
   void setPortrayal(std::optional<s100::Dataset> ds, s100::DrawingInstructions instructions,
@@ -605,6 +608,58 @@ class MapWidget : public QWidget {
   void setDumpTextBoxesPath(std::string path) { dump_text_boxes_path_ = std::move(path); }
   void setViewScaleOverride(long n) { view_scale_override_ = n; }  // >0 pins 1:N; 0 = compute
   void setIgnoreScaleMinimum(bool on) { ignore_scale_minimum_ = on; update(); }
+
+  s100::Dataset* mutableDataset() { return dataset_ ? &*dataset_ : nullptr; }
+
+  /** Replace DrawingInstructions and repaint (timeline scrubber re-portray). */
+  void replaceInstructions(s100::DrawingInstructions instructions) {
+    instructions_ = std::move(instructions);
+    update();
+  }
+
+  /** set_active_frame + re-portray S-104 CoverageFill only; keep other DIs. */
+  bool scrubWaterLevelFrame(std::size_t index) {
+    if (!dataset_ || !dataset_->water_level) return false;
+    if (!dataset_->water_level->set_active_frame(index)) return false;
+    s100::DrawingInstructions wl_di;
+    std::string err;
+    if (!s100::portray_water_level(*dataset_->water_level, wl_di, &err)) return false;
+    // Drop prior S-104 CoverageFill: all Coverage when no S-102 grid, else by wl feature id.
+    instructions_.erase(
+        std::remove_if(instructions_.begin(), instructions_.end(),
+                       [this](const s100::DrawingInstruction& di) {
+                         if (di.kind != s100::DrawingInstruction::Kind::Coverage) return false;
+                         if (!dataset_->coverage) return true;
+                         for (const auto& f : dataset_->water_level->features)
+                           if (f.id == di.feature_id) return true;
+                         return false;
+                       }),
+        instructions_.end());
+    instructions_.insert(instructions_.end(), wl_di.begin(), wl_di.end());
+    update();
+    return true;
+  }
+
+  /** set_active_frame + re-portray S-111 Arrow DIs only; keep other DIs. */
+  bool scrubCurrentFrame(std::size_t index) {
+    if (!dataset_ || !dataset_->current) return false;
+    if (!dataset_->current->set_active_frame(index)) return false;
+    s100::DrawingInstructions cur_di;
+    std::string err;
+    if (!s100::portray_current(*dataset_->current, cur_di, &err)) return false;
+    instructions_.erase(
+        std::remove_if(instructions_.begin(), instructions_.end(),
+                       [](const s100::DrawingInstruction& di) {
+                         return di.kind == s100::DrawingInstruction::Kind::Arrow;
+                       }),
+        instructions_.end());
+    instructions_.insert(instructions_.end(), cur_di.begin(), cur_di.end());
+    update();
+    return true;
+  }
+
+  using TimelineStepFn = std::function<bool(int delta)>;
+  void setTimelineStepHandler(TimelineStepFn fn) { timeline_step_ = std::move(fn); }
 
   // PointLabel pairing: nearest same-feature Text within this many screen px of a Point
   // anchor (reference viewport 1280x800). docs/point-symbol-text-collision-contract.md
@@ -757,6 +812,19 @@ class MapWidget : public QWidget {
 
 
  protected:
+  // Keyboard: Left/Right arrow keys step ±1 frame on the focused timeline product
+  // (last scrubbed S-104 or S-111; see setTimelineStepHandler). Also accept [ / ].
+  void keyPressEvent(QKeyEvent* e) override {
+    if (timeline_step_) {
+      if (e->key() == Qt::Key_Left || e->key() == Qt::Key_BracketLeft) {
+        if (timeline_step_(-1)) return;
+      } else if (e->key() == Qt::Key_Right || e->key() == Qt::Key_BracketRight) {
+        if (timeline_step_(+1)) return;
+      }
+    }
+    QWidget::keyPressEvent(e);
+  }
+
   void paintEvent(QPaintEvent*) override {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
@@ -1248,6 +1316,7 @@ class MapWidget : public QWidget {
   s100::LayerVisibility visibility_;  // session state, not in Dataset
   double west_{-0.05}, south_{-0.05}, east_{0.05}, north_{0.05};
   std::function<void(const QString&)> status_cb_;
+  TimelineStepFn timeline_step_;
   bool text_collision_{true};
   std::string dump_text_boxes_path_;
   std::size_t point_glyphs_drawn_{0};  // Kind::Point submitted to symbol painter this paint
@@ -1785,6 +1854,125 @@ int main(int argc, char** argv) {
       win.statusBar()->showMessage(QString::fromStdString(err.message));
     }
   }
+
+  // Timeline scrubbers for S-104 / S-111 (docs/timeline-ui-contract.md). Independent strips.
+  QSlider* s104_slider = nullptr;
+  QLabel* s104_time_label = nullptr;
+  QSlider* s111_slider = nullptr;
+  QLabel* s111_time_label = nullptr;
+  // Which product Left/Right keys step: 104 or 111 (last scrubbed wins).
+  int timeline_focus_product = 0;
+
+  auto update_s104_time_label = [&]() {
+    if (!s104_time_label) return;
+    auto* ds = map->mutableDataset();
+    if (!ds || !ds->water_level || ds->water_level->frames.empty()) return;
+    const auto& wl = *ds->water_level;
+    const std::size_t i = wl.active_frame;
+    const std::size_t n = wl.frames.size();
+    QString t;
+    if (i < n && !wl.frames[i].time_iso.empty())
+      t = QString::fromStdString(wl.frames[i].time_iso);
+    else
+      t = QString("frame %1/%2").arg(static_cast<qulonglong>(i)).arg(static_cast<qulonglong>(n));
+    s104_time_label->setText(QString("S-104 %1").arg(t));
+  };
+  auto update_s111_time_label = [&]() {
+    if (!s111_time_label) return;
+    auto* ds = map->mutableDataset();
+    if (!ds || !ds->current || ds->current->frames.empty()) return;
+    const auto& cur = *ds->current;
+    const std::size_t i = cur.active_frame;
+    const std::size_t n = cur.frames.size();
+    QString t;
+    if (i < n && !cur.frames[i].time_iso.empty())
+      t = QString::fromStdString(cur.frames[i].time_iso);
+    else
+      t = QString("frame %1/%2").arg(static_cast<qulonglong>(i)).arg(static_cast<qulonglong>(n));
+    s111_time_label->setText(QString("S-111 %1").arg(t));
+  };
+
+  if (map->dataset() && map->dataset()->water_level &&
+      !map->dataset()->water_level->frames.empty()) {
+    auto* row = new QHBoxLayout;
+    row->addWidget(new QLabel("S-104:"));
+    s104_slider = new QSlider(Qt::Horizontal);
+    const int n = static_cast<int>(map->dataset()->water_level->frames.size());
+    s104_slider->setRange(0, n - 1);
+    s104_slider->setValue(static_cast<int>(map->dataset()->water_level->active_frame));
+    s104_slider->setTickPosition(QSlider::TicksBelow);
+    s104_slider->setTickInterval(1);
+    s104_time_label = new QLabel;
+    row->addWidget(s104_slider, 1);
+    row->addWidget(s104_time_label);
+    layout->addLayout(row);
+    update_s104_time_label();
+    QObject::connect(s104_slider, &QSlider::valueChanged, map, [&, map](int v) {
+      timeline_focus_product = 104;
+      map->scrubWaterLevelFrame(static_cast<std::size_t>(v));
+      update_s104_time_label();
+      map->setFocus();
+    });
+  }
+  if (map->dataset() && map->dataset()->current && !map->dataset()->current->frames.empty()) {
+    auto* row = new QHBoxLayout;
+    row->addWidget(new QLabel("S-111:"));
+    s111_slider = new QSlider(Qt::Horizontal);
+    const int n = static_cast<int>(map->dataset()->current->frames.size());
+    s111_slider->setRange(0, n - 1);
+    s111_slider->setValue(static_cast<int>(map->dataset()->current->active_frame));
+    s111_slider->setTickPosition(QSlider::TicksBelow);
+    s111_slider->setTickInterval(1);
+    s111_time_label = new QLabel;
+    row->addWidget(s111_slider, 1);
+    row->addWidget(s111_time_label);
+    layout->addLayout(row);
+    update_s111_time_label();
+    QObject::connect(s111_slider, &QSlider::valueChanged, map, [&, map](int v) {
+      timeline_focus_product = 111;
+      map->scrubCurrentFrame(static_cast<std::size_t>(v));
+      update_s111_time_label();
+      map->setFocus();
+    });
+  }
+  if (s104_slider && !s111_slider) timeline_focus_product = 104;
+  if (s111_slider && !s104_slider) timeline_focus_product = 111;
+  if (s104_slider && s111_slider) timeline_focus_product = 104;  // default focus S-104
+
+  // Keyboard Left/Right (and [ / ]) → timeline_step_frame on focused product.
+  map->setTimelineStepHandler([&, map](int delta) -> bool {
+    auto* ds = map->mutableDataset();
+    if (!ds) return false;
+    int focus = timeline_focus_product;
+    if (focus == 0) {
+      if (ds->water_level) focus = 104;
+      else if (ds->current) focus = 111;
+    }
+    if (focus == 104 && ds->water_level) {
+      if (!s100::timeline_step_frame(*ds->water_level, delta)) return false;
+      if (s104_slider) {
+        s104_slider->blockSignals(true);
+        s104_slider->setValue(static_cast<int>(ds->water_level->active_frame));
+        s104_slider->blockSignals(false);
+      }
+      map->scrubWaterLevelFrame(ds->water_level->active_frame);
+      // scrubWaterLevelFrame set_active_frame again (no-op same index) + re-portray
+      update_s104_time_label();
+      return true;
+    }
+    if (focus == 111 && ds->current) {
+      if (!s100::timeline_step_frame(*ds->current, delta)) return false;
+      if (s111_slider) {
+        s111_slider->blockSignals(true);
+        s111_slider->setValue(static_cast<int>(ds->current->active_frame));
+        s111_slider->blockSignals(false);
+      }
+      map->scrubCurrentFrame(ds->current->active_frame);
+      update_s111_time_label();
+      return true;
+    }
+    return false;
+  });
 
   win.resize(1280, 800);
   win.show();

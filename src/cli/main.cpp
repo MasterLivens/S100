@@ -29,7 +29,8 @@
 static const char* kUsage =
     "usage: s100_cli <file.000|.h5|.gml> [--fc <FC.xml>] [--pc <PC dir>] [--layers]\n"
     "                [--s102 <path.h5>] [--s104 <path.h5>] [--s111 <path.h5>] [--s124 <path.gml>]\n"
-    "                [--session-pick <lon> <lat>]\n"
+    "                [--s104-frame <i>] [--s104-time <iso>] [--s111-frame <i>] [--s111-time <iso>]\n"
+    "                [--list-frames] [--session-pick <lon> <lat>]\n"
     "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
     "                [--view-scale <N>] [--ignore-scamin]\n"
     "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
@@ -37,7 +38,8 @@ static const char* kUsage =
     "  note: lone .001 updates are rejected; use exchange set / with_updates\n"
   "  note: --fc/--pc default to pinned S-101; S-111/S-124 use catalogues/S-111|S-124\n"
   "  note: --view-scale <N> filters portray dump by SCAMIN/SCAMAX (omit = no scale filter)\n"
-  "  note: --ignore-scamin skips scale_minimum checks only (SCAMAX still applies)\n";
+  "  note: --ignore-scamin skips scale_minimum checks only (SCAMAX still applies)\n"
+  "  note: --list-frames prints product\\tindex\\ttime_iso\\tactive for S-104/S-111\n";
 
 static long long ms_since(std::chrono::steady_clock::time_point t0) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0)
@@ -103,6 +105,45 @@ static void print_session_pick(const s100::SessionPickResult& r) {
   }
 }
 
+
+static void apply_frame_selectors(s100::Dataset& ds, int s104_frame, const std::string& s104_time,
+                                  int s111_frame, const std::string& s111_time) {
+  if (ds.water_level) {
+    if (s104_frame >= 0) ds.water_level->set_active_frame(static_cast<std::size_t>(s104_frame));
+    if (!s104_time.empty()) ds.water_level->set_active_time(s104_time);
+  }
+  if (ds.current) {
+    if (s111_frame >= 0) ds.current->set_active_frame(static_cast<std::size_t>(s111_frame));
+    if (!s111_time.empty()) ds.current->set_active_time(s111_time);
+  }
+}
+
+static void print_timeline_entries(const char* product, const std::vector<s100::TimelineEntry>& entries) {
+  for (const auto& e : entries) {
+    std::cout << product << '\t' << e.index << '\t' << e.time_iso << '\t'
+              << (e.active ? '1' : '0') << '\n';
+  }
+}
+
+static bool emit_list_frames_dataset(s100::Dataset& ds) {
+  bool any = false;
+  if (ds.water_level) {
+    std::vector<s100::TimelineEntry> entries;
+    if (s100::timeline_entries_water_level(*ds.water_level, entries)) {
+      print_timeline_entries("S-104", entries);
+      any = true;
+    }
+  }
+  if (ds.current) {
+    std::vector<s100::TimelineEntry> entries;
+    if (s100::timeline_entries_current(*ds.current, entries)) {
+      print_timeline_entries("S-111", entries);
+      any = true;
+    }
+  }
+  return any;
+}
+
 static int run_session_pick_on(s100::ChartSession& session, double lon, double lat) {
   s100::SessionPickResult pr;
   std::string perr;
@@ -120,7 +161,8 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
                            const std::vector<std::pair<std::string, std::string>>& settings,
                            const std::vector<std::filesystem::path>& overlay_paths, bool do_session_pick,
                            double pick_lon, double pick_lat, bool have_view_scale, long view_scale_denom,
-                           bool ignore_scamin_flag) {
+                           bool ignore_scamin_flag, bool list_frames, int s104_frame,
+                           const std::string& s104_time, int s111_frame, const std::string& s111_time) {
   // Session path: primary + overlays (used for --session-pick and multi-product loads).
   const bool use_session = do_session_pick || !overlay_paths.empty();
   if (use_session) {
@@ -149,6 +191,21 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
       std::cerr << "no members loaded\n";
       return 1;
     }
+    for (auto& key : session.member_keys()) {
+      if (auto* m = session.find(key))
+        apply_frame_selectors(*m, s104_frame, s104_time, s111_frame, s111_time);
+    }
+    if (list_frames) {
+      bool any = false;
+      for (const auto& key : session.member_keys()) {
+        if (auto* m = session.find(key)) any = emit_list_frames_dataset(*m) || any;
+      }
+      if (!any) {
+        std::cerr << "error: --list-frames requires an open S-104 or S-111 dataset\n";
+        return 1;
+      }
+      return 0;
+    }
     if (do_session_pick) return run_session_pick_on(session, pick_lon, pick_lat);
     // Fall through to single-dataset report on primary when overlays were loaded without pick.
   }
@@ -169,6 +226,14 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
   if (!ok) {
     std::cerr << "load failed: " << err.message << "\n";
     return 1;
+  }
+  apply_frame_selectors(ds, s104_frame, s104_time, s111_frame, s111_time);
+  if (list_frames) {
+    if (!emit_list_frames_dataset(ds)) {
+      std::cerr << "error: --list-frames requires an open S-104 or S-111 dataset\n";
+      return 1;
+    }
+    return 0;
   }
   const auto ms = ms_since(t0);
 
@@ -396,6 +461,10 @@ int main(int argc, char** argv) {
   bool have_view_scale = false;
   long view_scale_denom = 0;
   bool ignore_scamin_flag = false;
+  bool list_frames = false;
+  int s104_frame = -1;
+  int s111_frame = -1;
+  std::string s104_time, s111_time;
   for (int i = 1; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--fc") && i + 1 < argc)
       fc_path = argv[++i];
@@ -430,6 +499,16 @@ int main(int argc, char** argv) {
         path = argv[++i];
       else
         overlay_paths.push_back(argv[++i]);
+    } else if (!std::strcmp(argv[i], "--s104-frame") && i + 1 < argc) {
+      s104_frame = std::atoi(argv[++i]);
+    } else if (!std::strcmp(argv[i], "--s104-time") && i + 1 < argc) {
+      s104_time = argv[++i];
+    } else if (!std::strcmp(argv[i], "--s111-frame") && i + 1 < argc) {
+      s111_frame = std::atoi(argv[++i]);
+    } else if (!std::strcmp(argv[i], "--s111-time") && i + 1 < argc) {
+      s111_time = argv[++i];
+    } else if (!std::strcmp(argv[i], "--list-frames")) {
+      list_frames = true;
     } else if (!std::strcmp(argv[i], "--set") && i + 1 < argc) {
       const std::string kv = argv[++i];
       const auto eq = kv.find('=');
@@ -453,6 +532,10 @@ int main(int argc, char** argv) {
   }
 
   if (path.empty() && overlay_paths.empty()) {
+    if (list_frames) {
+      std::cerr << "error: --list-frames requires an open S-104 or S-111 dataset\n";
+      return 1;
+    }
     std::cerr << kUsage;
     return 2;
   }
@@ -467,5 +550,6 @@ int main(int argc, char** argv) {
   }
   return run_single_cell(path, fc_path, pc_path, list_layers, do_portray, show_errors, settings,
                          overlay_paths, do_session_pick, pick_lon, pick_lat, have_view_scale,
-                         view_scale_denom, ignore_scamin_flag);
+                         view_scale_denom, ignore_scamin_flag, list_frames, s104_frame, s104_time,
+                         s111_frame, s111_time);
 }
