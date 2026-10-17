@@ -119,6 +119,9 @@ void test_timeline_ui() {
   const fs::path s111 = src / "testdata/s111/synthetic_current_4326.h5";
   CHECK(fs::exists(s104));
   CHECK(fs::exists(s111));
+  if (!fs::exists(S100_CLI_PATH)) {
+    std::cerr << "FAIL missing CLI S100_CLI_PATH=" << S100_CLI_PATH << "\n";
+  }
   CHECK(fs::exists(S100_CLI_PATH));
 
   // --- Oracle 1–2: timeline_entries_water_level ---
