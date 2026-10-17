@@ -4,8 +4,10 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <sys/wait.h>
 #include <filesystem>
+#if !defined(_WIN32)
+#include <sys/wait.h>
+#endif
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -43,8 +45,10 @@ CliResult run_cli(const std::string& args) {
                           out_path.string() + "\" 2>\"" + err_path.string() + "\"";
   CliResult r;
   r.exit_code = std::system(cmd.c_str());
-  // Normalize wait status to exit code on POSIX.
+  // Normalize wait status to exit code on POSIX; WinCRT returns exit code directly.
+#if !defined(_WIN32)
   if (WIFEXITED(r.exit_code)) r.exit_code = WEXITSTATUS(r.exit_code);
+#endif
   auto slurp = [](const fs::path& p) {
     std::FILE* f = std::fopen(p.string().c_str(), "rb");
     if (!f) return std::string{};
