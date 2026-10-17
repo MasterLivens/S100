@@ -39,10 +39,19 @@ struct CliResult {
 };
 
 CliResult run_cli(const std::string& args) {
-  const fs::path out_path = fs::temp_directory_path() / "s100_timeline_ui_stdout.txt";
-  const fs::path err_path = fs::temp_directory_path() / "s100_timeline_ui_stderr.txt";
+  const fs::path out_path = fs::temp_directory_path() /
+                            ("s100_timeline_ui_stdout_" + std::to_string(std::rand()) + ".txt");
+  const fs::path err_path = fs::temp_directory_path() /
+                            ("s100_timeline_ui_stderr_" + std::to_string(std::rand()) + ".txt");
+  // Windows cmd.exe mangles a line that starts with a quoted exe + redirects.
+  // Use cmd /S /C ""exe" args 1>"out" 2>"err"" (documented CreateProcess/cmd form).
+#if defined(_WIN32)
+  const std::string cmd = std::string("cmd /S /C \"\"") + S100_CLI_PATH + "\" " + args +
+                          " 1>\"" + out_path.string() + "\" 2>\"" + err_path.string() + "\"\"";
+#else
   const std::string cmd = std::string("\"") + S100_CLI_PATH + "\" " + args + " >\"" +
                           out_path.string() + "\" 2>\"" + err_path.string() + "\"";
+#endif
   CliResult r;
   r.exit_code = std::system(cmd.c_str());
   // Normalize wait status to exit code on POSIX; WinCRT returns exit code directly.
@@ -189,6 +198,9 @@ void test_timeline_ui() {
   // --- Oracle 5: CLI --s104 --list-frames ---
   {
     const auto r = run_cli(std::string("--s104 \"") + s104.string() + "\" --list-frames");
+    if (r.exit_code != 0) {
+      std::cerr << "CLI s104 list-frames exit=" << r.exit_code << " stderr=" << r.stderr_text << "\n";
+    }
     CHECK(r.exit_code == 0);
     const auto lines = parse_frame_lines(r.stdout_text, "S-104");
     CHECK(lines.size() >= 2);
