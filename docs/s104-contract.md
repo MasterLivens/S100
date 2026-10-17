@@ -5,7 +5,7 @@ Case id: **`IHO-S104-OPEN-FRAME`**. CTest: **`s104_open_frame`**.
 
 ## Goal
 
-HDF5 open → ≥2 time frames → sample/portray **one active frame** → overlay S-101 in `ChartSession`. No animation UI.
+HDF5 open → ≥2 time frames → sample/portray **one active frame** → overlay S-101 in `ChartSession`. Interactive scrubber: `docs/timeline-ui-contract.md` (separate Active).
 
 ## Frozen data model
 
@@ -73,4 +73,4 @@ Day→Dusk: tokens stable, RGB remap only (same as S-102).
 
 ## Non-goals
 
-Animation scrubbing, S-111, S-98, uncertainty layer UI.
+Auto-play animation loop, S-111, S-98, uncertainty layer UI. Frame **scrubber UI** → `docs/timeline-ui-contract.md` (`IHO-TIMELINE-UI`).

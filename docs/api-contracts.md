@@ -140,6 +140,15 @@ Details: `docs/s124-contract.md`.
 - Order: plane rank ascending, then `drawing_priority` ascending; `stable_sort`.
 - CTest `display_priority_order` MUST NOT SKIP.
 
+
+## Timeline UI (S-104 / S-111)
+
+- Details: `docs/timeline-ui-contract.md` (`IHO-TIMELINE-UI`).
+- Core: `timeline_entries_water_level` / `timeline_entries_current`; optional `timeline_step_frame`.
+- CLI: `--list-frames` (`product\tindex\ttime_iso\tactive`); reuse `--s104-frame` / `--s111-frame` / time flags.
+- Viewer: independent scrubbers; re-portray on frame change.
+- CTest `timeline_ui` MUST NOT SKIP.
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.

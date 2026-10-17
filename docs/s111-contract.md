@@ -86,6 +86,10 @@ MUST tests use this file — **no SKIP**.
 | Official S-111 FC/PC on disk + provenance | **MUST** via `docs/catalogue-complete-contract.md` |
 | Portray→PC wiring (SCAROW + ColorProfiles) | **MUST** via `docs/pc-wire-contract.md` (XSLT engine WARN; no invented Lua) |
 
+## Timeline UI
+
+Frame scrubber / `--list-frames`: `docs/timeline-ui-contract.md` (`IHO-TIMELINE-UI`).
+
 ## Non-goals
 
 Animation, S-104 sync UI, S-98, uncertainty ellipses.

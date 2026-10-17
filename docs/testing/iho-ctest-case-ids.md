@@ -30,6 +30,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-PC-WIRE-111-124` | PC 接线 | S-124 `S124HostAdapter`+`portray_nav_warnings_pc`；S-111 `SCAROW*`+ColorProfiles；XSLT WARN；禁造 S-111 Lua；no-SKIP | `pc_wire_111_124` | Active |
 | `IHO-SCAMIN-FILTER` | SCAMIN 显隐 | `visible_at_scale` / filter；oracle A–H；开/关 IgnoreScaleMinimum；no-SKIP | `scamin_filter` | Active |
 | `IHO-DISPLAY-PRIORITY` | 显示优先级 | plane 秩 + `drawing_priority` 升序；oracle 钉序；viewer 用 core sort；no-SKIP | `display_priority_order` | Active |
+| `IHO-TIMELINE-UI` | 时间轴 UI | S-104/111 `timeline_entries` + CLI `--list-frames` + viewer scrubber；no-SKIP | `timeline_ui` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 
