@@ -13,7 +13,7 @@ Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLL
 - Ubuntu: `viewer_point_label_collision` MUST NOT SKIP, Passed (already on tip)
 - Windows: (b) success → that test Passed on Win; (a) fallback → full matrix green is enough (Notes record exclude)
 - Docs → Closed + CI Notes when done; if (b) needs Eng `ci.yml` narrow-open
-- After Close next: **S-102 deepen** or **`IHO-S164-DISPLAY-COMPARE`** — Planner will nail one later
+- After Close next: **`IHO-S164-DISPLAY-COMPARE`** (`viewer_s164_display_compare`; BRIDGE #13 pixel defer). Then **`IHO-S102-DEEPEN-MULTIGRID`**.
 
 **Eng notes:** verify `ba9aa10` on tip; cell `testdata/s101/101AA00DS0008.000`; shared flag already covers PointLabel; PL∩PL pairs + glyph survival oracles already wired. TEXT Closed already on main (`b02a4ac`); Eng may stack this Open + Win (b) `ci.yml` narrow-open. Do **not** edit `check_text_collision.cmake` / TEXT `--class Text`. Symbol-AABB obstacle = Backlog.
 
