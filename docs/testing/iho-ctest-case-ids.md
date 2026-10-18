@@ -41,6 +41,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S164-SIG` | S-100 Ed 5.2.1 Part 15 / Part 17; S-98 2.0.0 §9.1.1 / §20.4.3 c / App. B; S-164 1.0.0 §2.5–2.7 (2.0.1 draft names) | CATALOG.SIGN + per-file ECDSA-384-SHA2; id/issuer chain; injectable verify_time; SSE map (116/124→109); VerifyPolicy Enforce/Off (product Enforce, lib default Off); trust IHO 5.2 + test SA in test_mode; official/non-official; standalone UNVERIFIED; no --allow-unsigned; OpenSSL 3.0 + OPENSSL_API_COMPAT=30000 + OPENSSL_NO_DEPRECATED; no-SKIP; Linux+Win | `exchange_signature` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
+| `IHO-S164-POWERUP` | S-164 Ed1.0.0 §2.1.1 / §2.2.1 (+ 2.0.1 draft); IEC 61174/4.4.1 family; S-98 self-check TBD | App start self-check: identity/version, critical files, SA trust store, sig-module self-test via `s100_security`, catalogue/exchange smoke under Enforce; Block vs warn; **Pending clauses** (rev0 skeleton); no producer-code; synthetic fixtures; no-SKIP; Linux+Win | `powerup_self_check` | Active |
 
 ## Backlog（不插队，挂在现计划之后）
 
@@ -52,7 +53,6 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞开/关重叠对数 | `viewer_text_collision` | Active |
 | `IHO-S101-POINT-LABEL-COLLISION` | 3.1 ENC Display | PointLabel 配对 Text；开/关 PointLabel 重叠对数；符号存活计数 | `viewer_point_label_collision` | Active |
 | `IHO-DISP-REF-COMPARE` | Display Test Template | 参考实现截图 | 替代「只靠像素漂移」谈观感 |
-| `IHO-S164-POWERUP` | 2.1.1 | Track B | 认证启动包 |
 
 ## Tester 操作建议
 

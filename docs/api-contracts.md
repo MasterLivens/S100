@@ -192,6 +192,14 @@ Details: `docs/s124-contract.md`.
 - Build: `find_package(OpenSSL 3.0 REQUIRED)`; target defines `OPENSSL_API_COMPAT=30000` and `OPENSSL_NO_DEPRECATED`.
 - CTest `exchange_signature` MUST NOT SKIP (Linux + Windows).
 
+
+## Power-up / start-up self-check (Track B)
+
+- Details: `docs/powerup-self-check-contract.md` (`IHO-S164-POWERUP`) — **rev0 skeleton / pending Planner checklist**.
+- App start: structured `PowerUpReport` (identity, critical files, SA trust store, `s100_security` self-test, catalogue/exchange smoke under `VerifyPolicy::Enforce`). Block vs warn-and-continue; CLI / viewer / `ChartSession` surface TBD in rev1.
+- **Calls into** existing Part 15 verify + `open_exchange_set` — does **not** reimplement SIG; **no** producer-code matching in this slice.
+- CTest `powerup_self_check` MUST NOT SKIP (Linux + Windows) — Eng after Planner freeze.
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
