@@ -1,23 +1,22 @@
-# Point-symbol text collision — rev1 · Active / Open
+# Point-symbol text collision — rev1 (Closed)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLLISION`** (**Active / Open**). CTest: **`viewer_point_label_collision`**.
+Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLLISION`** (**Closed / Done** 2026-10-18). CTest: **`viewer_point_label_collision`** — MUST NOT SKIP; Linux + Windows dual-green (CI `39129316141` @ `9a1531c`).
+**Status: Closed / Done (2026-10-18)** — CI [`39129316141`](https://github.com/MasterLivens/S100/actions/runs/39129316141) @ `9a1531c` dual-green `viewer_point_label_collision`; **O1=(b)** Win narrow-open Passed (no fallback to a); oracles unchanged (PointLabel∩PointLabel `pairs_off >= pairs_on` and `pairs_off > 0`; `point_glyphs_drawn(ON)==(OFF)`). Docs close only — **no algorithm rewrite this tip**. Next: `IHO-S164-DISPLAY-COMPARE` (`viewer_s164_display_compare`; BRIDGE #13 pixel defer). Then `IHO-S102-DEEPEN-MULTIGRID`.
 
-**Status: Active / Open (2026-10-18)** — Planner freeze + **O1(b→a)**. Eng tip base: **`origin/main` @ `b02a4ac`**（≡ TEXT Closed `61a5b89`；可叠）。 Implementation already on tip (`ba9aa10` PointLabel classify / dump / CTest — **verify**, not greenfield). Ubuntu tip CI already Passed (`viewer_point_label_collision`); this slice = **docs close primarily** + Win policy; independent tip from TEXT. Do **not** edit PC Lua / `catalogues/`. No algorithm rewrite. Do **not** change TEXT cmake `--class Text`.
+**Planner freeze (kept):** fixture `101AA00DS0008.000` Day 1280×800 (off pairs>0); PointLabel = same-feature nearest Text within N=48 px; label-beside text AABB; shared `--no-text-collision` (default ON; OFF for Text **and** PointLabel; no second flag); greedy priority → unpaired Text before PointLabel → stable; dump `class=Text|PointLabel`; oracle **only** PointLabel∩PointLabel; `point_glyphs_drawn(ON)==(OFF)`; Ubuntu CI MUST NOT SKIP Passed. Optional symbol-AABB-as-obstacle → **Backlog**. Do **not** edit PC Lua / `catalogues/`. Do **not** change TEXT cmake `--class Text`.
 
-**Planner freeze (MUST):** fixture `101AA00DS0008.000` Day 1280×800 (no synth needed — off pairs>0); PointLabel = same-feature nearest Text within N=48 px; label-beside text AABB; shared `--no-text-collision` (default ON; OFF for Text **and** PointLabel; no second flag); greedy priority → unpaired Text before PointLabel → stable; dump `class=Text|PointLabel`; oracle **only** PointLabel∩PointLabel `pairs_off >= pairs_on` **and** `pairs_off > 0`; `point_glyphs_drawn(ON)==(OFF)`; Ubuntu CI: `viewer_point_label_collision` MUST NOT SKIP, Passed. Optional symbol-AABB-as-obstacle → **Backlog**, not this slice.
+**O1 closed as (b):** Win CI narrowly runs **only** `viewer_point_label_collision` (in addition to TEXT's narrow-open; rest of `viewer_*` still `-E "viewer_"`); Ubuntu + Windows both Passed — no (a) Ubuntu-bind / Notes-exclude fallback.
 
-**O1 (b→a):** Try **(b) first** — Win CI narrowly run **only** `viewer_point_label_collision` (Eng `ci.yml`: keep `ctest -E "viewer_"` for the rest; TEXT's O1=(b) narrow-open of `viewer_text_collision` does **not** auto-cover this test). If hang/timeout → fall back to **(a)**: Ubuntu bind + contract Notes document Win CI `viewer_*` exclude (same family as golden/snapshot). **Forbidden:** platform SKIP inside the test itself. Docs close primarily; Win (b) is the only path that needs an Eng `ci.yml` one-liner.
+## Slice close — 2026-10-18
 
-**Close criteria (honest dual-green):**
-- Ubuntu: `viewer_point_label_collision` MUST NOT SKIP, Passed (already on tip)
-- Windows: (b) success → that test Passed on Win; (a) fallback → full matrix green is enough (Notes record exclude)
-- Docs → Closed + CI Notes when done; if (b) needs Eng `ci.yml` narrow-open
-- After Close next: **`IHO-S164-DISPLAY-COMPARE`** (`viewer_s164_display_compare`; BRIDGE #13 pixel defer). Then **`IHO-S102-DEEPEN-MULTIGRID`**.
+**Status: Closed / Done** (formal docs close — **not** an algorithm rewrite).
 
-**Eng notes:** verify `ba9aa10` on tip; cell `testdata/s101/101AA00DS0008.000`; shared flag already covers PointLabel; PL∩PL pairs + glyph survival oracles already wired. TEXT Closed already on main (`b02a4ac`); Eng may stack this Open + Win (b) `ci.yml` narrow-open. Do **not** edit `check_text_collision.cmake` / TEXT `--class Text`. Symbol-AABB obstacle = Backlog.
-
-**Notes (Win CI):** Existing policy: Windows `ctest -E "viewer_"` then TEXT narrow-open only `^viewer_text_collision$`. O1 tries a narrow exception for **`viewer_point_label_collision`** first; on hang, document exclude and bind Close on Ubuntu Passed + Win matrix green.
+- Evidence: CI [39129316141](https://github.com/MasterLivens/S100/actions/runs/39129316141) tip `9a1531c` — Linux+Windows **`viewer_point_label_collision` Passed** (not Not Run / not Skip).
+- **O1=(b) SUCCESS** — Win narrow-open Passed; no fallback to (a).
+- Oracles stay as frozen MUST (PL∩PL pairs; glyph survival; shared `--no-text-collision`).
+- **Notes:** next Eng **`IHO-S164-DISPLAY-COMPARE`** — BRIDGE #13 pixel defer lands there; then **`IHO-S102-DEEPEN-MULTIGRID`**.
+- **Non-goals this close:** PC Lua / `catalogues/` edits; algorithm rewrite; symbol-AABB obstacle (Backlog); TEXT cmake `--class Text` change; DISPLAY-COMPARE oracles.
 
 ## 1. PointLabel identity (pinned)
 
@@ -68,8 +67,9 @@ Count = number of `Kind::Point` instructions actually submitted to the symbol pa
 ## 6. Cross-links
 
 - `docs/text-collision-contract.md` (**Closed**) — unpaired `Kind::Text`; shared flag; separate tip.
-- `docs/testing/iho-ctest-case-ids.md` registers `IHO-S101-POINT-LABEL-COLLISION` (main table Active/Open).
+- `docs/testing/iho-ctest-case-ids.md` registers `IHO-S101-POINT-LABEL-COLLISION` (main table **Closed / Done**).
+- Next: `docs/s164-display-compare-contract.md` (**Active / Open** after this close).
 
 ## Non-goals
 
-SVG-embedded path text, Text∩PointLabel as hard CI metric, leader lines, S-102 deepen, symbol-AABB obstacle (Backlog), TEXT cmake `--class Text` change, in-test platform SKIP.
+SVG-embedded path text, Text∩PointLabel as hard CI metric, leader lines, S-102 deepen, symbol-AABB obstacle (Backlog), TEXT cmake `--class Text` change, in-test platform SKIP, algorithm rewrite this tip.
