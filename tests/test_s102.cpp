@@ -658,6 +658,7 @@ void test_s102_uncertainty() {
 
 
 /** IHO-S102-QBC-META / CTest s102_qbc_meta — QBC-* + BCAST-* (separate failure faces). */
+void test_s102_qbc_multigrid();
 void test_s102_qbc_meta() {
   const fs::path src = S100_SOURCE_DIR;
   const fs::path fixture_c = src / "testdata/s102/synthetic_qbc_meta_4326.h5";
@@ -830,4 +831,82 @@ void run_s102_tests() {
   test_s102_deepen_multigrid();
   test_s102_uncertainty();
   test_s102_qbc_meta();
+  test_s102_qbc_multigrid();
+}
+
+/** IHO-S102-QBC-MULTIGRID / CTest s102_qbc_multigrid — QBC-MG-* (not QBC-* / BCAST-*). */
+void test_s102_qbc_multigrid() {
+  const fs::path src = S100_SOURCE_DIR;
+  const fs::path fixture = src / "testdata/s102/synthetic_qbc_multigrid_vd_4326.h5";
+  CHECK(fs::exists(fixture));
+
+#define CHECK_MG(tag, cond)                                                            \
+  do {                                                                                 \
+    if (!(cond)) {                                                                     \
+      std::cerr << "FAIL " tag " " << __FILE__ << ":" << __LINE__ << " " << #cond      \
+                << "\n";                                                               \
+      std::exit(1);                                                                    \
+    }                                                                                  \
+  } while (0)
+
+  // --- QBC-MG-1 open ---
+  s100::LoadError err;
+  s100::Dataset ds;
+  CHECK_MG("QBC-MG-1", s100::open_dataset(fixture, ds, &err));
+  CHECK_MG("QBC-MG-1", ds.coverage.has_value());
+  CHECK_MG("QBC-MG-1", ds.coverage->grids.size() >= 2);
+  CHECK_MG("QBC-MG-1", ds.coverage->has_qbc_coverage);
+  CHECK_MG("QBC-MG-1", !ds.coverage->grids[0].qbc_ids.empty());
+  CHECK_MG("QBC-MG-1", !ds.coverage->grids[1].qbc_ids.empty());
+  std::cout << "QBC-MG-1 grids=" << ds.coverage->grids.size() << " has_qbc_coverage\n";
+
+  // --- QBC-MG-2 sample_wgs84 ---
+  s100::CoverageSample sm;
+  CHECK_MG("QBC-MG-2", ds.coverage->sample_wgs84(50.0, 50.0, sm));
+  CHECK_MG("QBC-MG-2", sm.has_depth);
+  CHECK_MG("QBC-MG-2", sm.has_qbc);
+  CHECK_MG("QBC-MG-2", sm.qbc_id == 1u);
+  s100::QbcAttributeRecord rec;
+  CHECK_MG("QBC-MG-2", ds.coverage->lookup_qbc_record(1u, rec));
+  CHECK_MG("QBC-MG-2", rec.survey_authority.find("QBC-MG") != std::string::npos);
+  std::cout << "QBC-MG-2 id=" << sm.qbc_id << " auth=" << rec.survey_authority << "\n";
+
+  // --- QBC-MG-3 dual sample_cell (cannot rely on sample_wgs84 alone) ---
+  s100::CoverageSample a, b;
+  CHECK_MG("QBC-MG-3", ds.coverage->grids[0].sample_cell(0, 0, a));
+  CHECK_MG("QBC-MG-3", ds.coverage->grids[1].sample_cell(0, 0, b));
+  CHECK_MG("QBC-MG-3", a.has_qbc);
+  CHECK_MG("QBC-MG-3", b.has_qbc);
+  CHECK_MG("QBC-MG-3", a.qbc_id == 1u);
+  CHECK_MG("QBC-MG-3", b.qbc_id == 1u);
+  std::cout << "QBC-MG-3 grids[0]/grids[1] sample_cell(0,0) both has_qbc id=" << a.qbc_id << "\n";
+
+  // --- QBC-MG-4 portray ---
+  s100::FeatureCatalogue fc;
+  s100::PortrayalCatalogue pc;
+  std::string perr;
+  CHECK_MG("QBC-MG-4",
+           s100::load_feature_catalogue(src / "catalogues/S-102/S-102_FC_3.0.0.xml", fc, &perr));
+  CHECK_MG("QBC-MG-4", s100::load_portrayal_catalogue(src / "catalogues/S-102/PC_3.0.0", pc, &perr));
+  auto ctx = s100::PortrayalContext::defaults(pc);
+  s100::DrawingInstructions di;
+  s100::PortrayalStats st;
+  CHECK_MG("QBC-MG-4", s100::portray(*ds.coverage, fc, pc, ctx, di, &perr, &st));
+  CHECK_MG("QBC-MG-4", st.lua_errors == 0);
+  int n_depth = 0, n_qbc_fill = 0;
+  for (const auto& d : di) {
+    if (d.kind != s100::DrawingInstruction::Kind::Coverage || d.command != "CoverageFill") continue;
+    if (d.coverage_attribute == "depth") ++n_depth;
+    else if (d.coverage_attribute == "iD" || d.coverage_attribute == "id" ||
+             d.coverage_attribute == "qbc" ||
+             d.coverage_attribute.find("Quality") != std::string::npos) {
+      ++n_qbc_fill;
+    }
+  }
+  CHECK_MG("QBC-MG-4", n_depth >= 2);
+  CHECK_MG("QBC-MG-4", n_qbc_fill == 0);
+  std::cout << "QBC-MG-4 portray depth_fills=" << n_depth << " qbc_fill=" << n_qbc_fill << "\n";
+
+#undef CHECK_MG
+  std::cout << "s102_qbc_multigrid ok\n";
 }

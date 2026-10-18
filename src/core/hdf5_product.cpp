@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <cstring>
 #include <limits>
 #include <string>
@@ -468,14 +469,48 @@ bool load_qbc_feature_attribute_table(hid_t file, std::vector<QbcAttributeRecord
   return true;
 }
 
-bool load_qbc_id_grid(hid_t file, CoverageGrid& target, const std::unordered_set<std::uint32_t>& valid_ids,
-                      LoadError* err) {
-  // Prefer QualityOfBathymetryCoverage.01
-  std::string inst_path = "/QualityOfBathymetryCoverage/QualityOfBathymetryCoverage.01";
+/** Loaded QoBC.01 id raster + native grid geometry (IHO-S102-QBC-MULTIGRID). */
+struct QbcIdRaster {
+  std::size_t nrows{0}, ncols{0};
+  double origin_x{0}, origin_y{0};
+  double spacing_x{0}, spacing_y{0};
+  std::vector<std::uint32_t> ids;
+};
+
+bool nearly_eq(double a, double b) {
+  const double scale = std::max({1.0, std::abs(a), std::abs(b)});
+  return std::abs(a - b) <= 1e-9 * scale;
+}
+
+bool grid_matches_qbc(const CoverageGrid& g, const QbcIdRaster& q) {
+  if (g.nrows != q.nrows || g.ncols != q.ncols) return false;
+  return nearly_eq(g.origin_x, q.origin_x) && nearly_eq(g.origin_y, q.origin_y) &&
+         nearly_eq(g.spacing_x, q.spacing_x) && nearly_eq(g.spacing_y, q.spacing_y);
+}
+
+bool load_qbc_id_raster(hid_t file, QbcIdRaster& out, const std::unordered_set<std::uint32_t>& valid_ids,
+                        LoadError* err) {
+  // Prefer QualityOfBathymetryCoverage.01 only (multiplicity 0..1 / mandatory naming).
+  const std::string inst_path = "/QualityOfBathymetryCoverage/QualityOfBathymetryCoverage.01";
   if (!H5Lexists(file, inst_path.c_str(), H5P_DEFAULT)) {
     set_err(err, LoadErrorKind::Parse, "S-102 QualityOfBathymetryCoverage missing .01 instance");
     return false;
   }
+  hid_t inst = H5Gopen(file, inst_path.c_str(), H5P_DEFAULT);
+  if (inst < 0) {
+    set_err(err, LoadErrorKind::Parse, "S-102 cannot open QoBC.01 instance");
+    return false;
+  }
+  if (!read_scalar_double(inst, "gridOriginLongitude", &out.origin_x) ||
+      !read_scalar_double(inst, "gridOriginLatitude", &out.origin_y) ||
+      !read_scalar_double(inst, "gridSpacingLongitudinal", &out.spacing_x) ||
+      !read_scalar_double(inst, "gridSpacingLatitudinal", &out.spacing_y)) {
+    H5Gclose(inst);
+    set_err(err, LoadErrorKind::Parse, "S-102 QoBC.01 missing origin/spacing attrs");
+    return false;
+  }
+  H5Gclose(inst);
+
   const std::string values_path = inst_path + "/Group_001/values";
   if (!H5Lexists(file, values_path.c_str(), H5P_DEFAULT)) {
     set_err(err, LoadErrorKind::Parse, "S-102 QoBC missing Group_001/values");
@@ -494,15 +529,11 @@ bool load_qbc_id_grid(hid_t file, CoverageGrid& target, const std::unordered_set
     set_err(err, LoadErrorKind::Parse, "S-102 QoBC values is not 2-D");
     return false;
   }
-  if (dims[0] != target.nrows || dims[1] != target.ncols) {
-    H5Sclose(space);
-    H5Dclose(ds);
-    set_err(err, LoadErrorKind::Parse, "S-102 QoBC id grid shape does not match BathymetryCoverage");
-    return false;
-  }
-  const std::size_t n = target.nrows * target.ncols;
-  std::vector<std::uint32_t> buf(n);
-  const herr_t rd = H5Dread(ds, H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data());
+  out.nrows = static_cast<std::size_t>(dims[0]);
+  out.ncols = static_cast<std::size_t>(dims[1]);
+  const std::size_t n = out.nrows * out.ncols;
+  out.ids.assign(n, 0);
+  const herr_t rd = H5Dread(ds, H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, out.ids.data());
   H5Sclose(space);
   H5Dclose(ds);
   if (rd < 0) {
@@ -511,11 +542,10 @@ bool load_qbc_id_grid(hid_t file, CoverageGrid& target, const std::unordered_set
   }
   // Soft: id not in table → store 0 (has_qbc false); do not crash.
   for (std::size_t i = 0; i < n; ++i) {
-    const std::uint32_t id = buf[i];
+    const std::uint32_t id = out.ids[i];
     if (id == 0) continue;
-    if (valid_ids.find(id) == valid_ids.end()) buf[i] = 0;
+    if (valid_ids.find(id) == valid_ids.end()) out.ids[i] = 0;
   }
-  target.qbc_ids = std::move(buf);
   return true;
 }
 
@@ -547,8 +577,30 @@ bool load_quality_of_bathymetry_coverage(hid_t file, CoverageDataset& out, LoadE
     set_err(err, LoadErrorKind::Parse, "S-102 QoBC load requires BathymetryCoverage grids");
     return false;
   }
-  // Attach id raster to first grid when shapes match (typical .01 pairing).
-  if (!load_qbc_id_grid(file, out.grids[0], valid_ids, err)) return false;
+
+  // IHO-S102-QBC-MULTIGRID: load QoBC.01 once; bind by shape+origin/spacing to every
+  // matching grids[i] (forbid hard-bind to grids[0] only). Zero matchers → LoadError.
+  QbcIdRaster raster;
+  if (!load_qbc_id_raster(file, raster, valid_ids, err)) return false;
+
+  int matched = 0;
+  bool matched_index0 = false;
+  for (std::size_t i = 0; i < out.grids.size(); ++i) {
+    if (!grid_matches_qbc(out.grids[i], raster)) continue;
+    out.grids[i].qbc_ids = raster.ids;  // O4: per-grid copy
+    ++matched;
+    if (i == 0) matched_index0 = true;
+  }
+  if (matched == 0) {
+    set_err(err, LoadErrorKind::Parse,
+            "S-102 QoBC id grid matches no BathymetryCoverage instance (shape/origin/spacing)");
+    return false;
+  }
+  if (!matched_index0) {
+    // O3: matchers only at i!=0 -> still bind + WARN (not LoadError).
+    std::cerr << "WARN: S-102 QoBC matched " << matched
+              << " BathymetryCoverage grid(s) but not grids[0]\n";
+  }
 
   CoverageFeature feat;
   feat.id = static_cast<std::uint64_t>(out.features.size() + 1);

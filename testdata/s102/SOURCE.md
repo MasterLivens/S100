@@ -8,6 +8,7 @@
 | `synthetic_uncertainty_4326.h5` | **Gittracked.** Fixture **A** for `IHO-S102-UNCERTAINTY` / CTest `s102_uncertainty`. EPSG:4326, single `BathymetryCoverage.01`, compound `depth`+`uncertainty`. Envelope lon/lat≈20–20.4 (disjoint from deepen). Regenerate: `scripts/gen_s102_uncertainty_synthetic.py`. |
 | `synthetic_uncertainty_depth_only_4326.h5` | **Gittracked.** Fixture **B** (PS §10 depth-only omit). Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty==0.75` (not fill). **`IHO-S102-QBC-META` elects broadcast** → `has_uncertainty==true` / unc **0.75** (`BCAST-1`; see `docs/s102-qbc-meta-contract.md`). |
 | `synthetic_qbc_meta_4326.h5` | **Gittracked.** Fixture **C** for `IHO-S102-QBC-META` / CTest `s102_qbc_meta`. QoBC `dataCodingFormat=9`, U32 id grid + FAT (≥2 rows). Envelope lon/lat≈40–40.4. Regenerate: `scripts/gen_s102_qbc_meta_synthetic.py`. |
+| `synthetic_qbc_multigrid_vd_4326.h5` | **Gittracked.** Fixture **MG-PS** for `IHO-S102-QBC-MULTIGRID` / CTest `s102_qbc_multigrid`. Co-located BC.01+BC.02 (distinct verticalDatum), one QoBC.01 + FAT. Envelope lon/lat≈50–50.4. Regenerate: `scripts/gen_s102_qbc_multigrid_synthetic.py`. |
 | `synthetic_uncertainty_depth_only_fillunc_4326.h5` | **Gittracked.** **BCAST-2**: depth-only with fill min==max (`1e6`) → no broadcast (`has_uncertainty==false`). Envelope ≈35–35.4. Same generator script. |
 
 ### Fixture A oracles (`synthetic_uncertainty_4326.h5`)
@@ -86,3 +87,12 @@ Grid: 5×5, origin (40,40), spacing 0.1°. Bathymetry depth=15, unc=1.5. FAT row
 Depth-only compound; `minimumUncertainty==maximumUncertainty==1e6` (fill). Sample (35.0, 35.0) depth=9.0 → **`has_uncertainty==false`** (no broadcast). Oracle **`BCAST-2`**.
 
 
+
+### Fixture MG-PS oracles (`synthetic_qbc_multigrid_vd_4326.h5`) — `IHO-S102-QBC-MULTIGRID`
+
+| Id | Assert |
+|----|--------|
+| **QBC-MG-1** | Open; `grids.size()≥2`; `has_qbc_coverage==true` |
+| **QBC-MG-2** | `sample_wgs84(50.0, 50.0)` → `has_qbc`, `qbc_id==1`, lookup auth |
+| **QBC-MG-3** | `grids[0]` and `grids[1]` `sample_cell(0,0)` both `has_qbc` |
+| **QBC-MG-4** | Portray: no QBC id CoverageFill; depth CoverageFill ≥2 |

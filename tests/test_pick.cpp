@@ -43,6 +43,7 @@ void test_pc_wire_111_124();
 void test_s102_deepen_multigrid();
 void test_s102_uncertainty();
 void test_s102_qbc_meta();
+void test_s102_qbc_multigrid();
 void test_scamin_filter();
 void test_display_priority_order();
 void test_timeline_ui();
@@ -81,6 +82,15 @@ int main(int argc, char** argv) {
       return 1;
     }
     std::cout << "s102_qbc_meta ok\n";
+    return 0;
+  }
+  if (argc >= 2 && std::string(argv[1]) == "s102_qbc_multigrid") {
+    test_s102_qbc_multigrid();
+    if (failures) {
+      std::cerr << failures << " failure(s)\n";
+      return 1;
+    }
+    std::cout << "s102_qbc_multigrid ok\n";
     return 0;
   }
   if (argc >= 2 && std::string(argv[1]) == "s104_open_frame") {
