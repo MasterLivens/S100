@@ -154,7 +154,8 @@ Details: `docs/s124-contract.md`.
 
 - Details: `docs/bridge-render-contract.md` (`IHO-S101-BRIDGE-RENDER`).
 - Official PC Lua only; no hand-drawn bridge glyphs. Fixture `101AA00DS0006.000`.
-- CTest `bridge_render` MUST NOT SKIP.
+- CTest `fasc_bridge_render` MUST NOT SKIP (Linux + Windows).
+- New pure API: `filter_instructions_by_viewing_group(DrawingInstructions&, const std::set<std::string>& hidden_groups)` in `include/s100/viewing_group_filter.hpp`.
 
 ## Stability
 

@@ -1,4 +1,4 @@
-# Feature / information associations (FASC · INAS) — Bridge slice (rev 2)
+# Feature / information associations (FASC · INAS) — Bridge slice (rev 3)
 
 Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
 Prerequisite for bridge / structure–equipment composites and Track B.
@@ -98,7 +98,7 @@ Engineer delivers tests + implementation together; Tester owns pass/fail and fix
 
 ## Bridge scope
 
-Rendering slice: `docs/bridge-render-contract.md` (`IHO-S101-BRIDGE-RENDER`).
+rev 3 adds the rendering slice: `docs/bridge-render-contract.md` (`IHO-S101-BRIDGE-RENDER`, CTest `fasc_bridge_render`).
 
 
 - Host queries work on IHO/CHS cells that have Bridge / structure–equipment associations.

@@ -1,7 +1,7 @@
-# Bridge / composite feature rendering — first slice (rev 1)
+# Bridge / composite feature rendering — FASC slice (rev 2 · association-contract rev 3)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S101-BRIDGE-RENDER`** (**Active**). CTest: **`bridge_render`** — **MUST NOT SKIP**.
+Case id: **`IHO-S101-BRIDGE-RENDER`** (**Active**). CTest: **`fasc_bridge_render`** — **MUST NOT SKIP**; registered with no platform guard, must run on **Linux and Windows** CI.
 
 Builds on `docs/association-contract.md` rev 2 (FASC/INAS merge + Host queries, `35b5b12`). Frozen with `docs/portrayal-contract.md`, `docs/display-priority-contract.md`, `docs/testing/iho-ctest-case-ids.md`.
 
@@ -10,6 +10,9 @@ Builds on `docs/association-contract.md` rev 2 (FASC/INAS merge + Host queries, 
 Bridge symbology comes **only** from official S-101 PC 2.0.0 Lua (`Bridge.lua`, `SpanFixed.lua`, `SpanOpening.lua`, `PylonBridgeSupport.lua`). **No hand-written Bridge drawing in Qt or C++**, no local Lua edits. This slice proves the PC output reaches the screen correctly; it does not invent rules.
 
 ## Fixture (pinned, already gittracked)
+
+Path is fixed: `testdata/s101/101AA00DS0006.000` (committed IHO sample; CHS cells are not in the repo, so they are not used). **File missing or load fails → FAIL, never SKIP.**
+
 
 `testdata/s101/101AA00DS0006.000` — measured on `f7c3709` via `s100_cli --layers` / `--portray --errors`:
 
@@ -39,25 +42,32 @@ Cell-wide portray: `features=113 emitted=113 lua_errors=0 features_without_instr
 3. **Line style:** `_simple_` line styles from DEF (`SimpleLineStyle`) reach the painter with width + `CHGRD` token; palette remap Day/Dusk/Night like other lines.
 4. **Symbol:** `BRIDGE01` resolves to `catalogues/S-101/PC_2.0.0/Symbols/BRIDGE01.svg` via the existing SymbolCache path; a missing file is an error, not a silent drop.
 5. **Order:** Bridge DIs go through `filter_instructions_by_scale` → `sort_instructions_for_draw` like everything else (priority 24 paints above lower-priority area fills).
-6. **Clearance / name text** goes through the existing text-collision path; no special case.
+6. **Viewing-group switch (new, pure):** `include/s100/viewing_group_filter.hpp` —
+   `void filter_instructions_by_viewing_group(DrawingInstructions& ios, const std::set<std::string>& hidden_groups);`
+   removes every DI whose `viewing_group` is in `hidden_groups`, keeps order of the rest. Pipeline: VG filter → SCAMIN filter → sort → paint. The viewer layer toggle calls it; no FASC-specific code in Qt.
+7. **Clearance / name text** goes through the existing text-collision path; no special case.
 
-## Oracle — CTest `bridge_render` (no SKIP)
+## Oracle — CTest `fasc_bridge_render` (no SKIP)
 
-Load `101AA00DS0006.000` with pinned S-101 FC+PC, default context (`RadarOverlay=false`):
+Load the fixture with pinned S-101 FC+PC, default context (`RadarOverlay=false`). **No exact DI counts are pinned** (they change when official Lua is upgraded); only “> 0” and set relations.
+
+**Bridge graph G** (computed in the test from data, then printed to the log as TSV `bridge_id\tchild_id\tchild_type\tassociation\trole`): for each feature with `feature_type == "Bridge"`, resolve every FASC `rcid` to a feature via `record_id`; skip dangling. `B` = bridge ids in G, `C` = all resolved child ids.
 
 | # | Check | Sev |
 |---|-------|-----|
-| 1 | Feature counts equal the fixture table (10 / 6 / 4 / 6) | MUST |
-| 2 | `lua_errors == 0` over the whole cell, and none attributed to the four bridge types | MUST |
-| 3 | Every `Bridge`/`SpanFixed`/`SpanOpening` feature has ≥1 DI; every non-Null DI of these types has `viewing_group == "12210"` and `drawing_priority == 24` | MUST |
-| 4 | Every `Bridge` with Empty geometry has only `Kind::Null` DIs | MUST |
-| 5 | Every `SpanFixed` with Curve/Surface geometry has ≥1 `Kind::Line` DI whose line style colour is `CHGRD` | MUST |
-| 6 | Any DI with `symbol_ref == "BRIDGE01"` → file exists under PC `Symbols/` | MUST |
-| 7 | Re-portray with `RadarOverlay=true`: same DIs flip `display_plane` to `OverRadar` | MUST |
-| 8 | ≥1 `BRIDGE01` symbol on this fixture | **WARN** (depends on `openingBridge` data in 0006; if 0 add a synthetic Dataset case later) |
-| 9 | Viewer snapshot of 0006 shows bridge lines (soft pixel) | WARN |
-
-Eng records actual per-type DI counts in the test output so Tester can pin them as MUST in a later rev if wanted.
+| 1 | Fixture exists and loads; feature counts equal the fixture table (10 / 6 / 4 / 6) | MUST |
+| 2 | `lua_errors == 0` for the whole cell | MUST |
+| 3 | `|B| ≥ 1` and `|C| ≥ 1`; every child type ∈ {`SpanFixed`,`SpanOpening`,`PylonBridgeSupport`} | MUST |
+| 4 | For each bridge in B, the C++ backing of `HostFeatureGetAssociatedFeatureIDs(bridge, association, "")` returns exactly that bridge's children in G (set compare, per association code) | MUST |
+| 5 | Every `Bridge`/`SpanFixed`/`SpanOpening` feature has DI count > 0; every non-Null DI of these types has `viewing_group == "12210"` and `drawing_priority == 24` | MUST |
+| 6 | Every `Bridge` with Empty geometry has only `Kind::Null` DIs | MUST |
+| 7 | **ON** (`hidden_groups = {}`): every id in B has ≥ 1 DI and every id in C has ≥ 1 non-Null DI — bridge and children come out **together** | MUST |
+| 8 | **OFF** (`hidden_groups = {"12210"}`): no DI remains for any id in B ∪ C — filtered **together**; and the multiset of feature ids of DIs whose `viewing_group != "12210"` is identical to ON (nothing else affected) | MUST |
+| 9 | Every `SpanFixed` with Curve/Surface geometry has ≥ 1 `Kind::Line` DI with a line style colour `CHGRD` | MUST |
+| 10 | Any DI with `symbol_ref == "BRIDGE01"` → file exists under PC `Symbols/` | MUST |
+| 11 | Re-portray with `RadarOverlay=true`: the 12210 DIs of B ∪ C that were `UnderRadar` become `OverRadar` (PylonBridgeSupport priority‑18 surface branch stays UnderRadar per official rule) | MUST |
+| 12 | ≥ 1 `BRIDGE01` on this fixture | WARN (depends on `openingBridge` data) |
+| 13 | Viewer snapshot shows bridge lines | WARN |
 
 ## Non-goals
 
