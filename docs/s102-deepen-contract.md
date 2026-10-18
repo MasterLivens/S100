@@ -1,8 +1,34 @@
-# S-102 deepen (rev 2)
+# S-102 deepen (rev 2) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Builds on `docs/s102-contract.md`. Case id: **`IHO-S102-DEEPEN-MULTIGRID`**.  
+Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
+Builds on `docs/s102-contract.md`. Case id: **`IHO-S102-DEEPEN-MULTIGRID`** (**Active / Open**).  
 CTest name: **`s102_deepen_multigrid`** (plus helpers as needed).
+
+**Status: Active / Open (2026-10-18)** — after **DISPLAY-COMPARE Closed** (CI `39133583148` @ `ba63833`, O1=a). Eng tip ancestor **`0dd39f2`** already on tip — **not greenfield** (multi-grid `CoverageDataset` / synthetic fixture / CTest MUST #1–6). Ubuntu+Windows CI already Passed (`s102_deepen_multigrid` is **native `s100_tests` + HDF5**, **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **docs close primarily**. Independent tip from DISPLAY / UNCERTAINTY / QBC. Do **not** invent oracles; rev2 MUST #1–6 unchanged. No loader / portray rewrite. Do **not** reopen DISPLAY / UNCERT / QBC. After Closed next: **`IHO-S102-UNCERTAINTY`**.
+
+**Planner freeze (MUST — from rev2, unchanged):**
+- Reuse case id / CTest name; **forbidden** to invent a second case/test name.
+- MUST #1–6: `grids.size() >= 2`; envelope `sample_wgs84` routing (smallest area → low index); N×CoverageFill with distinct `feature_id`; FourShades/SafetyContour band oracle; Day→Dusk token-stable + soft RGB; prior single-grid / overlay still green.
+- Fixture `testdata/s102/synthetic_multigrid_4326.h5` (disjoint envelopes) **MUST NOT SKIP** on CI (Linux+Win).
+- WGS84 façade; N×CoverageFill model (not a single instruction with embedded grid-id list).
+- Keep deepen disjoint fixture ≠ QBC-MG PS co-located multi-VD (Non-goal).
+- Ubuntu + Windows: `s102_deepen_multigrid` MUST NOT SKIP, Passed (already on tip ancestors).
+- After Closed next: **`IHO-S102-UNCERTAINTY`**.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `s102_deepen_multigrid` MUST NOT SKIP, Passed (already on tip ancestors; re-check on tip after DISPLAY Close)
+- Docs → Closed + CI Notes when done; no Eng `ci.yml` change required
+- After Close next: **`IHO-S102-UNCERTAINTY`**
+
+**Eng notes:** verify `0dd39f2` on tip; fixture `testdata/s102/synthetic_multigrid_4326.h5` + `SOURCE.md`; driver `tests/test_s102.cpp` `test_s102_deepen_multigrid`; cmake `s102_deepen_multigrid`. DISPLAY Closed already on this stack. Day→Dusk soft RGB stays soft — do **not** harden. True AA5 / DISPLAY oracles out of scope.
+
+**O-questions (real gaps only — Planner):**
+1. **`grid()` temporary shim** — contract + api-contracts allow `grid()` → `grids[0]` for one release. Does this slice **retire the shim**, or leave as **Backlog** (downstream UNCERT/QBC may still call `grid()`)? **O1 for Planner** — do not pin Eng remove/keep until decided.
+2. Docs close primarily (no `ci.yml`) — **recommend yes**.
+3. Disjoint fixture / Day→Dusk soft — **keep** this slice.
+4. Closed next → UNCERTAINTY (Eng `b2d17de` already on main; separate tip) — **recommend yes**.
 
 ## Portray model (locked)
 
@@ -60,4 +86,4 @@ No hard-coded RGB in core.
 
 ## Non-goals
 
-S-104/S-111 time, S-98, EncDotNet pixel match. Uncertainty as its own layer → `docs/s102-uncertainty-contract.md` (`IHO-S102-UNCERTAINTY`).
+S-104/S-111 time, S-98, EncDotNet pixel match. Uncertainty as its own layer → `docs/s102-uncertainty-contract.md` (`IHO-S102-UNCERTAINTY`). Reopening DISPLAY / TEXT / POINT / BRIDGE; rewriting multi-grid loader; converting deepen disjoint fixture to PS co-located multi-VD (QBC-MG); Win viewer_* `ci.yml` changes; platform SKIP; same-tip close of UNCERTAINTY / QBC; inventing new oracles.
