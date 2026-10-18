@@ -1,7 +1,23 @@
-# Point-symbol text collision (rev 2)
+# Point-symbol text collision — rev1 · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLLISION`**.
+Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
+Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLLISION`** (**Active / Open**). CTest: **`viewer_point_label_collision`**.
+
+**Status: Active / Open (2026-10-18)** — Planner freeze + **O1(b→a)**. Eng tip base: **after TEXT Closed tip `61a5b89` on main** (do **not** stack Eng before that lands). Implementation already on tip (`ba9aa10` PointLabel classify / dump / CTest — **verify**, not greenfield). Ubuntu tip CI already Passed (`viewer_point_label_collision`); this slice = **docs close primarily** + Win policy; independent tip from TEXT. Do **not** edit PC Lua / `catalogues/`. No algorithm rewrite. Do **not** change TEXT cmake `--class Text`.
+
+**Planner freeze (MUST):** fixture `101AA00DS0008.000` Day 1280×800 (no synth needed — off pairs>0); PointLabel = same-feature nearest Text within N=48 px; label-beside text AABB; shared `--no-text-collision` (default ON; OFF for Text **and** PointLabel; no second flag); greedy priority → unpaired Text before PointLabel → stable; dump `class=Text|PointLabel`; oracle **only** PointLabel∩PointLabel `pairs_off >= pairs_on` **and** `pairs_off > 0`; `point_glyphs_drawn(ON)==(OFF)`; Ubuntu CI: `viewer_point_label_collision` MUST NOT SKIP, Passed. Optional symbol-AABB-as-obstacle → **Backlog**, not this slice.
+
+**O1 (b→a):** Try **(b) first** — Win CI narrowly run **only** `viewer_point_label_collision` (Eng `ci.yml`: keep `ctest -E "viewer_"` for the rest; TEXT's O1=(b) narrow-open of `viewer_text_collision` does **not** auto-cover this test). If hang/timeout → fall back to **(a)**: Ubuntu bind + contract Notes document Win CI `viewer_*` exclude (same family as golden/snapshot). **Forbidden:** platform SKIP inside the test itself. Docs close primarily; Win (b) is the only path that needs an Eng `ci.yml` one-liner.
+
+**Close criteria (honest dual-green):**
+- Ubuntu: `viewer_point_label_collision` MUST NOT SKIP, Passed (already on tip)
+- Windows: (b) success → that test Passed on Win; (a) fallback → full matrix green is enough (Notes record exclude)
+- Docs → Closed + CI Notes when done; if (b) needs Eng `ci.yml` narrow-open
+- After Close next: **S-102 deepen** or **`IHO-S164-DISPLAY-COMPARE`** — Planner will nail one later
+
+**Eng notes:** verify `ba9aa10` on tip; cell `testdata/s101/101AA00DS0008.000`; shared flag already covers PointLabel; PL∩PL pairs + glyph survival oracles already wired. Wait for TEXT Closed tip `61a5b89` on main before stacking this Eng tip. Do **not** edit `check_text_collision.cmake` / TEXT `--class Text`. Symbol-AABB obstacle = Backlog.
+
+**Notes (Win CI):** Existing policy: Windows `ctest -E "viewer_"` then TEXT narrow-open only `^viewer_text_collision$`. O1 tries a narrow exception for **`viewer_point_label_collision`** first; on hang, document exclude and bind Close on Ubuntu Passed + Win matrix green.
 
 ## 1. PointLabel identity (pinned)
 
@@ -21,7 +37,7 @@ AND pairing rule: nearest Text with that feature_id whose anchor lies within N s
 ## 2. Box model (pick one — locked)
 
 **Label-beside box only:** PointLabel's collision box is the **text AABB** placed at the Text instruction anchor (after any offset attempts).  
-The Point symbol uses a separate **symbol AABB** that participates only as an obstacle for *other* labels (optional MVP: symbol boxes block Text/PointLabel).  
+The Point symbol uses a separate **symbol AABB** that participates only as an obstacle for *other* labels (**Backlog** — optional MVP; **not this slice**).  
 **Do not** inflate the symbol AABB to include the label.
 
 On failure to place: **drop the Text (PointLabel) instruction** only; Point glyph always draws.
@@ -39,7 +55,7 @@ Greedy order: drawing priority → at equal priority **unpaired Text before Poin
 **Overlap oracle counts only PointLabel–PointLabel pairs** (not Text∩PointLabel in the primary assert).  
 Assert `pairs_off >= pairs_on` and `pairs_off > 0`.
 
-If `101AA00DS0008.000` yields zero PointLabels under the pairing rule, ship a **named synthetic fixture** `testdata/s101/point_label_collision_synth` (or C++-built instruction list in CTest named `point_label_collision_synth`) that produces ≥1 PointLabel pair when OFF.
+Fixture `101AA00DS0008.000` already yields PointLabel pairs when OFF (no synth required for this slice).
 
 ## 5. Symbol survival (pinned metric)
 
@@ -51,9 +67,9 @@ Count = number of `Kind::Point` instructions actually submitted to the symbol pa
 
 ## 6. Cross-links
 
-- `docs/text-collision-contract.md` Out of scope → points here for point-companion labels / SVG text.
-- `docs/testing/iho-ctest-case-ids.md` registers `IHO-S101-POINT-LABEL-COLLISION`.
+- `docs/text-collision-contract.md` (**Closed**) — unpaired `Kind::Text`; shared flag; separate tip.
+- `docs/testing/iho-ctest-case-ids.md` registers `IHO-S101-POINT-LABEL-COLLISION` (main table Active/Open).
 
 ## Non-goals
 
-SVG-embedded path text, Text∩PointLabel as hard CI metric, leader lines, S-102 deepen.
+SVG-embedded path text, Text∩PointLabel as hard CI metric, leader lines, S-102 deepen, symbol-AABB obstacle (Backlog), TEXT cmake `--class Text` change, in-test platform SKIP.

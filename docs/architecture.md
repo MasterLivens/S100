@@ -39,7 +39,7 @@ Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: S
 | `layer` | LAND/DEPARE visibility | P0 |
 | `pick` | screen → WGS84 (≤1e-5°) | P0 |
 | `iso8211` | binary cell decode + spatial | **next (Eng)** |
-| `catalogue` / `portrayal` | FC/PC XML + Lua; install-tree root `(prefix)/share/s100` (`IHO-S164-POWERUP-INSTALL-PREFIX` closed); Bridge/FASC render (`IHO-S101-BRIDGE-RENDER` **Closed** 2026-10-18, #12 MUST); Text collision (`IHO-S101-TEXT-COLLISION` **Closed** 2026-10-18, CI `39123185463` @ `845c51c`, O1=b dual-green) | P1; **Active** next `IHO-S101-POINT-LABEL-COLLISION` (`viewer_point_label_collision`; shared `--no-text-collision`; gap-check later) |
+| `catalogue` / `portrayal` | FC/PC XML + Lua; install-tree root `(prefix)/share/s100` (`IHO-S164-POWERUP-INSTALL-PREFIX` closed); Bridge/FASC render (`IHO-S101-BRIDGE-RENDER` **Closed** 2026-10-18, #12 MUST); Text collision (`IHO-S101-TEXT-COLLISION` **Closed** 2026-10-18, CI `39123185463` @ `845c51c`, O1=b dual-green) | P1; **Active / Open** `IHO-S101-POINT-LABEL-COLLISION` (`viewer_point_label_collision`, O1(b→a) Win narrow-open→exclude; verify `ba9aa10`; after TEXT Closed `61a5b89` on main) |
 | `exchange_set` | CATALOG.XML, .001… updates | **done (P1)** |
 | `security` | Part 15 verify (`s100_security`); OpenSSL 3; exchange-set Enforce path; CN-shape OfficialClass + producer-code + aggregator follow-ons | **Active (`IHO-S164-SIG`)** + **`IHO-S164-SIG-CN-SHAPE`** (rev1) + **`IHO-S164-SIG-PRODUCER`** (rev1) + **`IHO-S164-SIG-AGGREGATOR`** (rev1 policy-exempt) |
 | `coverage` | grid `bounds` / `sample_wgs84` (EPSG:4326) | S-102 first slice |
