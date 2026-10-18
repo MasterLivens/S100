@@ -195,10 +195,13 @@ Details: `docs/s124-contract.md`.
 
 ## Power-up / start-up self-check (Track B)
 
-- Details: `docs/powerup-self-check-contract.md` (`IHO-S164-POWERUP`) — **rev0 skeleton / pending Planner checklist**.
-- App start: structured `PowerUpReport` (identity, critical files, SA trust store, `s100_security` self-test, catalogue/exchange smoke under `VerifyPolicy::Enforce`). Block vs warn-and-continue; CLI / viewer / `ChartSession` surface TBD in rev1.
+- Details: `docs/powerup-self-check-contract.md` (`IHO-S164-POWERUP`) — **rev1** (Planner checklist frozen).
+- App start / process entry (CLI + viewer MUST; library hook may be lazy before first operational open): `run_powerup_self_check()` → `PowerUpReport`.
+- **PU-1…PU-5 MUST + Block** on operational paths only (refuse `open_exchange_set` / viewer chart open); standalone `open_dataset` / diagnostics stay **UNVERIFIED** (SIG D7). **PU-6** WARN stub (viewer) / N/A→Pass (CLI).
+- PU-2 pins align `catalogue_provenance` / `check_catalogues.cmake` (S-101/102/111/124 FC+PC; S-104 FC only — no S-104 PC). PU-3/4 are **project decisions** (Track B / SIG), not S-164 mandate text. PU-4 = mini gold `verify_exchange_set` (thin `security_self_test()` OK).
+- CLI exits: Pass/Warn → **0**; Block → **2** (exit **1** = load failures). CI synthetic only; official PowerUp TDS not in CI.
 - **Calls into** existing Part 15 verify + `open_exchange_set` — does **not** reimplement SIG; **no** producer-code matching in this slice.
-- CTest `powerup_self_check` MUST NOT SKIP (Linux + Windows) — Eng after Planner freeze.
+- CTest `powerup_self_check` MUST NOT SKIP (Linux + Windows).
 
 ## Stability
 
