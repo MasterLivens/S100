@@ -22,6 +22,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S102-OPEN-SAMPLE` | S-102 产品 | open/bounds/sample WGS84 | s102 tests | Reuse/in flight |
 | `IHO-S102-OVERLAY-SESSION` | 叠显契约 | ChartSession 键叠 S-101 | session | Reuse |
 | `IHO-S102-DEEPEN-MULTIGRID` | S-102 deepen | grids≥2 合成夹具；sample 路由；N×CoverageFill；FourShades/SafetyContour | `s102_deepen_multigrid` | Active |
+| `IHO-S102-UNCERTAINTY` | S-102 uncertainty layer | dual-channel sample depth+uncertainty；sentinel fill；独立 CoverageFill VG `13031` 可开关；合成夹具 no-SKIP；真样 TEST-DATA-ROOTS；Linux+Win smoke | `s102_uncertainty` | Active |
 | `IHO-S104-OPEN-FRAME` | S-104 first slice | open≥2 frames；sample 随帧变；单帧 portray；ChartSession 叠 S-101 | `s104_open_frame` | Active |
 | `IHO-S111-OPEN-FRAME` | S-111 first slice | open≥2 frames；sample speed/dir；Arrow stride；ChartSession 叠 S-101 | `s111_open_frame` | Active |
 | `IHO-S124-OPEN-LIST` | S-124 first slice | GML open；`warnings.size()==2`；列表；叠图一帧；ChartSession | `s124_open_list` | Active |

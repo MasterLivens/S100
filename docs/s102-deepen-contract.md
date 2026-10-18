@@ -60,4 +60,4 @@ No hard-coded RGB in core.
 
 ## Non-goals
 
-S-104/S-111 time, uncertainty as its own layer, S-98, EncDotNet pixel match.
+S-104/S-111 time, S-98, EncDotNet pixel match. Uncertainty as its own layer → `docs/s102-uncertainty-contract.md` (`IHO-S102-UNCERTAINTY`).

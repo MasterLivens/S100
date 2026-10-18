@@ -68,7 +68,8 @@ Rules:
 - `Dataset::coverage` holds `CoverageDataset` with **`std::vector<CoverageGrid> grids`** (+ host coverage features). Do not flatten grids into `features`.
 - Singular `CoverageDataset::grid` storage removed; temporary shim `grid()` → `grids[0]` allowed one release only.
 - `CoverageDataset::sample_wgs84(lon,lat)` routes to the containing grid (smallest envelope, then index). WGS84 façade; UTM/4326 converted inside the grid (see `docs/s102-deepen-contract.md`).
-- Portrayal: **one CoverageFill instruction per grid** (N× `Kind::Coverage`).
+- **Sample channels:** `CoverageSample` is dual-channel — `depth`/`has_depth` and `uncertainty`/`has_uncertainty`. Vertical uncertainty metres come from BathymetryCoverage compound field **`uncertainty`** (not the optional `QualityOfBathymetryCoverage` U32 index grid). Missing unc → `has_uncertainty == false` via `is_fill_uncertainty` (fill default `1.0e6f`).
+- Portrayal: **one depth CoverageFill per grid** (N× `Kind::Coverage`, `coverage_attribute=="depth"`, VG `13030`) plus, when this slice is implemented, **one uncertainty CoverageFill per grid** (`coverage_attribute=="uncertainty"`, interim VG **`13031`**, independently toggleable). See `docs/s102-uncertainty-contract.md` (`IHO-S102-UNCERTAINTY` / CTest `s102_uncertainty`).
 - Deepen / multi-grid / FourShades·SafetyContour oracles: `docs/s102-deepen-contract.md`.
 
 
