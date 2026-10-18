@@ -35,6 +35,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S164-UPD-SEQ` | S-164 Ed1.0.0 2.3.3（2.0.1 草案 2.3.2） | 乱序/重复/跳号/错版次 → 拒收，保留最后好状态；正向对照 001–003 先过；各用例断言具体错误码；回滚摘要一致；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
 | `IHO-S164-UPD-CORRUPT` | 2.2.1 / 2.1.5 | 截断/坏 leader/未知 RUIN/缺目标 → 拒收，数据集逐位不变（强保证）；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
 | `IHO-S164-CANCEL-REISSUE` | S-164 Ed1.0.0 取消 2.9.1（2.8.1）/ 取消替换 2.9.2 / 再版 2.3.6、2.9.3（2.8.2）/ 新版迟到 2.3.4（2.3.3）/ 旧版更新 2.3.5；S-101 PS §11.3.1–11.3.3、B-7.1.1 | DSED 无点修复；ED=0 取消→清空+后续 `DatasetCancelled`；再版跳过 ≤n；新版 superseded；ED> → `NewerEditionPending`；会话整体替换；no-SKIP；Linux+Win | `exchange_cancel_reissue` | Active |
+| `IHO-S164-EDITION-HARDEN` | S-164 Ed1.0.0 旧版更新 2.3.5 / 新版迟到 2.3.4；S-101 PS §11.3.2–11.3.3、B-7.1.1 | 旧版更新（0<ED<基版 ED）在所有序列路径（`open_dataset_with_updates`/`open_cell_series`/会话/viewer/CLI）→ `superseded`，不报错；单独 `apply_s101_update` 仍 `EditionMismatch`；ED> 仍 `NewerEditionPending`；共用 `classify_update_edition`；基版 DSED 不可解析/缺 DSID/ED=0 → 拒收（`Invalid`/`BadStructure`），绝不按 ED0 加载；`[[edition_fixture]]`；rev1.4 与 cancel-reissue 断言不变；no-SKIP；Linux+Win | `exchange_edition_hardening` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 

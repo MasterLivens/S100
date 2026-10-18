@@ -3,6 +3,8 @@
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-S164-CANCEL-REISSUE`** (**Active**). CTest: **`exchange_cancel_reissue`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI. Fixture reproducibility stays under `update_fixtures_reproducible`.
 
+**Resolved by `docs/edition-hardening-contract.md` rev 1 (`IHO-S164-EDITION-HARDEN`):** open item 3 (superseded only detected on the exchange-set path, Behaviour #5 — now every series path; standalone `apply_s101_update` stays `EditionMismatch`) and a base cell with unparseable DSED loading as ED 0 (now rejected, as is a base with DSED `"0"`).
+
 Builds on `docs/update-robustness-contract.md` rev 1.4 (strong guarantee, `UpdateRejectCode`, `UpdateReport`, `dataset_digest()`, session keeps last good state). Same module boundary: all decisions in `s100_core`; CLI/viewer only display.
 
 ## Sources (Research&Planner, 2026-10-18, primary texts in `/workspace/research/`)

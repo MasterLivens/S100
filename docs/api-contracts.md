@@ -172,6 +172,14 @@ Details: `docs/s124-contract.md`.
 - Additive: `UpdateRejectCode::DatasetCancelled`, `NewerEditionPending`, `DatasetNameMismatch`; `UpdateReport::skipped/cancelled/superseded/notice`; `Dataset::cancelled`; DSED bare integer accepted.
 - CTest `exchange_cancel_reissue` MUST NOT SKIP (Linux + Windows).
 
+## Edition hardening (S-101)
+
+- Details: `docs/edition-hardening-contract.md` (`IHO-S164-EDITION-HARDEN`).
+- Additive: `UpdateEditionRelation` + `classify_update_edition(installed_ed, update_ed)` (single edition rule shared by `group_cell_series` and the update check order).
+- Behaviour: on every series path (`open_dataset_with_updates`, `open_cell_series`, `ChartSession`, viewer, CLI) an update with 0 < ED < base ED is skipped and listed in `UpdateReport::superseded` (no error). Standalone `apply_s101_update` keeps `EditionMismatch`; ED > installed keeps `NewerEditionPending`.
+- `load_s101` / `open_dataset(.000)`: base with missing DSID, unparseable DSED or DSED edition 0 → `false` (`LoadErrorKind::Invalid`; `BadStructure` with `rejected == base` on update paths); `out` untouched on any `false`. Signatures unchanged.
+- CTest `exchange_edition_hardening` MUST NOT SKIP (Linux + Windows).
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
