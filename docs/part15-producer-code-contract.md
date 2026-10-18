@@ -3,7 +3,7 @@
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-S164-SIG-PRODUCER`** (**Active**). CTest: **`exchange_signature_producer`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
 
-**Status: rev1 — field/SSE frozen (Planner materials + Planner/Tester SSE 109 final).** Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here. Engineer may implement after this rev1.
+**Status: rev1 — field/SSE frozen (Planner materials + Planner/Tester SSE 109 final; + CN-unparseable skip clarification).** Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here. Engineer may implement after this rev1.
 
 Primary sources: `/workspace/research/part15/BRIEF.md` (S-98 §9.1.1 CN MRN quote), `docs/part15-signature-contract.md` (**D8** → this case), S-100 Part 17 discovery (`producerCode`), existing `s100_security` (`OfficialClass`, cert ST/CN, `sse_map`, `verify_exchange_set`). Power-up contract explicitly deferred producer-code here (`docs/powerup-self-check-contract.md`).
 
@@ -40,8 +40,9 @@ This is the frozen next SIG slice after **`IHO-S164-POWERUP`**.
 3. **Producer segment** = that token as one piece (alpha + integer together: `aa00`, `GB00`, `99ZZ`). **Segment 4** (`01810` / `90001`) is the certificate instance id — **MUST NOT** be compared to `producerCode`.
 4. **O** (Organisation) does **not** participate.
 5. **ST** continues to drive `OfficialClass` only (SIG A9). Additionally: if ST ∈ `{DATA_AGGREGATOR}` → **exempt** producer-code match this slice (chain + OfficialClass only) — avoids PRIMAR `00PM` signing member HO false-kills. Fixtures remain **DATA_PRODUCER 1:1** only; matching aggregator CN vs member HO is **Backlog**.
-6. **Malformed / non-conforming CN** → existing **NonOfficial** / skip-that-set path (S-98 9.1.1 / SIG A9); **separate** from missing-`producerCode` N/A-pass. **Do not** invent a new SSE from this slice for malformed CN.
+6. **Malformed / non-conforming CN** → existing **NonOfficial** path (S-98 9.1.1 / SIG A9); **separate** from missing-`producerCode` N/A-pass. **Do not** invent a new SSE from this slice for malformed CN.
 7. S-98 “at least one of the authenticating certificates”: for this slice’s **DATA_PRODUCER 1:1** fixtures, the leaf data-server cert used for `EVP_DigestVerify` on that resource supplies the CN.
+8. **CN parse failure + `producerCode` present** (Tester 2026-10-18): under **Enforce**, **skip that file** (cannot prove must-match — same install effect as mismatch). **MUST NOT** emit reason `producer_code_mismatch` or project-map SSE **109** (109 reserved for parse-Ok but token ≠ `producerCode`). NonOfficial may coexist via A9. If CN parse fails and `producerCode` is **absent** → this check is N/A-pass (NonOfficial still per A9).
 
 ### 3.2 Dataset / CATALOG side (normative)
 
@@ -64,6 +65,7 @@ At least one authenticating cert’s CN **producer segment** (upper) **MUST equa
 |-----------|---------------------|-----------------------------|
 | CATALOG / discovery **lacks** `producerCode` | **N/A-pass** (check not applied) | Install — keeps closed positive SIG path green |
 | `producerCode` **present** | Must match CN producer segment | Mismatch → skip (§4) |
+| `producerCode` **present** + CN **unparseable** | Cannot prove must-match | **Skip** that file (§3.1 #8); **no** `producer_code_mismatch` / **no** 109 |
 
 **MUST NOT** break closed Ok assertions on CTest **`exchange_signature`**. Existing positive SIG fixtures without `producerCode` stay Ok via N/A-pass.
 
@@ -97,7 +99,8 @@ S-98 App. B has **no** dedicated “producer code mismatch” SSE. Single-map ru
 | Internal | SSE | Effect | Note |
 |----------|-----|--------|------|
 | `ProducerCodeMismatch` (dataset / support row) | **109** | Skip that resource | **Project mapping** — **not** an S-98 App. B literal for this case. Contract / `sse_map` note required. |
-| Malformed CN | existing NonOfficial path | No new SSE from this slice | SIG A9 / 9.1.1 |
+| Malformed / unparseable CN + `producerCode` present | *(no 109)* | **Skip** that file under Enforce | NonOfficial via A9 may coexist; **not** `producer_code_mismatch` / **not** 109 |
+| Malformed CN (general) | existing NonOfficial path | No new SSE from this slice | SIG A9 / 9.1.1 |
 | Message / reason | Primary report reason **`producer_code_mismatch`** (cert CN producer segment vs CATALOG `producerCode`) + `sse_message` | Required | CTest asserts **reason first**, SSE **109** secondary |
 
 Do **not** overload `IssuerNotSa` (**126**) — chain-to-SA and producer-identity are different defects; Planner+Tester final is **109**.
@@ -132,7 +135,7 @@ Do **not** overload `IssuerNotSa` (**126**) — chain-to-SA and producer-identit
 
 ## 8. Tester gates (rev1 checklist)
 
-1. **Check list** — cert leaf CN **producer segment** (MRN segment 3 only, upper; **not** segment 4) vs CATALOG **`producerCode`** (upper, exact; no zero-strip). N/A-pass when `producerCode` absent. ST=`DATA_AGGREGATOR` → exempt.
+1. **Check list** — cert leaf CN **producer segment** (MRN segment 3 only, upper; **not** segment 4) vs CATALOG **`producerCode`** (upper, exact; no zero-strip). N/A-pass when `producerCode` absent. ST=`DATA_AGGREGATOR` → exempt. CN unparseable + `producerCode` present → Enforce **skip** that file, **no** 109.
 2. **After failure** — under Enforce, mismatched resource is **skipped** with reason `producer_code_mismatch` and project-map SSE **109**; **not** silently installed; other members continue.
 3. **Hook** — producer-code runs on existing SIG / catalogue load path (`verify_exchange_set` → `open_exchange_set` Enforce); **no** parallel stack.
 4. **Named CTest** — `exchange_signature_producer` **MUST NOT SKIP** on Linux + Windows.

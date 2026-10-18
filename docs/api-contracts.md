@@ -203,6 +203,7 @@ Details: `docs/s124-contract.md`.
 - **fileName CCCC fallback OFF** as a check (construction notes only).
 - Hook: existing `verify_exchange_set` / `open_exchange_set` Enforce only — **no** parallel stack. Logic in `s100_security`.
 - Mismatch → **skip that dataset** (others continue); reason **`producer_code_mismatch`** (CTest primary) + project-map SSE **109** (secondary; not App. B literal; not 126). MUST NOT change closed Ok assertions on `exchange_signature`.
+- CN unparseable + `producerCode` present → Enforce **skip** that file; **no** `producer_code_mismatch` / **no** 109 (109 = parse-Ok mismatch only). NonOfficial via A9 may coexist.
 - CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows).
 
 ## Power-up / start-up self-check (Track B)
