@@ -20,3 +20,4 @@
 #include "s100/portrayal_engine.hpp"
 #include "s100/exchange_set.hpp"
 #include "s100/session.hpp"
+#include "s100/powerup.hpp"

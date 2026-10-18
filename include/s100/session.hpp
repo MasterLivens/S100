@@ -1,6 +1,7 @@
 #pragma once
 #include "s100/dataset.hpp"
 #include "s100/exchange_set.hpp"
+#include "s100/powerup.hpp"
 #include "s100/security/types.hpp"
 #include "s100/security/trust_store.hpp"
 #include "s100/security/verify.hpp"
@@ -48,8 +49,15 @@ class ChartSession {
   const security::VerificationReport& last_verification() const { return last_verification_; }
   security::VerifyPolicy verify_policy() const { return verify_policy_; }
 
+  /** Stash from process power-up; also readable via last_powerup_report(). */
+  const PowerUpReport& last_powerup() const { return last_powerup_report(); }
+
+  /** When true, open_exchange_set skips the power-up Block gate (PU-5 smoke only). */
+  void set_powerup_gate_bypass(bool on) { powerup_gate_bypass_ = on; }
+
  private:
   bool path_is_skipped(const std::filesystem::path& p) const;
+  bool refuse_if_powerup_blocked(LoadError* err);
 
   ExchangeCatalogue catalogue_;
   std::vector<ExchangeCellSeries> series_;
@@ -59,6 +67,7 @@ class ChartSession {
   security::VerifyOptions verify_options_{};
   security::VerificationReport last_verification_{};
   security::VerifyPolicy verify_policy_{security::VerifyPolicy::Enforce};
+  bool powerup_gate_bypass_{false};
 };
 
 }  // namespace s100

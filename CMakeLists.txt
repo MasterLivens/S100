@@ -57,9 +57,15 @@ add_library(s100_core
   src/core/exchange_set.cpp
   src/core/s101_update.cpp
   src/core/session.cpp
+  src/core/powerup.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(s100_core PUBLIC s100_security PRIVATE s100_pugixml s100_lua ${S100_HDF5_LIBS})  # Qt-free (contract rule 4)
+target_compile_definitions(s100_core PUBLIC
+  S100_VERSION="${PROJECT_VERSION}"
+  S100_CATALOGUE_ROOT="${CMAKE_SOURCE_DIR}"
+  S100_POWERUP_SMOKE_EXCHANGE="${CMAKE_SOURCE_DIR}/testdata/s101/signatures/positive"
+  S100_POWERUP_TEST_SA="${CMAKE_SOURCE_DIR}/testdata/s101/signatures/keys/test_sa.crt")
 if(DEFINED HDF5_DEFINITIONS)
   target_compile_definitions(s100_core PRIVATE ${HDF5_DEFINITIONS})
 endif()
@@ -107,6 +113,7 @@ add_executable(s100_tests
   tests/test_cancel_reissue.cpp
   tests/test_edition_hardening.cpp
   tests/test_exchange_signature.cpp
+  tests/test_powerup_self_check.cpp
   tests/support/dataset_digest.cpp
   tests/support/sha256.cpp
 )
@@ -138,6 +145,8 @@ add_test(NAME exchange_cancel_reissue COMMAND s100_tests exchange_cancel_reissue
 add_test(NAME exchange_edition_hardening COMMAND s100_tests exchange_edition_hardening)
 # IHO-S164-SIG (docs/part15-signature-contract.md) — MUST NOT SKIP, Linux + Windows.
 add_test(NAME exchange_signature COMMAND s100_tests exchange_signature)
+# IHO-S164-POWERUP (docs/powerup-self-check-contract.md rev1) — MUST NOT SKIP, Linux + Windows.
+add_test(NAME powerup_self_check COMMAND s100_tests powerup_self_check)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME signature_fixtures_reproducible
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/check_signature_fixtures.py

@@ -21,6 +21,29 @@ bool ChartSession::path_is_skipped(const std::filesystem::path& p) const {
   return false;
 }
 
+bool ChartSession::refuse_if_powerup_blocked(LoadError* err) {
+  if (powerup_gate_bypass_) return false;
+  if (!powerup_has_run()) {
+    // Lazy before first operational open (CLI/viewer SHOULD have run eagerly already).
+    (void)run_powerup_self_check(default_powerup_options(PowerUpSurface::Library));
+  }
+  const auto& pu = last_powerup_report();
+  if (pu.overall != PowerUpSeverity::Block) return false;
+  if (err) {
+    err->kind = LoadErrorKind::Invalid;
+    err->message = "POWERUP BLOCK: exchange-set / operational open refused";
+    for (const auto& it : pu.items) {
+      if (it.severity == PowerUpSeverity::Block) {
+        err->message += "; ";
+        err->message += it.id;
+        err->message += ": ";
+        err->message += it.message;
+      }
+    }
+  }
+  return true;
+}
+
 bool ChartSession::open_exchange_set(const std::filesystem::path& path, LoadError* err,
                                      security::VerifyPolicy policy) {
   verify_policy_ = policy;
@@ -32,6 +55,9 @@ bool ChartSession::open_exchange_set(const std::filesystem::path& path, LoadErro
     series_ = group_cell_series(catalogue_);
     return true;
   }
+
+  // Enforce: power-up Block forbids operational exchange-set import (IHO-S164-POWERUP §4.1).
+  if (refuse_if_powerup_blocked(err)) return false;
 
   // Enforce: verify-before-mutate (contract strong guarantee #1).
   security::VerifyOptions opts = verify_options_;

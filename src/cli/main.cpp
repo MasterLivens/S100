@@ -592,6 +592,24 @@ int main(int argc, char** argv) {
     return 2;
   }
 
+  // IHO-S164-POWERUP: process-entry self-check (CLI MUST). Pass/Warn → continue (exit 0 for
+  // power-up itself); Block → refuse exchange-set / operational path with exit 2. Standalone
+  // open_dataset remains allowed (SIG D7 UNVERIFIED).
+  {
+    const auto pu = s100::run_powerup_self_check(
+        s100::default_powerup_options(s100::PowerUpSurface::Cli));
+    s100::print_powerup_report(pu);
+    const bool exchange = !path.empty() && looks_like_exchange_set(path);
+    if (pu.overall == s100::PowerUpSeverity::Block && exchange) {
+      std::cerr << "POWERUP BLOCK: refusing exchange-set import\n";
+      return 2;
+    }
+    if (pu.overall == s100::PowerUpSeverity::Block && !exchange) {
+      std::cerr << "POWERUP BLOCK: operational exchange-set path forbidden; "
+                   "standalone open continues as UNVERIFIED\n";
+    }
+  }
+
   if (dump_fasc) {
     // Raw FASC dump (data evidence; docs/association-contract.md). One row per encoded FASC
     // member, on the side where it is encoded; features without FASC are listed with "-".

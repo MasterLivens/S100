@@ -1354,6 +1354,12 @@ class MapWidget : public QWidget {
 int main(int argc, char** argv) {
   QApplication app(argc, argv);
 
+  // IHO-S164-POWERUP: viewer process-entry self-check (MUST). PU-6 is WARN stub this slice.
+  const s100::PowerUpReport powerup = s100::run_powerup_self_check(
+      s100::default_powerup_options(s100::PowerUpSurface::Viewer));
+  s100::print_powerup_report(powerup);
+  const bool powerup_blocks_ops = powerup.overall == s100::PowerUpSeverity::Block;
+
   QString cell, snapshot, s102_path, s104_path, s104_time, s111_path, s111_time, s124_path,
       dump_text_boxes, dump_layers;
   QString layers_on, layers_off;
@@ -1449,6 +1455,12 @@ int main(int argc, char** argv) {
   if (have_view_scale) map->setViewScaleOverride(view_scale_denom);
   map->setIgnoreScaleMinimum(ignore_scamin);
 
+  if (powerup.overall == s100::PowerUpSeverity::Block) {
+    win.statusBar()->showMessage(QStringLiteral("POWERUP BLOCK"));
+  } else if (powerup.overall == s100::PowerUpSeverity::Warn) {
+    win.statusBar()->showMessage(QStringLiteral("POWERUP WARN: display_check_stub"));
+  }
+
   // FC / PC are product-level: load once per session. Context lives outside Dataset.
   s100::FeatureCatalogue fc;
   s100::PortrayalCatalogue pc;
@@ -1532,6 +1544,9 @@ int main(int argc, char** argv) {
     win.statusBar()->showMessage(
         QString("Portrayal Catalogue not loaded (%1) — pass --pc <PC dir>")
             .arg(QString::fromStdString(pc_err.empty() ? "no path" : pc_err)));
+  } else if (!cell.isEmpty() && powerup_blocks_ops) {
+    win.statusBar()->showMessage(QStringLiteral("POWERUP BLOCK: operational chart open refused"));
+    std::fprintf(stderr, "POWERUP BLOCK: operational chart open refused\n");
   } else if (!cell.isEmpty()) {
     s100::Dataset ds;
     s100::LoadError err;
