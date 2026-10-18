@@ -34,7 +34,7 @@ Strong guarantees (same family as update-robustness):
 | **D5** | Internal enum, mapped to S-98 SSE codes. S-164 116 / 124 map to **109**. The mapping table lives in **ONE** separate place (own file or clearly bounded section), because S-164 2.0.1 and S-98 3.0.0 are drafts and codes may change. |
 | **D6** | Data signatures accept **only** ECDSA-384-SHA2 (P-384 + SHA-384, Base64 DER `SEQUENCE{r,s}`, over raw file bytes). Certificate signatures accept `ecdsa-with-SHA256` and `ecdsa-with-SHA384`. **No** mandatory X.509 extension checks (BasicConstraints / KeyUsage). |
 | **D7** | Verification is enforced **only** on the exchange-set import path. Standalone `open_dataset(.000)` stays for tests and dev; CLI and viewer show **`UNVERIFIED`**. **No** `--allow-unsigned` (or equivalent) in the product. The existing 34 tests keep **assertions and fixture bytes** unchanged; they pass `VerifyPolicy::Off` **explicitly** at every exchange-set import call site (A5 / A8). |
-| **D8** | This slice outputs an **official / non-official** classification (ST role + CN shape). Producer-code matching (CN MRN ↔ dataset producer) → case **`IHO-S164-SIG-PRODUCER`** / `docs/part15-producer-code-contract.md` (next slice after POWERUP; draft pending Planner field/SSE lock). |
+| **D8** | This slice outputs an **official / non-official** classification (ST role + CN shape). Producer-code matching (CN MRN ↔ dataset producer) → case **`IHO-S164-SIG-PRODUCER`** / `docs/part15-producer-code-contract.md` (**rev1** — field/SSE frozen). |
 
 ## SSE behaviour (S-98 2.0.0 §20.4.3 c + App. B)
 

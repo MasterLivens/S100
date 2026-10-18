@@ -197,11 +197,11 @@ Details: `docs/s124-contract.md`.
 
 ## Part 15 producer-code matching (SIG follow-on)
 
-- Details: `docs/part15-producer-code-contract.md` (`IHO-S164-SIG-PRODUCER`) — **rev0/rev1 draft** (Planner field/SSE lock pending).
-- Under `VerifyPolicy::Enforce`, after crypto Ok: match leaf data-server cert **CN MRN** (IHO alpha + integer) against dataset / CATALOG declared producer (Proposed: discovery `producerCode`).
-- Hook: existing `verify_exchange_set` / `open_exchange_set` Enforce only — **no** parallel stack. Logic in `s100_security`; exchange calls the interface.
-- Mismatch → skip/reject with mapped SSE (Proposed per-file **109**); **not** silent accept. MUST NOT change closed Ok assertions on `exchange_signature`.
-- CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows).
+- Details: `docs/part15-producer-code-contract.md` (`IHO-S164-SIG-PRODUCER`) — **rev1** (field/SSE frozen).
+- Under `VerifyPolicy::Enforce`, after crypto Ok: match leaf cert CN **producer segment** (MRN segment 3, upper; e.g. `aa00`/`99ZZ`) against CATALOG `S100_DatasetDiscoveryMetadata.producerCode` (upper). O out; ST = OfficialClass only. Missing `producerCode` → N/A-pass.
+- Hook: existing `verify_exchange_set` / `open_exchange_set` Enforce only — **no** parallel stack. Logic in `s100_security`.
+- Mismatch → **skip that dataset** (others continue); reason **`producer_code_mismatch`** (CTest primary) + project-map SSE **109** (secondary; not App. B literal; not 126). MUST NOT change closed Ok assertions on `exchange_signature`.
+- CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows). DATA_PRODUCER 1:1 fixtures; AGGREGATOR → Backlog.
 
 ## Power-up / start-up self-check (Track B)
 
