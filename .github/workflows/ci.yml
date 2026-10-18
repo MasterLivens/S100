@@ -114,13 +114,15 @@ jobs:
           QT_OPENGL: software
       - name: Test (Windows)
         if: runner.os == 'Windows'
-        # IHO-S101-TEXT-COLLISION O1=(b): exclude other viewer_* (Qt offscreen hang risk),
-        # but narrow-open viewer_text_collision only. Hang → fall back to (a) in contract Notes.
+        # IHO-S101-TEXT-COLLISION + POINT-LABEL O1=(b): exclude other viewer_* (Qt offscreen
+        # hang risk); narrow-open viewer_text_collision and viewer_point_label_collision only.
+        # TEXT's (b) does not auto-cover POINT-LABEL. Hang on POINT-LABEL → fall back to (a).
         # Per-test --timeout so a hang fails the job instead of parking forever.
         # HDF5 bin is on PATH via GITHUB_PATH from Install HDF5 (shared dll load at process start).
         run: |
           ctest --test-dir build -C Release --output-on-failure --timeout 120 --progress -E "viewer_"
           ctest --test-dir build -C Release --output-on-failure --timeout 120 --progress -R "^viewer_text_collision$"
+          ctest --test-dir build -C Release --output-on-failure --timeout 120 --progress -R "^viewer_point_label_collision$"
         env:
           S100_TESTDATA: testdata/s101
           QT_QPA_PLATFORM: offscreen
