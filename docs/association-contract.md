@@ -98,6 +98,9 @@ Engineer delivers tests + implementation together; Tester owns pass/fail and fix
 
 ## Bridge scope
 
+Rendering slice: `docs/bridge-render-contract.md` (`IHO-S101-BRIDGE-RENDER`).
+
+
 - Host queries work on IHO/CHS cells that have Bridge / structure–equipment associations.
 - No hand-written Bridge symbology in Qt.
 - Text collision still later.

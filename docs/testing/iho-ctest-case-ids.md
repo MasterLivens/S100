@@ -31,6 +31,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-SCAMIN-FILTER` | SCAMIN 显隐 | `visible_at_scale` / filter；oracle A–H；开/关 IgnoreScaleMinimum；no-SKIP | `scamin_filter` | Active |
 | `IHO-DISPLAY-PRIORITY` | 显示优先级 | plane 秩 + `drawing_priority` 升序；oracle 钉序；viewer 用 core sort；no-SKIP | `display_priority_order` | Active |
 | `IHO-TIMELINE-UI` | 时间轴 UI | S-104/111 `timeline_entries` + CLI `--list-frames` + viewer scrubber；no-SKIP | `timeline_ui` | Active |
+| `IHO-S101-BRIDGE-RENDER` | 桥/组合要素渲染 | 0006 夹具 Bridge10/SpanFixed6/SpanOpening4/Pylon6；VG12210/prio24；聚合 Null；CHGRD 线；BRIDGE01 存在；RadarOverlay 翻 plane；no-SKIP | `bridge_render` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 

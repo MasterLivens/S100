@@ -149,6 +149,13 @@ Details: `docs/s124-contract.md`.
 - Viewer: independent scrubbers; re-portray on frame change.
 - CTest `timeline_ui` MUST NOT SKIP.
 
+
+## Bridge rendering (S-101)
+
+- Details: `docs/bridge-render-contract.md` (`IHO-S101-BRIDGE-RENDER`).
+- Official PC Lua only; no hand-drawn bridge glyphs. Fixture `101AA00DS0006.000`.
+- CTest `bridge_render` MUST NOT SKIP.
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
