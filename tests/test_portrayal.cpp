@@ -1,6 +1,7 @@
 // Portrayal contract tests (docs/portrayal-contract.md, "Test hooks").
 // One executable, one CTest entry per case: s100_portrayal_tests <case>.
 #include "s100/s100.hpp"
+#include "support/test_data_roots.hpp"
 
 // Lua built as C++ (same as host_adapter.cpp).
 #include <lua.h>
@@ -62,15 +63,13 @@ std::vector<fs::path> cells() {
   std::vector<fs::path> v;
   for (const char* c : {"101AA00DS0003.000", "101AA00DS0006.000", "101AA00DS0008.000"})
     v.push_back(kSrc / "testdata/s101" / c);
-  const fs::path chs = kSrc / "testdata/chs/COMBINED/S100_ROOT/S-101";
-  if (fs::exists(chs)) {
+  if (s100test::chs_exercised("portrayal_all_cells")) {
+    const fs::path chs = s100test::chs_s101_dir();
     std::vector<fs::path> c;
     for (const auto& d : fs::recursive_directory_iterator(chs))
       if (d.path().extension() == ".000") c.push_back(d.path());
     std::sort(c.begin(), c.end());
     v.insert(v.end(), c.begin(), c.end());
-  } else {
-    std::cerr << "skip CHS cells: " << chs << " absent\n";
   }
   return v;
 }

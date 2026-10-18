@@ -5,6 +5,7 @@
 #include "s100/portrayal_catalogue.hpp"
 #include "s100/portrayal_engine.hpp"
 #include "s100/session.hpp"
+#include "support/test_data_roots.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -28,10 +29,9 @@ namespace fs = std::filesystem;
 
 static fs::path find_s102_cell() {
   const fs::path src = S100_SOURCE_DIR;
-  const fs::path chs =
-      src / "testdata/chs/COMBINED/S100_ROOT/S-102/DATASET_FILES/CA00/102CA0064682N07116W/16/"
-            "102CA0064682N07116W.h5";
-  if (fs::exists(chs)) return chs;
+  if (s100test::chs_exercised("s102.open"))
+    return s100test::chs_s100_root() / "S-102" / "DATASET_FILES" / "CA00" /
+           "102CA0064682N07116W" / "16" / "102CA0064682N07116W.h5";
   const fs::path noaa = src / "testdata/s102/102US004AK5HQ262267.h5";
   if (fs::exists(noaa)) return noaa;
   return {};
@@ -207,11 +207,8 @@ void test_s102_session_overlay() {
             << " n=" << session.datasets().size() << "\n";
 
   // CHS combined exchange set: both products share one catalogue / session key space.
-  const fs::path chs = src / "testdata/chs/COMBINED/S100_ROOT";
-  if (!fs::exists(chs / "CATALOG.XML")) {
-    std::cerr << "skip chs multi-product series: no " << chs << "\n";
-    return;
-  }
+  if (!s100test::chs_exercised("s102.series")) return;
+  const fs::path chs = s100test::chs_s100_root();
   s100::ChartSession chs_session;
   CHECK(chs_session.open_exchange_set(chs, &err));
   bool saw101 = false, saw102 = false;

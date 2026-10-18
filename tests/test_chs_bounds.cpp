@@ -1,4 +1,5 @@
 #include "s100/dataset.hpp"
+#include "support/test_data_roots.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -17,12 +18,8 @@
 // IHO cells cannot. Data is test-only licence and git-ignored: skip when absent.
 void test_chs_bounds_vs_catalog() {
   namespace fs = std::filesystem;
-  const char* env = std::getenv("S100_CHS_ROOT");
-  fs::path root = env ? fs::path(env) : fs::path(S100_SOURCE_DIR "/testdata/chs/COMBINED/S100_ROOT");
-  if (!fs::exists(root)) {
-    std::cerr << "skip chs: no " << root << "\n";
-    return;
-  }
+  if (!s100test::chs_exercised("chs_bounds")) return;
+  const fs::path root = s100test::chs_s100_root();
   struct Cell { const char* rel; double w, s, e, n; };
   const Cell cells[] = {
       {"S-101/DATASET_FILES/CA00/101CA00P468N0712W/2/101CA00P468N0712W.000",

@@ -1,4 +1,5 @@
 #include "s100/dataset.hpp"
+#include "support/test_data_roots.hpp"
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -15,8 +16,7 @@
 
 void test_load_samples() {
   namespace fs = std::filesystem;
-  const char* env = std::getenv("S100_TESTDATA");
-  fs::path root = env ? fs::path(env) : fs::path("testdata/s101");
+  fs::path root = s100test::fixture_root();
   if (!fs::exists(root)) {
     std::cerr << "skip load: no " << root << "\n";
     return;

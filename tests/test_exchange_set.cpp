@@ -1,5 +1,6 @@
 #include "s100/exchange_set.hpp"
 #include "s100/session.hpp"
+#include "support/test_data_roots.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -57,26 +58,19 @@ void test_exchange_set_synthetic_and_chs() {
             << session.find(keys.front())->update_number << "\n";
 
   // Rule 4: open_dataset must refuse lone .001 (CHS fixture when present).
-  const fs::path upd001 =
-      src / "testdata/chs/COMBINED/S100_ROOT/S-101/DATASET_FILES/CA00/101CA00P468N0712W/2/"
-            "101CA00P468N0712W.001";
-  if (fs::exists(upd001)) {
+  if (s100test::chs_exercised("exchange_set.upd001")) {
+    const fs::path upd001 = s100test::chs_s101_dir() / "DATASET_FILES" / "CA00" /
+                            "101CA00P468N0712W" / "2" / "101CA00P468N0712W.001";
     s100::Dataset rejected;
     s100::LoadError rej_err;
     CHECK(!s100::open_dataset(upd001, rejected, &rej_err));
     CHECK(rej_err.kind == s100::LoadErrorKind::Invalid);
     CHECK(rej_err.message.find("open_dataset_with_updates") != std::string::npos);
     std::cout << "open_dataset(.001) refused: " << rej_err.message << "\n";
-  } else {
-    std::cerr << "skip open_dataset(.001) refuse: no " << upd001 << "\n";
   }
 
-  const char* env = std::getenv("S100_CHS_ROOT");
-  fs::path chs = env ? fs::path(env) : src / "testdata/chs/COMBINED/S100_ROOT";
-  if (!fs::exists(chs / "CATALOG.XML")) {
-    std::cerr << "skip chs exchange: no " << chs << "\n";
-    return;
-  }
+  if (!s100test::chs_exercised("exchange_set.chs")) return;
+  const fs::path chs = s100test::chs_s100_root();
 
   s100::ExchangeCatalogue chs_cat;
   CHECK(s100::parse_exchange_catalogue(chs, chs_cat, &err));

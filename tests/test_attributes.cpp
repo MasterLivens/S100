@@ -1,4 +1,5 @@
 #include "s100/dataset.hpp"
+#include "support/test_data_roots.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -13,8 +14,7 @@
 
 void test_attributes() {
   namespace fs = std::filesystem;
-  const char* env = std::getenv("S100_TESTDATA");
-  const fs::path cell = fs::path(env ? env : "testdata/s101") / "101AA00DS0008.000";
+  const fs::path cell = s100test::fixture_root() / "101AA00DS0008.000";
   if (!fs::exists(cell)) {
     std::cerr << "skip attributes: no " << cell << "\n";
     return;

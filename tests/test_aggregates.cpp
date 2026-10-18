@@ -1,4 +1,5 @@
 #include "s100/dataset.hpp"
+#include "support/test_data_roots.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -15,8 +16,7 @@
 // every other feature must carry geometry. P1 will render aggregates via FASC.
 void test_aggregates_empty_geometry() {
   namespace fs = std::filesystem;
-  const char* env = std::getenv("S100_TESTDATA");
-  fs::path root = env ? fs::path(env) : fs::path("testdata/s101");
+  fs::path root = s100test::fixture_root();
   for (const char* c : {"101AA00DS0003.000", "101AA00DS0006.000", "101AA00DS0008.000"}) {
     s100::Dataset ds;
     s100::LoadError err;

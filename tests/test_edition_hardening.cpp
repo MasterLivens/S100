@@ -5,6 +5,7 @@
 #include "s100/session.hpp"
 #include "support/dataset_digest.hpp"
 #include "support/sha256.hpp"
+#include "support/test_data_roots.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -441,18 +442,13 @@ void run() {
     ECHECK(b.exit_code != 0 && b.err.find("DSED") != std::string::npos);
   }
   // Planner request (non-blocking): an S-57 cell is named as such. No S-57 cell is committed;
-  // checked against local CHS ENC_ROOT data when present (optional data, like test_exchange_set).
+  // checked against the pinned CHS S-57 cell when CHS data is present (test_data_roots.hpp).
   {
-    const fs::path enc = fs::path(S100_SOURCE_DIR) / "testdata/chs/COMBINED/ENC_ROOT";
     fs::path s57;
-    if (fs::exists(enc))
-      for (const auto& e : fs::recursive_directory_iterator(enc))
-        if (e.is_regular_file() && e.path().extension() == ".000") {
-          s57 = e.path();
-          break;
-        }
+    if (s100test::chs_exercised("edition_hardening.s57"))
+      s57 = s100test::chs_enc_root() / "CA" / "CA54GN2A" / "2" / "0" / "CA54GN2A.000";
     if (s57.empty()) {
-      std::cout << "  S-57 message: no local CHS ENC_ROOT data (optional), not exercised\n";
+      std::cout << "  S-57 message: no local CHS data (optional), not exercised\n";
     } else {
       const auto r = run_cli(q(s57));
       std::cout << "  S-57 " << s57.filename().string() << " exit=" << r.exit_code << " " << r.err;

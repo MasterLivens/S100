@@ -1,5 +1,6 @@
 #include "s100/dataset.hpp"
 #include "s100/feature_catalogue.hpp"
+#include "support/test_data_roots.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
@@ -44,10 +45,11 @@ void test_fc_permitted_primitives() {
   std::vector<fs::path> cells;
   for (const char* c : {"101AA00DS0003.000", "101AA00DS0006.000", "101AA00DS0008.000"})
     cells.push_back(fs::path(S100_SOURCE_DIR) / "testdata/s101" / c);
-  fs::path chs = fs::path(S100_SOURCE_DIR) / "testdata/chs/COMBINED/S100_ROOT/S-101";
-  if (fs::exists(chs))
+  if (s100test::chs_exercised("fc_primitives")) {
+    const fs::path chs = s100test::chs_s101_dir();
     for (const auto& d : fs::recursive_directory_iterator(chs))
       if (d.path().extension() == ".000") cells.push_back(d.path());
+  }
 
   std::map<std::string, int> bad;  // "cell type kind" -> count
   for (const auto& cell : cells) {

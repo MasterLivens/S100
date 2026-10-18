@@ -1,4 +1,5 @@
 #include "s100/s100.hpp"
+#include "support/test_data_roots.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -23,10 +24,11 @@ void test_layers_all_cells() {
   std::vector<fs::path> cells;
   for (const char* c : {"101AA00DS0003.000", "101AA00DS0006.000", "101AA00DS0008.000"})
     cells.push_back(src / "testdata/s101" / c);
-  const fs::path chs = src / "testdata/chs/COMBINED/S100_ROOT/S-101";
-  if (fs::exists(chs))
+  if (s100test::chs_exercised("layers_all_cells")) {
+    const fs::path chs = s100test::chs_s101_dir();
     for (const auto& d : fs::recursive_directory_iterator(chs))
       if (d.path().extension() == ".000") cells.push_back(d.path());
+  }
 
   for (const auto& cell : cells) {
     s100::Dataset ds;

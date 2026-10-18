@@ -1,5 +1,6 @@
 #include "s100/dataset.hpp"
 #include "s100/pick.hpp"
+#include "support/test_data_roots.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -16,8 +17,7 @@
 // Mirrors testdata/s101/fixtures.toml for 101AA00DS0008.000
 void test_fixtures_pick_0008() {
   namespace fs = std::filesystem;
-  const char* env = std::getenv("S100_TESTDATA");
-  fs::path root = env ? fs::path(env) : fs::path("testdata/s101");
+  fs::path root = s100test::fixture_root();
   fs::path cell = root / "101AA00DS0008.000";
   CHECK(fs::exists(cell));
 
