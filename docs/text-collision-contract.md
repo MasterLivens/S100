@@ -1,23 +1,22 @@
-# Text collision (viewer layout) — rev1 · Active / Open
+# Text collision (viewer layout) — rev1 (Closed)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S101-TEXT-COLLISION`** (**Active / Open**). CTest: **`viewer_text_collision`**.
+Case id: **`IHO-S101-TEXT-COLLISION`** (**Closed / Done** 2026-10-18). CTest: **`viewer_text_collision`** — MUST NOT SKIP; Linux + Windows dual-green (CI `39123185463` @ `845c51c`).
+**Status: Closed / Done (2026-10-18)** — CI [`39123185463`](https://github.com/MasterLivens/S100/actions/runs/39123185463) @ `845c51c` dual-green `viewer_text_collision`; **O1=(b)** Win narrow-open Passed (no fallback to a); oracles unchanged (`pairs_off >= pairs_on` and `pairs_off > 0`; unpaired `Kind::Text` only). Docs close only — **no algorithm rewrite this tip**. Next: `IHO-S101-POINT-LABEL-COLLISION` (shared `--no-text-collision` already; separate case/CTest).
 
-**Status: Active / Open (2026-10-18)** — Planner freeze + **O1(b→a)**. Eng tip base: **`origin/main` @ `9977a34`**. Stack Arch docs onto **`5fa4b98`**. Implementation already on tip (`50ab9ba` viewer layout + CLI/oracle; `ba9aa10` PointLabel follow-on — **not this slice**). **Not greenfield** — Eng verify / polish only; optional oracle `--class Text` (not blocking Close); Tester dual-green then Close. Do **not** edit PC Lua / `catalogues/`. No algorithm rewrite.
+**Planner freeze (kept):** fixture `101AA00DS0008.000` Day 1280×800; default collision ON; `--no-text-collision` OFF; unpaired `Kind::Text` only; no PC Lua. Point-companion → `IHO-S101-POINT-LABEL-COLLISION` / `docs/point-symbol-text-collision-contract.md`.
 
-**Planner freeze (MUST):** fixture `101AA00DS0008.000` Day 1280×800; default collision ON; `--no-text-collision` OFF; oracle `pairs_off >= pairs_on` **and** `pairs_off > 0`; **Ubuntu CI: `viewer_text_collision` MUST NOT SKIP, Passed**; **unpaired `Kind::Text` only**; no PC Lua. Point-companion → `IHO-S101-POINT-LABEL-COLLISION` / `docs/point-symbol-text-collision-contract.md` (separate tip / separate Closed).
+**O1 closed as (b):** Win CI narrowly runs **only** `viewer_text_collision` (rest of `viewer_*` still `-E "viewer_"`); Ubuntu + Windows both Passed — no (a) Ubuntu-bind / Notes-exclude fallback.
 
-**O1 (closed as b→a):** Try **(b) first** — Win CI narrowly run **only** `viewer_text_collision` (Eng `ci.yml` tip: keep `ctest -E "viewer_"` for the rest of the viewer family; Qt offscreen hang policy unchanged for golden/snapshot/etc.). If hang/timeout → fall back to **(a)**: Ubuntu bind + contract Notes document Win CI `viewer_*` exclude (same family as golden/snapshot). **Forbidden:** platform SKIP inside the test itself; local Win run optional. Do **not** choose pure (a)-only without trying (b); whole-viewer Win headless Qt remains a separate future slice.
+## Slice close — 2026-10-18
 
-**Close criteria (honest dual-green):**
-- Ubuntu: `viewer_text_collision` MUST NOT SKIP, Passed
-- Windows: (b) success → that test Passed on Win; (a) fallback → full matrix green is enough (Notes record `viewer_*` exclude)
-- Docs → Closed + CI Notes when done; if (b) needs Eng `ci.yml` narrow-open
-- After Close next: **`IHO-S101-POINT-LABEL-COLLISION`**
+**Status: Closed / Done** (formal docs close — **not** an algorithm rewrite).
 
-**Eng notes:** contract + CTest name above; cell path **`testdata/s101/101AA00DS0008.000`** (existence-only; not under `testdata/fixtures/catalogues`). Golden/palette/snapshot paths already pass `--no-text-collision`. Optional tip: count oracle with `--class Text` so pairs are unpaired-Text only (POINT-LABEL has its own CTest — **next slice**). Shared `--no-text-collision` already covers PointLabel on tip; PointLabel oracle / `viewer_point_label_collision` / glyph-survival counts **do not** belong to this Closed.
-
-**Notes (Win CI):** Existing policy in `.github/workflows/ci.yml`: Windows `ctest -E "viewer_"` (Qt offscreen/show+grab hang). O1 tries a narrow exception for this one CTest first; on hang, document exclude like golden/snapshot and bind Close on Ubuntu Passed + Win matrix green.
+- Evidence: CI [39123185463](https://github.com/MasterLivens/S100/actions/runs/39123185463) tip `845c51c` — Linux+Windows **`viewer_text_collision` Passed** (not Not Run / not Skip).
+- **O1=(b) SUCCESS** — Win narrow-open Passed; no fallback to (a).
+- Oracles stay as frozen MUST (pairwise Text boxes; soft golden with `--no-text-collision` on golden/palette paths).
+- **Notes:** next Eng **`IHO-S101-POINT-LABEL-COLLISION`** — shared `--no-text-collision` already covers PointLabel on tip; separate case id / CTest (`viewer_point_label_collision`); gap-check later.
+- **Non-goals this close:** PC Lua / `catalogues/` edits; algorithm rewrite; PointLabel oracle / glyph-survival counts (next slice).
 
 ## Scope
 
