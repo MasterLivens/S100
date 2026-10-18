@@ -22,4 +22,7 @@ struct Iso8211Record {
 bool parse_iso8211_records(const std::vector<std::uint8_t>& bytes,
                            std::vector<Iso8211Record>& out, LoadError* err);
 
+/** Decode a DSID field body (as stored in Iso8211Field::data); `ok` false if DSED unparseable. */
+DatasetIdentification parse_s101_dsid(const std::vector<std::uint8_t>& dsid_field);
+
 }  // namespace s100

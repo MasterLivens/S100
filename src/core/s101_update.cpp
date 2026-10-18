@@ -1,9 +1,14 @@
 #include "s100/exchange_set.hpp"
 #include "s100/iso8211.hpp"
+#include "s101_update_internal.hpp"
 
 #include <algorithm>
 #include <cstring>
+#include <exception>
 #include <fstream>
+#include <initializer_list>
+#include <iterator>
+#include <string>
 #include <unordered_map>
 
 namespace s100 {
@@ -373,45 +378,318 @@ bool apply_association_updates(std::vector<AssociationRef>& existing,
   return true;
 }
 
-static bool apply_s101_update_in_place(Dataset& ds, const std::filesystem::path& update_path, LoadError* err) {
-  DatasetIdentification upd_id;
-  if (!read_s101_dsid(update_path, upd_id, err)) return false;
-  // Sequence must match Dataset DSID: same edition, update == current + 1.
-  if (upd_id.edition_number != ds.edition_number ||
-      upd_id.update_number != ds.update_number + 1) {
-    if (err) {
-      err->kind = LoadErrorKind::Invalid;
-      err->message =
-          "update DSID ED/UPD mismatch for " + update_path.string() + ": got " +
-          std::to_string(upd_id.edition_number) + "." + std::to_string(upd_id.update_number) +
-          ", expected " + std::to_string(ds.edition_number) + "." +
-          std::to_string(ds.update_number + 1) + " (dataset at " +
-          std::to_string(ds.edition_number) + "." + std::to_string(ds.update_number) + ")";
+const char* update_reject_code_name(UpdateRejectCode code) {
+  switch (code) {
+    case UpdateRejectCode::None: return "None";
+    case UpdateRejectCode::EditionMismatch: return "EditionMismatch";
+    case UpdateRejectCode::OutOfSequence: return "OutOfSequence";
+    case UpdateRejectCode::NotUpdateFile: return "NotUpdateFile";
+    case UpdateRejectCode::Truncated: return "Truncated";
+    case UpdateRejectCode::BadStructure: return "BadStructure";
+    case UpdateRejectCode::BadInstruction: return "BadInstruction";
+    case UpdateRejectCode::MissingTarget: return "MissingTarget";
+    case UpdateRejectCode::CatalogueMismatch: return "CatalogueMismatch";
+  }
+  return "Unknown";
+}
+
+namespace {
+
+// ---- ISO 8211 structural pre-scan (contract Behaviour #3: Truncated, then BadStructure) ----
+
+struct Leader8211 {
+  std::size_t rec_len{0};
+  std::size_t base_addr{0};
+  char id{'?'};
+  int len_sz{0}, pos_sz{0}, tag_sz{0};
+};
+
+bool all_digits(const std::uint8_t* p, std::size_t n) {
+  for (std::size_t i = 0; i < n; ++i)
+    if (p[i] < '0' || p[i] > '9') return false;
+  return true;
+}
+
+std::size_t digits_value(const std::uint8_t* p, std::size_t n) {
+  std::size_t v = 0;
+  for (std::size_t i = 0; i < n; ++i) v = v * 10 + static_cast<std::size_t>(p[i] - '0');
+  return v;
+}
+
+/** Same acceptance rules as the loader's leader parser (iso8211.cpp), plus sane entry sizes. */
+bool parse_leader_8211(const std::uint8_t* p, std::size_t n, Leader8211& L) {
+  if (n < 24) return false;
+  if (!all_digits(p, 5) || !all_digits(p + 12, 5)) return false;
+  if (!all_digits(p + 20, 2) || !all_digits(p + 23, 1)) return false;
+  L.rec_len = digits_value(p, 5);
+  L.base_addr = digits_value(p + 12, 5);
+  L.id = static_cast<char>(p[6]);
+  L.len_sz = p[20] - '0';
+  L.pos_sz = p[21] - '0';
+  L.tag_sz = p[23] - '0';
+  return L.rec_len >= 24 && L.len_sz > 0 && L.pos_sz > 0 && L.tag_sz > 0;
+}
+
+enum class Scan { Ok, Truncated, BadStructure };
+
+/** Pass 1: every leader we can read must fit in the file (file size vs leader). */
+Scan scan_truncation(const std::vector<std::uint8_t>& b, std::string& why) {
+  if (b.size() < 24) {
+    why = "file is " + std::to_string(b.size()) + " bytes, shorter than one ISO 8211 leader (24)";
+    return Scan::Truncated;
+  }
+  std::size_t off = 0;
+  while (off < b.size()) {
+    const std::size_t rem = b.size() - off;
+    if (rem < 24) {
+      // A partial leader whose record-length digits are intact is a cut-off record.
+      if (all_digits(b.data() + off, std::min<std::size_t>(rem, 5))) {
+        why = "partial leader at offset " + std::to_string(off) + " (" + std::to_string(rem) +
+              " bytes left)";
+        return Scan::Truncated;
+      }
+      return Scan::Ok;  // garbage tail: structural pass decides
     }
+    Leader8211 L;
+    if (!parse_leader_8211(b.data() + off, rem, L)) return Scan::Ok;  // unreadable: pass 2
+    if (L.rec_len > rem) {
+      why = "record at offset " + std::to_string(off) + " claims " + std::to_string(L.rec_len) +
+            " bytes, only " + std::to_string(rem) + " on disk";
+      return Scan::Truncated;
+    }
+    off += L.rec_len;
+  }
+  return Scan::Ok;
+}
+
+/** Pass 2: leader / directory / field layout. */
+Scan scan_structure(const std::vector<std::uint8_t>& b, std::string& why) {
+  std::size_t off = 0;
+  std::size_t index = 0;
+  while (off < b.size()) {
+    const std::size_t rem = b.size() - off;
+    Leader8211 L;
+    if (!parse_leader_8211(b.data() + off, rem, L)) {
+      why = "bad ISO 8211 leader at offset " + std::to_string(off);
+      return Scan::BadStructure;
+    }
+    if (L.rec_len > rem) {
+      why = "record length past end of file at offset " + std::to_string(off);
+      return Scan::Truncated;
+    }
+    const char want = index == 0 ? 'L' : 'D';
+    if (L.id != want && !(index > 0 && L.id == 'R')) {
+      why = std::string("unexpected leader identifier '") + L.id + "' at offset " +
+            std::to_string(off);
+      return Scan::BadStructure;
+    }
+    if (L.base_addr < 25 || L.base_addr > L.rec_len) {
+      why = "base address out of range at offset " + std::to_string(off);
+      return Scan::BadStructure;
+    }
+    const std::uint8_t* rec = b.data() + off;
+    const std::size_t dir_len = L.base_addr - 24;
+    if (rec[L.base_addr - 1] != 0x1e) {
+      why = "directory not terminated at offset " + std::to_string(off);
+      return Scan::BadStructure;
+    }
+    const std::size_t esz = static_cast<std::size_t>(L.tag_sz + L.len_sz + L.pos_sz);
+    if ((dir_len - 1) % esz != 0 || dir_len - 1 == 0) {
+      why = "directory size not a multiple of entry size at offset " + std::to_string(off);
+      return Scan::BadStructure;
+    }
+    const std::size_t field_area = L.rec_len - L.base_addr;
+    for (std::size_t i = 0; i + esz <= dir_len - 1; i += esz) {
+      const std::uint8_t* e = rec + 24 + i;
+      const std::uint8_t* len_p = e + L.tag_sz;
+      const std::uint8_t* pos_p = len_p + L.len_sz;
+      if (!all_digits(len_p, static_cast<std::size_t>(L.len_sz)) ||
+          !all_digits(pos_p, static_cast<std::size_t>(L.pos_sz))) {
+        why = "non-numeric directory entry at offset " + std::to_string(off);
+        return Scan::BadStructure;
+      }
+      const std::size_t flen = digits_value(len_p, static_cast<std::size_t>(L.len_sz));
+      const std::size_t fpos = digits_value(pos_p, static_cast<std::size_t>(L.pos_sz));
+      if (flen == 0 || fpos + flen > field_area) {
+        why = "directory entry past record end at offset " + std::to_string(off);
+        return Scan::BadStructure;
+      }
+      if (rec[L.base_addr + fpos + flen - 1] != 0x1e) {
+        why = "field not terminated at offset " + std::to_string(off);
+        return Scan::BadStructure;
+      }
+    }
+    off += L.rec_len;
+    ++index;
+  }
+  return Scan::Ok;
+}
+
+/** Best-effort DSID for messages on files that failed the structural scan: walk complete
+ *  records, resyncing on the next readable data leader. Never used for decisions. */
+bool sniff_dsid(const std::vector<std::uint8_t>& b, DatasetIdentification& out) {
+  std::size_t off = 0;
+  while (off + 24 <= b.size()) {
+    Leader8211 L;
+    if (!parse_leader_8211(b.data() + off, b.size() - off, L) || L.rec_len > b.size() - off ||
+        L.base_addr < 25 || L.base_addr > L.rec_len) {
+      ++off;  // resync
+      continue;
+    }
+    const std::uint8_t* rec = b.data() + off;
+    const std::size_t esz = static_cast<std::size_t>(L.tag_sz + L.len_sz + L.pos_sz);
+    for (std::size_t i = 24; i + esz <= L.base_addr; i += esz) {
+      if (rec[i] == 0x1e) break;
+      const std::uint8_t* len_p = rec + i + L.tag_sz;
+      const std::uint8_t* pos_p = len_p + L.len_sz;
+      if (static_cast<std::size_t>(L.tag_sz) != 4 || std::memcmp(rec + i, "DSID", 4) != 0) continue;
+      if (!all_digits(len_p, static_cast<std::size_t>(L.len_sz)) ||
+          !all_digits(pos_p, static_cast<std::size_t>(L.pos_sz)))
+        break;
+      const std::size_t flen = digits_value(len_p, static_cast<std::size_t>(L.len_sz));
+      const std::size_t fpos = digits_value(pos_p, static_cast<std::size_t>(L.pos_sz));
+      if (L.base_addr + fpos + flen > L.rec_len) break;
+      std::vector<std::uint8_t> data(rec + L.base_addr + fpos, rec + L.base_addr + fpos + flen);
+      if (!data.empty() && data.back() == 0x1e) data.pop_back();
+      out = parse_s101_dsid(data);
+      if (out.ok) return true;
+    }
+    off += L.rec_len;
+  }
+  return false;
+}
+
+std::string ed_upd(int ed, int upd) { return std::to_string(ed) + "." + std::to_string(upd); }
+
+bool instruction_ok(std::uint8_t v) { return v <= 3; }
+
+/** Context for one apply: produces the single code + message on rejection. */
+struct Reject {
+  const std::filesystem::path& path;
+  LoadError* err;
+  UpdateRejectCode* code;
+  std::string* message;
+  std::string file_ed_upd{"?.? (DSID unreadable)"};
+  bool operator()(UpdateRejectCode c, LoadErrorKind kind, const std::string& detail) const {
+    const std::string msg = "update rejected: " + path.string() + " ED.UPD " + file_ed_upd +
+                            " code=" + update_reject_code_name(c) + ": " + detail;
+    if (err) {
+      err->kind = kind;
+      err->message = msg;
+    }
+    if (code) *code = c;
+    if (message) *message = msg;
     return false;
+  }
+};
+
+/** Validate ATIN / FAUI / IUIN values on one data record. Returns false + detail on the first
+ *  unknown value. */
+bool check_record_instructions(const Iso8211Record& rec,
+                               const std::unordered_map<std::uint16_t, std::string>& atcs,
+                               std::string& detail) {
+  for (const auto& f : rec.fields) {
+    if (f.tag == "ATTR") {
+      for (const auto& a : parse_attributes(f.data, atcs))
+        if (!instruction_ok(a.instruction)) {
+          detail = "unknown ATIN " + std::to_string(static_cast<unsigned>(a.instruction)) +
+                   " on attribute " + a.code;
+          return false;
+        }
+    } else if (f.tag == "FASC" || f.tag == "INAS") {
+      if (f.data.size() < 10) continue;
+      if (!instruction_ok(f.data[9])) {
+        detail = std::string("unknown ") + (f.tag == "FASC" ? "FAUI " : "IUIN ") +
+                 std::to_string(static_cast<unsigned>(f.data[9]));
+        return false;
+      }
+      std::vector<std::uint8_t> tail(f.data.begin() + 10, f.data.end());
+      for (const auto& a : parse_attributes(tail, atcs))
+        if (!instruction_ok(a.instruction)) {
+          detail = "unknown ATIN " + std::to_string(static_cast<unsigned>(a.instruction)) +
+                   " on association attribute " + a.code;
+          return false;
+        }
+    }
+  }
+  return true;
+}
+
+bool ruin_ok(std::uint8_t r) { return r >= 1 && r <= 3; }
+
+/** Applies one update to `ds` in place, in contract check order. Caller guarantees `ds` is a
+ *  working copy (strong guarantee lives in apply_one). */
+bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
+                    const ExchangeDatasetEntry* entry, const Reject& reject_in) {
+  Reject reject = reject_in;
+  std::vector<std::uint8_t> bytes;
+  {
+    std::ifstream in(update_path, std::ios::binary);
+    if (!in)
+      return reject(UpdateRejectCode::Truncated, LoadErrorKind::Io,
+                    "cannot open update (0 bytes readable)");
+    bytes.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
   }
 
-  std::ifstream in(update_path, std::ios::binary);
-  if (!in) {
-    if (err) {
-      err->kind = LoadErrorKind::Io;
-      err->message = "cannot open update " + update_path.string();
-    }
-    return false;
+  // 1. file size vs leader -> Truncated; 2. ISO 8211 parse -> BadStructure.
+  std::string why;
+  const Scan t = scan_truncation(bytes, why);
+  const Scan st = t == Scan::Ok ? scan_structure(bytes, why) : t;
+  if (st != Scan::Ok) {
+    DatasetIdentification sniffed;
+    if (sniff_dsid(bytes, sniffed)) reject.file_ed_upd = ed_upd(sniffed.edition_number, sniffed.update_number);
+    return reject(st == Scan::Truncated ? UpdateRejectCode::Truncated : UpdateRejectCode::BadStructure,
+                  LoadErrorKind::Parse, why);
   }
-  std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)),
-                                  std::istreambuf_iterator<char>());
-  if (bytes.empty()) {
-    if (err) {
-      err->kind = LoadErrorKind::Invalid;
-      err->message = "empty update: " + update_path.string();
-    }
-    return false;
-  }
-
   std::vector<Iso8211Record> records;
-  if (!parse_iso8211_records(bytes, records, err)) return false;
+  {
+    LoadError perr{LoadErrorKind::Parse, {}};
+    if (!parse_iso8211_records(bytes, records, &perr))
+      return reject(UpdateRejectCode::BadStructure, LoadErrorKind::Parse, perr.message);
+  }
 
+  // 3. DSID: base / non-S-101 -> NotUpdateFile.
+  const Iso8211Field* dsid = nullptr;
+  for (const auto& rec : records) {
+    if (rec.leader_id != 'D') continue;
+    if ((dsid = rec.find("DSID"))) break;
+  }
+  if (!dsid)
+    return reject(UpdateRejectCode::NotUpdateFile, LoadErrorKind::Invalid,
+                  "no DSID record: not an S-101 dataset");
+  const DatasetIdentification upd_id = parse_s101_dsid(dsid->data);
+  if (!upd_id.ok)
+    return reject(UpdateRejectCode::BadStructure, LoadErrorKind::Invalid,
+                  "DSID DSED missing or unparseable");
+  reject.file_ed_upd = ed_upd(upd_id.edition_number, upd_id.update_number);
+  if (upd_id.product_specification.find("S-101") == std::string::npos)
+    return reject(UpdateRejectCode::NotUpdateFile, LoadErrorKind::Invalid,
+                  "DSID PRSP '" + upd_id.product_specification + "' is not S-101");
+  if (upd_id.update_number == 0)
+    return reject(UpdateRejectCode::NotUpdateFile, LoadErrorKind::Invalid,
+                  "DSID UPD 0: base cell, not an update");
+
+  // 4. catalogue vs DSID -> CatalogueMismatch.
+  if (entry && ((entry->has_edition_meta && entry->edition_number != upd_id.edition_number) ||
+                (entry->has_update_meta && entry->update_number != upd_id.update_number)))
+    return reject(UpdateRejectCode::CatalogueMismatch, LoadErrorKind::Invalid,
+                  "catalogue ED/UPD " +
+                      (entry->has_edition_meta ? std::to_string(entry->edition_number) : "?") + "." +
+                      (entry->has_update_meta ? std::to_string(entry->update_number) : "?") +
+                      " does not match DSID " + reject.file_ed_upd);
+
+  // 5. ED -> EditionMismatch; 6. UPD -> OutOfSequence (sequencing by DSID, not file name).
+  if (upd_id.edition_number != ds.edition_number)
+    return reject(UpdateRejectCode::EditionMismatch, LoadErrorKind::Invalid,
+                  "update DSID ED/UPD " + reject.file_ed_upd + " edition differs from dataset " +
+                      ed_upd(ds.edition_number, ds.update_number));
+  if (upd_id.update_number != ds.update_number + 1)
+    return reject(UpdateRejectCode::OutOfSequence, LoadErrorKind::Invalid,
+                  "update DSID ED/UPD " + reject.file_ed_upd + " mismatch: expected " +
+                      ed_upd(ds.edition_number, ds.update_number + 1) + " (dataset at " +
+                      ed_upd(ds.edition_number, ds.update_number) + ")");
+
+  // 7. records: BadInstruction / MissingTarget, first failure in record order wins.
   Dssi dssi;
   std::unordered_map<std::uint16_t, std::string> ftcs, atcs, itcs, iacs, facs, arcs;
   for (const auto& rec : records) {
@@ -435,32 +713,52 @@ static bool apply_s101_update_in_place(Dataset& ds, const std::filesystem::path&
   std::uint64_t next_id = 1;
   for (const auto& f : ds.features) next_id = std::max(next_id, f.id + 1);
 
-  auto apply_spatial = [&](const Iso8211Record& rec, const char* tag) {
-    auto* id = rec.find(tag);
-    if (!id || id->data.size() < 8 || id->data[0] < 100) return;
-    const auto ruin = ruin_from_id(id->data, false);
-    const auto rcnm = id->data[0];
-    const auto rcid = read_u32(id->data.data() + 1);
-    const auto key = SpatialStore::key(rcnm, rcid);
-    if (ruin == 2) {
-      ds.spatial.records.erase(key);
-      return;
-    }
-    if (ruin == 1 || ruin == 3)
-      ds.spatial.records[key] = decode_spatial(rec, tag, dssi, iacs, arcs, atcs);
+  auto bad = [&](const std::string& d) {
+    return reject(UpdateRejectCode::BadInstruction, LoadErrorKind::Invalid, d);
+  };
+  auto missing = [&](const std::string& d) {
+    return reject(UpdateRejectCode::MissingTarget, LoadErrorKind::Invalid, d);
+  };
+  auto rcid_text = [](const char* what, unsigned rcnm, std::uint32_t rcid) {
+    return std::string(what) + " (" + std::to_string(rcnm) + "," + std::to_string(rcid) + ")";
   };
 
   for (const auto& rec : records) {
     if (rec.leader_id != 'D') continue;
-    if (rec.find("PRID")) apply_spatial(rec, "PRID");
-    if (rec.find("MRID")) apply_spatial(rec, "MRID");
-    if (rec.find("CRID")) apply_spatial(rec, "CRID");
-    if (rec.find("CCID")) apply_spatial(rec, "CCID");
-    if (rec.find("SRID")) apply_spatial(rec, "SRID");
+    std::string detail;
+    if (!check_record_instructions(rec, atcs, detail)) return bad(detail);
+
+    for (const char* tag : {"PRID", "MRID", "CRID", "CCID", "SRID"}) {
+      auto* id = rec.find(tag);
+      if (!id || id->data.size() < 8 || id->data[0] < 100) continue;
+      const auto ruin = ruin_from_id(id->data, false);
+      const auto rcnm = id->data[0];
+      const auto rcid = read_u32(id->data.data() + 1);
+      if (!ruin_ok(ruin))
+        return bad("unknown RUIN " + std::to_string(static_cast<unsigned>(ruin)) + " on " +
+                   rcid_text(tag, rcnm, rcid));
+      const auto key = SpatialStore::key(rcnm, rcid);
+      const bool exists = ds.spatial.records.count(key) != 0;
+      if ((ruin == 2 || ruin == 3) && !exists)
+        return missing(std::string(ruin == 2 ? "Delete" : "Modify") + " of non-existent spatial " +
+                       rcid_text(tag, rcnm, rcid));
+      if (ruin == 2)
+        ds.spatial.records.erase(key);
+      else
+        ds.spatial.records[key] = decode_spatial(rec, tag, dssi, iacs, arcs, atcs);
+    }
 
     if (auto* irid = rec.find("IRID"); irid && irid->data.size() >= 10 && irid->data[0] >= 100) {
       const auto ruin = ruin_from_id(irid->data, true);
       const auto rcid = read_u32(irid->data.data() + 1);
+      if (!ruin_ok(ruin))
+        return bad("unknown RUIN " + std::to_string(static_cast<unsigned>(ruin)) + " on " +
+                   rcid_text("IRID", irid->data[0], rcid));
+      auto target = std::find_if(ds.information.begin(), ds.information.end(),
+                                 [&](const InformationRecord& ir) { return ir.record_id == rcid; });
+      if ((ruin == 2 || ruin == 3) && target == ds.information.end())
+        return missing(std::string(ruin == 2 ? "Delete" : "Modify") + " of non-existent " +
+                       rcid_text("IRID", irid->data[0], rcid));
       if (ruin == 2) {
         ds.information.erase(std::remove_if(ds.information.begin(), ds.information.end(),
                                             [&](const InformationRecord& ir) {
@@ -479,24 +777,16 @@ static bool apply_s101_update_in_place(Dataset& ds, const std::filesystem::path&
             ir.information_associations.push_back(parse_association(f.data, iacs, arcs, atcs));
         if (ruin == 1) {
           ds.information.push_back(std::move(ir));
-        } else if (ruin == 3) {
-          bool found = false;
-          for (auto& existing : ds.information) {
-            if (existing.record_id != rcid) continue;
-            if (!ir.attributes.empty()) apply_atin(existing.attributes, ir.attributes);
-            if (rec.find("INAS")) {
-              auto backup = existing.information_associations;
-              if (!apply_association_updates(existing.information_associations,
-                                             ir.information_associations, err)) {
-                existing.information_associations = std::move(backup);
-                return false;
-              }
-            }
-            if (!ir.information_type.empty()) existing.information_type = ir.information_type;
-            found = true;
-            break;
+        } else {
+          auto& existing = *target;
+          if (!ir.attributes.empty()) apply_atin(existing.attributes, ir.attributes);
+          if (rec.find("INAS")) {
+            LoadError aerr{LoadErrorKind::Invalid, {}};
+            if (!apply_association_updates(existing.information_associations,
+                                           ir.information_associations, &aerr))
+              return missing(aerr.message + " on " + rcid_text("IRID", irid->data[0], rcid));
           }
-          if (!found) ds.information.push_back(std::move(ir));
+          if (!ir.information_type.empty()) existing.information_type = ir.information_type;
         }
       }
     }
@@ -504,6 +794,18 @@ static bool apply_s101_update_in_place(Dataset& ds, const std::filesystem::path&
     if (auto* frid = rec.find("FRID"); frid && frid->data.size() >= 10 && frid->data[0] == 100) {
       const auto ruin = ruin_from_id(frid->data, true);
       const auto rcid = read_u32(frid->data.data() + 1);
+      if (!ruin_ok(ruin))
+        return bad("unknown RUIN " + std::to_string(static_cast<unsigned>(ruin)) + " on " +
+                   rcid_text("FRID", 100, rcid));
+      Feature* target = nullptr;
+      for (auto& f : ds.features)
+        if (f.record_id == rcid) {
+          target = &f;
+          break;
+        }
+      if ((ruin == 2 || ruin == 3) && !target)
+        return missing(std::string(ruin == 2 ? "Delete" : "Modify") + " of non-existent " +
+                       rcid_text("FRID", 100, rcid));
       if (ruin == 2) {
         ds.features.erase(std::remove_if(ds.features.begin(), ds.features.end(),
                                          [&](const Feature& f) { return f.record_id == rcid; }),
@@ -512,39 +814,19 @@ static bool apply_s101_update_in_place(Dataset& ds, const std::filesystem::path&
         Feature feat = decode_feature(rec, ftcs, atcs, facs, arcs, iacs, next_id++);
         for (auto& a : feat.attributes) a.instruction = 1;
         ds.features.push_back(std::move(feat));
-      } else if (ruin == 3) {
+      } else {
         Feature patch = decode_feature(rec, ftcs, atcs, facs, arcs, iacs, 0);
-        Feature* target = nullptr;
-        for (auto& f : ds.features)
-          if (f.record_id == rcid) {
-            target = &f;
-            break;
-          }
-        if (!target) {
-          patch.id = next_id++;
-          ds.features.push_back(std::move(patch));
-        } else {
-          if (!patch.feature_type.empty() && patch.feature_type.rfind("Feature", 0) != 0)
-            target->feature_type = patch.feature_type;
-          if (rec.find("ATTR")) apply_atin(target->attributes, patch.attributes);
-          if (auto* spas = rec.find("SPAS")) apply_spas_sau(target->spatial, spas->data);
-          if (rec.find("FASC")) {
-            auto backup = target->feature_associations;
-            if (!apply_association_updates(target->feature_associations, patch.feature_associations,
-                                           err)) {
-              target->feature_associations = std::move(backup);
-              return false;
-            }
-          }
-          if (rec.find("INAS")) {
-            auto backup = target->information_associations;
-            if (!apply_association_updates(target->information_associations,
-                                           patch.information_associations, err)) {
-              target->information_associations = std::move(backup);
-              return false;
-            }
-          }
-        }
+        if (!patch.feature_type.empty() && patch.feature_type.rfind("Feature", 0) != 0)
+          target->feature_type = patch.feature_type;
+        if (rec.find("ATTR")) apply_atin(target->attributes, patch.attributes);
+        if (auto* spas = rec.find("SPAS")) apply_spas_sau(target->spatial, spas->data);
+        LoadError aerr{LoadErrorKind::Invalid, {}};
+        if (rec.find("FASC") && !apply_association_updates(target->feature_associations,
+                                                           patch.feature_associations, &aerr))
+          return missing(aerr.message + " on " + rcid_text("FRID", 100, rcid));
+        if (rec.find("INAS") && !apply_association_updates(target->information_associations,
+                                                           patch.information_associations, &aerr))
+          return missing(aerr.message + " on " + rcid_text("FRID", 100, rcid));
       }
     }
   }
@@ -556,64 +838,107 @@ static bool apply_s101_update_in_place(Dataset& ds, const std::filesystem::path&
   return true;
 }
 
-// Strong guarantee (update-robustness contract): apply on a copy, swap only on success,
-// so a rejected update leaves `ds` unchanged.
-bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, LoadError* err) {
+/** Strong guarantee (contract Behaviour #1): apply on a copy, swap only on success. */
+bool apply_one(Dataset& ds, const std::filesystem::path& update_path,
+               const ExchangeDatasetEntry* entry, LoadError* err, UpdateRejectCode* code,
+               std::string* message) {
+  if (code) *code = UpdateRejectCode::None;
   Dataset work = ds;
-  if (!apply_s101_update_in_place(work, update_path, err)) return false;
+  const Reject reject{update_path, err, code, message};
+  bool ok = false;
+  try {
+    ok = apply_in_place(work, update_path, entry, reject);
+  } catch (const std::exception& e) {
+    // Contract rule 9: nothing escapes; a decode that throws is a structural defect.
+    ok = reject(UpdateRejectCode::BadStructure, LoadErrorKind::Parse,
+                std::string("exception while decoding: ") + e.what());
+  }
+  if (!ok) return false;
   using std::swap;
   swap(ds, work);
   return true;
 }
 
-bool open_dataset_with_updates(const std::filesystem::path& base,
-                               const std::vector<std::filesystem::path>& updates, Dataset& out,
-                               LoadError* err) {
-  // Build on a temporary Dataset so a mid-sequence failure does not partially apply into out.
+/** Code for a base cell that load_s101 refused (not an update, but the open call must still
+ *  name one code): file-level scan result, else BadStructure. */
+UpdateRejectCode classify_base_failure(const std::filesystem::path& base, std::string& why) {
+  std::ifstream in(base, std::ios::binary);
+  if (!in) {
+    why = "cannot open base cell";
+    return UpdateRejectCode::Truncated;
+  }
+  std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)),
+                                  std::istreambuf_iterator<char>());
+  const Scan t = scan_truncation(bytes, why);
+  if (t == Scan::Truncated) return UpdateRejectCode::Truncated;
+  const Scan s = scan_structure(bytes, why);
+  if (s == Scan::Truncated) return UpdateRejectCode::Truncated;
+  if (why.empty()) why = "base cell did not load";
+  return UpdateRejectCode::BadStructure;
+}
+
+}  // namespace
+
+bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, LoadError* err,
+                       UpdateRejectCode* code) {
+  return apply_one(ds, update_path, nullptr, err, code, nullptr);
+}
+
+namespace detail {
+
+bool open_s101_with_updates(const std::filesystem::path& base,
+                            const std::vector<std::filesystem::path>& updates,
+                            const std::vector<const ExchangeDatasetEntry*>* entries, Dataset& out,
+                            LoadError* err, UpdateReport* report) {
+  if (report) *report = UpdateReport{};
   Dataset tmp;
-  if (!load_s101(base, tmp, err)) return false;
-
-  struct Item {
-    std::filesystem::path path;
-    int edition{0};
-    int update{0};
-  };
-  std::vector<Item> items;
-  items.reserve(updates.size());
-  for (const auto& u : updates) {
-    DatasetIdentification id;
-    if (!read_s101_dsid(u, id, err)) return false;
-    items.push_back(Item{u, id.edition_number, id.update_number});
-  }
-  // Order by DSID ED/UPD — do not rely on filename / extension sort alone.
-  std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
-    if (a.edition != b.edition) return a.edition < b.edition;
-    return a.update < b.update;
-  });
-
-  int expect_ed = tmp.edition_number;
-  int expect_upd = tmp.update_number + 1;
-  for (const auto& it : items) {
-    if (it.edition != expect_ed || it.update != expect_upd) {
-      if (err) {
-        err->kind = LoadErrorKind::Invalid;
-        err->message =
-            "update sequence ED/UPD mismatch for " + it.path.string() + ": got " +
-            std::to_string(it.edition) + "." + std::to_string(it.update) + ", expected " +
-            std::to_string(expect_ed) + "." + std::to_string(expect_upd);
-      }
-      return false;
+  LoadError base_err{LoadErrorKind::Invalid, {}};
+  if (!load_s101(base, tmp, &base_err)) {
+    std::string why;
+    const auto c = classify_base_failure(base, why);
+    if (err) *err = base_err;
+    if (report) {
+      report->rejected = base;
+      report->code = c;
+      report->message = "base rejected: " + base.string() + " code=" + update_reject_code_name(c) +
+                        ": " + base_err.message;
     }
-    ++expect_upd;
-  }
-
-  for (const auto& it : items) {
-    if (!apply_s101_update(tmp, it.path, err)) return false;
+    return false;
   }
   tmp.path = base;
   tmp.product = ProductId::S101;
+
+  // Contract Behaviour #2/#3a: list order, sequenced by DSID; stop at the first rejection and
+  // keep base + the applied prefix in `out` (last good state, usable for display).
+  int applied = 0;
+  for (std::size_t i = 0; i < updates.size(); ++i) {
+    const ExchangeDatasetEntry* entry =
+        entries && i < entries->size() ? (*entries)[i] : nullptr;
+    UpdateRejectCode code = UpdateRejectCode::None;
+    std::string message;
+    if (!apply_one(tmp, updates[i], entry, err, &code, &message)) {
+      if (report) {
+        report->applied = applied;
+        report->rejected = updates[i];
+        report->code = code;
+        report->message = message;
+      }
+      out = std::move(tmp);
+      return false;
+    }
+    ++applied;
+  }
+  if (report) report->applied = applied;
   out = std::move(tmp);
-  return !out.features.empty();
+  return true;
+}
+
+}  // namespace detail
+
+bool open_dataset_with_updates(const std::filesystem::path& base,
+                               const std::vector<std::filesystem::path>& updates, Dataset& out,
+                               LoadError* err, UpdateReport* report) {
+  return detail::open_s101_with_updates(base, updates, nullptr, out, err, report);
 }
 
 }  // namespace s100

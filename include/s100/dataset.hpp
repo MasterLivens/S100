@@ -82,6 +82,7 @@ struct DatasetIdentification {
   int edition_number{0};
   int update_number{0};
   std::string dataset_name;
+  std::string product_specification;  // DSID PRSP, e.g. "INT.IHO.S-101.2.0"
   bool ok{false};
 };
 

@@ -1,4 +1,5 @@
 #include "s100/exchange_set.hpp"
+#include "s101_update_internal.hpp"
 
 #include <pugixml.hpp>
 
@@ -311,44 +312,59 @@ std::vector<std::filesystem::path> discover_update_files(const std::filesystem::
   return updates;
 }
 
-bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError* err) {
+bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError* err,
+                      UpdateReport* report) {
+  if (report) *report = UpdateReport{};
   // Coverage / non-S-101 products: single-file open_dataset (no ISO 8211 update chain).
   if (series.product != ProductId::S101 && series.product != ProductId::Unknown) {
     if (!series.updates.empty()) {
+      const std::string msg = "update rejected: " + series.updates.front().string() +
+                              " code=NotUpdateFile: updates not supported for " +
+                              std::string(product_name(series.product)) + " cell " +
+                              series.cell_name;
       if (err) {
         err->kind = LoadErrorKind::Invalid;
-        err->message = "updates not supported for " + std::string(product_name(series.product)) +
-                       " cell " + series.cell_name;
+        err->message = msg;
+      }
+      if (report) {
+        report->rejected = series.updates.front();
+        report->code = UpdateRejectCode::NotUpdateFile;
+        report->message = msg;
       }
       return false;
     }
     return open_dataset(series.base, out, err);
   }
-  // When catalogue carries ED/UPD, each file's DSID must match before applying.
-  auto check_meta = [&](const ExchangeDatasetEntry& e) -> bool {
-    if (!e.has_edition_meta || !e.has_update_meta) return true;
+  // Base cell: catalogue ED/UPD must match its DSID before anything is loaded. An unreadable
+  // base DSID is left to the base load (which names Truncated / BadStructure).
+  const auto& be = series.base_entry;
+  if (be.has_edition_meta || be.has_update_meta) {
     DatasetIdentification id;
-    if (!read_s101_dsid(e.file_path, id, err)) return false;
-    if (id.edition_number != e.edition_number || id.update_number != e.update_number) {
+    if (read_s101_dsid(be.file_path, id, nullptr) &&
+        ((be.has_edition_meta && id.edition_number != be.edition_number) ||
+         (be.has_update_meta && id.update_number != be.update_number))) {
+      const std::string msg =
+          "base rejected: " + be.file_path.string() + " ED.UPD " +
+          std::to_string(id.edition_number) + "." + std::to_string(id.update_number) +
+          " code=CatalogueMismatch: catalogue ED/UPD " + std::to_string(be.edition_number) + "." +
+          std::to_string(be.update_number) + " does not match DSID";
       if (err) {
         err->kind = LoadErrorKind::Invalid;
-        err->message =
-            "catalogue ED/UPD does not match DSID for " + e.file_path.string() +
-            ": catalogue " + std::to_string(e.edition_number) + "." +
-            std::to_string(e.update_number) + " vs DSID " + std::to_string(id.edition_number) +
-            "." + std::to_string(id.update_number);
+        err->message = msg;
+      }
+      if (report) {
+        report->rejected = be.file_path;
+        report->code = UpdateRejectCode::CatalogueMismatch;
+        report->message = msg;
       }
       return false;
     }
-    return true;
-  };
-  if (series.base_entry.has_edition_meta || series.base_entry.has_update_meta) {
-    if (!check_meta(series.base_entry)) return false;
   }
-  for (const auto& ue : series.update_entries) {
-    if (!check_meta(ue)) return false;
-  }
-  return open_dataset_with_updates(series.base, series.updates, out, err);
+  // Updates: catalogue-vs-DSID runs inside the per-update check order (contract Behaviour #3).
+  std::vector<const ExchangeDatasetEntry*> entries(series.updates.size(), nullptr);
+  if (series.update_entries.size() == series.updates.size())
+    for (std::size_t i = 0; i < entries.size(); ++i) entries[i] = &series.update_entries[i];
+  return detail::open_s101_with_updates(series.base, series.updates, &entries, out, err, report);
 }
 
 }  // namespace s100

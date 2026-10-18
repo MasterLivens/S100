@@ -87,8 +87,12 @@ add_executable(s100_tests
   tests/test_scamin_filter.cpp
   tests/test_display_priority_order.cpp
   tests/test_timeline_ui.cpp
+  tests/test_update_robustness.cpp
+  tests/support/dataset_digest.cpp
+  tests/support/sha256.cpp
 )
 target_link_libraries(s100_tests PRIVATE s100_core)
+target_include_directories(s100_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 target_compile_definitions(s100_tests PRIVATE CMAKE_SOURCE_DIR_STR="${CMAKE_SOURCE_DIR}")
 target_compile_definitions(s100_tests PRIVATE S100_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_compile_definitions(s100_tests PRIVATE "S100_CLI_PATH=\"$<TARGET_FILE:s100_cli>\"")
@@ -103,6 +107,14 @@ add_test(NAME session_pick_unified COMMAND s100_tests session_pick_unified)
 add_test(NAME scamin_filter COMMAND s100_tests scamin_filter)
 add_test(NAME display_priority_order COMMAND s100_tests display_priority_order)
 add_test(NAME pc_wire_111_124 COMMAND s100_tests pc_wire_111_124)
+# IHO-S164-UPD-SEQ / IHO-S164-UPD-CORRUPT (docs/update-robustness-contract.md rev 1.2) —
+# MUST NOT SKIP, no platform guard. Python3 is REQUIRED so a missing interpreter fails configure
+# instead of skipping the reproducibility oracle.
+add_test(NAME exchange_update_robustness COMMAND s100_tests exchange_update_robustness)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME update_fixtures_reproducible
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/check_update_fixtures.py
+          ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/update_fixtures_repro)
 add_test(NAME third_party_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_third_party.cmake)
 add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_catalogues.cmake)
 add_executable(s100_portrayal_tests tests/test_portrayal.cpp tests/test_bridge_render.cpp)

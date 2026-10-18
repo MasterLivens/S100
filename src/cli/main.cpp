@@ -32,7 +32,7 @@ static const char* kUsage =
     "                [--s104-frame <i>] [--s104-time <iso>] [--s111-frame <i>] [--s111-time <iso>]\n"
     "                [--list-frames] [--session-pick <lon> <lat>]\n"
     "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
-    "                [--view-scale <N>] [--ignore-scamin] [--fasc]\n"
+    "                [--view-scale <N>] [--ignore-scamin] [--fasc] [--with-updates]\n"
     "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
     "                [--fc <FC.xml>] [--layers] [--session-pick <lon> <lat>]\n"
     "  note: lone .001 updates are rejected; use exchange set / with_updates\n"
@@ -40,6 +40,8 @@ static const char* kUsage =
   "  note: --view-scale <N> filters portray dump by SCAMIN/SCAMAX (omit = no scale filter)\n"
   "  note: --ignore-scamin skips scale_minimum checks only (SCAMAX still applies)\n"
   "  note: --list-frames prints product\\tindex\\ttime_iso\\tactive for S-104/S-111\n"
+  "  note: --with-updates applies sibling <stem>.001.. and prints\n"
+  "        updates applied=N rejected=<file> code=<Code> (exit 1 when an update is rejected)\n"
   "  note: --fasc prints S-101 FASC as TSV feature_id\\tfeature_type\\tpeer_id\\tpeer_type\\tassociation\\trole\n";
 
 static long long ms_since(std::chrono::steady_clock::time_point t0) {
@@ -163,7 +165,8 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
                            const std::vector<std::filesystem::path>& overlay_paths, bool do_session_pick,
                            double pick_lon, double pick_lat, bool have_view_scale, long view_scale_denom,
                            bool ignore_scamin_flag, bool list_frames, int s104_frame,
-                           const std::string& s104_time, int s111_frame, const std::string& s111_time) {
+                           const std::string& s104_time, int s111_frame, const std::string& s111_time,
+                           bool with_updates) {
   // Session path: primary + overlays (used for --session-pick and multi-product loads).
   const bool use_session = do_session_pick || !overlay_paths.empty();
   if (use_session) {
@@ -217,10 +220,25 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
   bool ok = false;
   if (path.extension() == ".000") {
     auto updates = s100::discover_update_files(path);
-    if (!updates.empty())
-      ok = s100::open_dataset_with_updates(path, updates, ds, &err);
-    else
+    if (!updates.empty() || with_updates) {
+      // docs/update-robustness-contract.md: the CLI only shows the core's report.
+      s100::UpdateReport report;
+      ok = s100::open_dataset_with_updates(path, updates, ds, &err, &report);
+      if (with_updates) {
+        std::cout << "updates applied=" << report.applied << " rejected="
+                  << (report.rejected.empty() ? std::string("-") : report.rejected.string())
+                  << " code=" << s100::update_reject_code_name(report.code) << "\n";
+        if (!ok) {
+          std::cerr << "warning: " << report.message << "\n";
+          if (report.rejected != path)
+            std::cerr << "warning: last good state " << ds.edition_number << "."
+                      << ds.update_number << " features=" << ds.features.size() << "\n";
+          return 1;
+        }
+      }
+    } else {
       ok = s100::open_dataset(path, ds, &err);
+    }
   } else {
     ok = s100::open_dataset(path, ds, &err);
   }
@@ -464,6 +482,7 @@ int main(int argc, char** argv) {
   bool ignore_scamin_flag = false;
   bool list_frames = false;
   bool dump_fasc = false;
+  bool with_updates = false;
   int s104_frame = -1;
   int s111_frame = -1;
   std::string s104_time, s111_time;
@@ -526,6 +545,8 @@ int main(int argc, char** argv) {
       ignore_scamin_flag = true;
     } else if (!std::strcmp(argv[i], "--fasc")) {
       dump_fasc = true;
+    } else if (!std::strcmp(argv[i], "--with-updates")) {
+      with_updates = true;
     } else
       path = argv[i];
   }
@@ -583,5 +604,5 @@ int main(int argc, char** argv) {
   return run_single_cell(path, fc_path, pc_path, list_layers, do_portray, show_errors, settings,
                          overlay_paths, do_session_pick, pick_lon, pick_lat, have_view_scale,
                          view_scale_denom, ignore_scamin_flag, list_frames, s104_frame, s104_time,
-                         s111_frame, s111_time);
+                         s111_frame, s111_time, with_updates);
 }

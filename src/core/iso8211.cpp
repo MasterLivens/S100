@@ -235,7 +235,8 @@ DatasetIdentification parse_dsid_field(const std::vector<std::uint8_t>& d) {
   };
   std::string skip;
   for (int n = 0; n < 5; ++n) {
-    if (!read_ut(skip)) return id;
+    if (!read_ut(skip)) return id;  // ENSP, ENED, PRSP, PRED, PROF
+    if (n == 2) id.product_specification = skip;
   }
   if (!read_ut(id.dataset_name)) return id;  // DSNM
   if (!read_ut(skip)) return id;            // DSTL
@@ -258,6 +259,10 @@ DatasetIdentification parse_dsid_field(const std::vector<std::uint8_t>& d) {
 }
 
 }  // namespace
+
+DatasetIdentification parse_s101_dsid(const std::vector<std::uint8_t>& dsid_field) {
+  return parse_dsid_field(dsid_field);
+}
 
 const Iso8211Field* Iso8211Record::find(const char* tag) const {
   for (const auto& f : fields) {
