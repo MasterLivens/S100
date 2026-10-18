@@ -1,37 +1,25 @@
-# S-164 display compare automation (rev 2) · Active / Open
+# S-164 display compare automation (rev 2) (Closed)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Supersedes rev 1. Single source of truth with `docs/testing/visual-acceptance.md` § S-164 (cross-link both ways).
 
-Case id: **`IHO-S164-DISPLAY-COMPARE`** (**Active / Open**). CTest: **`viewer_s164_display_compare`**.
+Case id: **`IHO-S164-DISPLAY-COMPARE`** (**Closed / Done** 2026-10-18). CTest: **`viewer_s164_display_compare`** — MUST NOT SKIP on Ubuntu; Linux + Windows dual-green (CI `39133583148` @ `ba63833`).
+**Status: Closed / Done (2026-10-18)** — CI [`39133583148`](https://github.com/MasterLivens/S100/actions/runs/39133583148) @ `ba63833` dual-green; **O1=(a)** Ubuntu-bind: Close binds Ubuntu `viewer_s164_display_compare` MUST NOT SKIP Passed + Win full matrix green; Notes Win `viewer_*` exclude (same family as golden/snapshot). No `ci.yml` change. Eng `12ae582` already on tip — **docs close only**. Oracles **rev2 unchanged** (MUST: SHA+SOURCE, snapshot, Day RGB anchors, presets on/off via dump; soft pixel WARN; heuristic OK). **BRIDGE #13** pixel defer lands here as **soft WARN only** (not a hard BRIDGE CTest MUST). Next: **`IHO-S102-DEEPEN-MULTIGRID`**.
 
-**Status: Active / Open (2026-10-18)** — Planner freeze after **POINT-LABEL Closed**. Eng tip base: **POINT-LABEL Closed tip on `origin/main`** (local Close `1496b55` / stack after `9a1531c`; **Eng waits Close push** before stacking). Implementation already on tip ancestor (`12ae582` dump-layers / driver / CTest — **verify / docs close**, not greenfield). Ubuntu tip-ancestor CI already Passed (`viewer_s164_display_compare` #44 @ TEXT tip `845c51c`); local Passed. This slice = **docs close primarily** + **Win policy O1=(a)**. Independent tip from POINT-LABEL. Do **not** invent oracles; rev2 MUST/WARN unchanged. No algorithm / driver rewrite. Do **not** pull `viewer_golden` into Win narrow-open. BRIDGE #13 pixel defer lands here (soft WARN only — not a hard BRIDGE CTest MUST).
+**Planner freeze (kept — rev2 unchanged):** Reuse case id / CTest name; MUST = ref PNGs + `SOURCE.md` + SHA; offscreen snapshot; Day RGB anchors `(97,183,255)`, `(191,190,143)`, `(255,255,255)`, `(147,174,187)`; `display-presets.yaml` required_on/off via dump; WARN-only soft pixel + heuristic cell; Day 1280×800; `--no-text-collision`; CTest does **not** pass `--strict`.
 
-**Planner freeze (MUST — from rev2, unchanged):**
-- Reuse case id / CTest name; **forbidden** to invent a second case/test name.
-- MUST: ref PNGs + `SOURCE.md` present; SHA matches `SHA256SUMS.txt`; offscreen snapshot produced (exit 0, non-empty PNG); Day palette **RGB anchors** `(97,183,255)`, `(191,190,143)`, `(255,255,255)`, `(147,174,187)` (same as `viewer_golden` — **not** token-name list); `display-presets.yaml` loadable; every `required_on` on / every `required_off` off via dump (`--dump-layers` / CLI); `required_on` must stay non-empty.
-- WARN-only: soft pixel drift vs AA5* via `scripts/soft_compare_oracle.py` (default 0.90; letterbox aspect-fit + pad `(255,255,255)` to AA5 size); heuristic cell OK (`101AA00DS0008.000` + `heuristic=true` until true AA5 cell).
-- Capture: Day 1280×800; `--no-text-collision`; CTest does **not** pass `--strict`.
-- Ubuntu CI: `viewer_s164_display_compare` MUST NOT SKIP, Passed.
-- After Closed next: **`IHO-S102-DEEPEN-MULTIGRID`**.
+**O1 closed as (a):** Ubuntu-bind + Notes Win `viewer_*` exclude (snapshot family — TEXT/POINT (b) dump-only does **not** cover). (b) narrow-open of only this CTest **not** chosen. No Eng `ci.yml` change. **Forbidden:** platform SKIP inside the test itself.
 
-**O1 = (a) Ubuntu-bind (chosen this slice):** Win CI continues to exclude this test under `-E "viewer_"` (TEXT/POINT O1=(b) narrow-open of dump-only tests does **not** cover snapshot+dump-layers+Pillow). Close binds on Ubuntu Passed + full Win matrix green; Notes record exclude (same family as `viewer_golden` / snapshot hang risk). **(b) narrow-open of only `viewer_s164_display_compare` is not chosen this slice** (hang→a would still apply if revisited later; do **not** pull in `viewer_golden`). **Forbidden:** platform SKIP inside the test itself.
+## Slice close — 2026-10-18
 
-**Close criteria (honest):**
-- Ubuntu: `viewer_s164_display_compare` MUST NOT SKIP, Passed (already on tip ancestors; re-check after POINT Close on tip)
-- Windows: O1=(a) → full matrix green is enough (Notes record Win `viewer_*` exclude for this CTest)
-- Docs → Closed + CI Notes when done; no Eng `ci.yml` change required for (a)
-- After Close next: **`IHO-S102-DEEPEN-MULTIGRID`**
+**Status: Closed / Done** (formal docs close — **not** an algorithm / driver rewrite).
 
-**Eng notes:** verify `12ae582` on tip; fixtures under `testdata/golden/s164-ref/`; driver `tests/s164_display_compare.py`; cmake `tests/check_s164_display_compare.cmake`. POINT-LABEL Closed must land on `origin/main` before Eng stacks this Open (docs close / Notes). heuristic WARN / soft base drift WARN are expected this slice — not fail. True AA5 cell / viewing_group_hint wiring / presets tighten → **Backlog**.
-
-**Notes (Win CI):** Existing policy after TEXT+POINT: Windows `ctest -E "viewer_"` then narrow-open only `^viewer_text_collision$` and `^viewer_point_label_collision$`. This CTest stays excluded (snapshot family). O1=(a) documents that; (b) not selected.
-
-**O-questions (real gaps only — Planner-resolved where noted):**
-1. **Win policy — resolved O1=(a).** Prefer Ubuntu-bind + Notes exclude (align golden/snapshot). Do not treat TEXT/POINT (b) as coverage.
-2. heuristic / soft drift WARN this slice — **accept** (contract already WARN-only).
-3. `viewing_group_hint` YAML comments unused (driver uses `--layers-on/off`) — **accept MVP**; wiring = Backlog.
-4. True AA5 cell + presets tighten — **Backlog**, not this Open MUST.
+- Evidence: CI [39133583148](https://github.com/MasterLivens/S100/actions/runs/39133583148) tip `ba63833` — Ubuntu **`viewer_s164_display_compare` Passed** (MUST NOT SKIP) + Win full matrix green (O1=a).
+- **O1=(a) SUCCESS** — Ubuntu bind; Win Notes exclude (`viewer_*` / same family as golden/snapshot); no `ci.yml` change.
+- Oracles stay as frozen rev2 MUST/WARN (anchors + presets dump; soft pixel WARN; heuristic OK).
+- **BRIDGE #13 soft WARN note:** pixel defer from BRIDGE lands here as soft WARN only — not a hard BRIDGE CTest MUST.
+- **Notes:** next Eng **`IHO-S102-DEEPEN-MULTIGRID`** (`s102_deepen_multigrid`).
+- **Non-goals this close:** inventing oracles; Win narrow-open (b); pulling `viewer_golden` into Win CI; algorithm/driver rewrite; PC Lua / SVG; true AA5 cell / viewing_group wiring (Backlog).
 
 ## Goal
 
@@ -77,7 +65,7 @@ Eng may extend lists with Tester ack; emptying `required_on` is not allowed.
 ## Docs sync
 
 - Update `docs/testing/visual-acceptance.md` S-164 row: “automation per `docs/s164-display-compare-contract.md`; MUST = anchors + presets; soft pixel WARN”.
-- Case id in `docs/testing/iho-ctest-case-ids.md` — **Active / Open** this tip; flip Closed on docs close.
+- Case id in `docs/testing/iho-ctest-case-ids.md` — **Closed / Done** this tip.
 
 ## Non-goals
 
