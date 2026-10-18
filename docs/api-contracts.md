@@ -193,6 +193,16 @@ Details: `docs/s124-contract.md`.
 - CTest `exchange_signature` MUST NOT SKIP (Linux + Windows).
 
 
+
+
+## Part 15 producer-code matching (SIG follow-on)
+
+- Details: `docs/part15-producer-code-contract.md` (`IHO-S164-SIG-PRODUCER`) — **rev0/rev1 draft** (Planner field/SSE lock pending).
+- Under `VerifyPolicy::Enforce`, after crypto Ok: match leaf data-server cert **CN MRN** (IHO alpha + integer) against dataset / CATALOG declared producer (Proposed: discovery `producerCode`).
+- Hook: existing `verify_exchange_set` / `open_exchange_set` Enforce only — **no** parallel stack. Logic in `s100_security`; exchange calls the interface.
+- Mismatch → skip/reject with mapped SSE (Proposed per-file **109**); **not** silent accept. MUST NOT change closed Ok assertions on `exchange_signature`.
+- CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows).
+
 ## Power-up / start-up self-check (Track B)
 
 - Details: `docs/powerup-self-check-contract.md` (`IHO-S164-POWERUP`) — **rev1** (Planner checklist frozen).
@@ -200,7 +210,7 @@ Details: `docs/s124-contract.md`.
 - **PU-1…PU-5 MUST + Block** on operational paths only (refuse `open_exchange_set` / viewer chart open); standalone `open_dataset` / diagnostics stay **UNVERIFIED** (SIG D7). **PU-6** WARN stub (viewer) / N/A→Pass (CLI).
 - PU-2 pins align `catalogue_provenance` / `check_catalogues.cmake` (S-101/102/111/124 FC+PC; S-104 FC only — no S-104 PC). PU-3/4 are **project decisions** (Track B / SIG), not S-164 mandate text. PU-4 = mini gold `verify_exchange_set` (thin `security_self_test()` OK).
 - CLI exits: Pass/Warn → **0**; Block → **2** (exit **1** = load failures). CI synthetic only; official PowerUp TDS not in CI.
-- **Calls into** existing Part 15 verify + `open_exchange_set` — does **not** reimplement SIG; **no** producer-code matching in this slice.
+- **Calls into** existing Part 15 verify + `open_exchange_set` — does **not** reimplement SIG; **no** producer-code matching in this slice (see `IHO-S164-SIG-PRODUCER`).
 - CTest `powerup_self_check` MUST NOT SKIP (Linux + Windows).
 
 ## Stability

@@ -3,6 +3,8 @@
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-S164-SIG`** (**Active**). CTest: **`exchange_signature`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
 
+**D8 producer-code matching** is tracked as **`IHO-S164-SIG-PRODUCER`** (`docs/part15-producer-code-contract.md`); out of this SIG contract’s implement scope.
+
 Primary source: `/workspace/research/part15/BRIEF.md` (Planner) and `/workspace/research/part15/verify/{verify_chs,verify_generic}.py`. Spec texts: S-100 Ed 5.2.1 Part 15 / Part 17, S-98 Ed 2.0.0 §9.1.1 / §20.4.3 c / App. B, S-164 Ed 1.0.0 §2.5–2.7 (+ 2.0.1 draft names). Docs only in this slice; **no engine / fixture / CMake / CI change in the Architect commit**.
 
 **rev1.1 changes:** (1) Planner overrule of A5 — library C++ default is **`VerifyPolicy::Enforce`**, not `Off`. Reason: signature verification is a security boundary; a new import call site that forgets to pass a policy must refuse unsigned data, not silently accept it. Existing 34 tests pass `Off` explicitly (one-time, intentional and visible). Product CLI hardcodes `Enforce`; viewer has no `open_exchange_set` yet (oracle 7). `Off` unreachable from the product (grep). Standalone `open_dataset` stays `UNVERIFIED`. Do not re-sign or modify old fixture bytes. (2) Tester — oracle **3a** pins exact SSE **126** when the trust store is non-empty `builtin_iho_52()` (105 only for empty trust / oracle 2f). (3) Tester — oracle **7** / viewer: CLI Enforce ≥ 1; viewer may be 0 until an exchange-set open exists, then each must pass Enforce. OPENSSL_API_COMPAT, check order, other oracles, SSE mapping unchanged from rev1.
@@ -32,7 +34,7 @@ Strong guarantees (same family as update-robustness):
 | **D5** | Internal enum, mapped to S-98 SSE codes. S-164 116 / 124 map to **109**. The mapping table lives in **ONE** separate place (own file or clearly bounded section), because S-164 2.0.1 and S-98 3.0.0 are drafts and codes may change. |
 | **D6** | Data signatures accept **only** ECDSA-384-SHA2 (P-384 + SHA-384, Base64 DER `SEQUENCE{r,s}`, over raw file bytes). Certificate signatures accept `ecdsa-with-SHA256` and `ecdsa-with-SHA384`. **No** mandatory X.509 extension checks (BasicConstraints / KeyUsage). |
 | **D7** | Verification is enforced **only** on the exchange-set import path. Standalone `open_dataset(.000)` stays for tests and dev; CLI and viewer show **`UNVERIFIED`**. **No** `--allow-unsigned` (or equivalent) in the product. The existing 34 tests keep **assertions and fixture bytes** unchanged; they pass `VerifyPolicy::Off` **explicitly** at every exchange-set import call site (A5 / A8). |
-| **D8** | This slice outputs an **official / non-official** classification (ST role + CN shape). Producer-code matching (CN MRN ↔ dataset producer) → **Backlog**. |
+| **D8** | This slice outputs an **official / non-official** classification (ST role + CN shape). Producer-code matching (CN MRN ↔ dataset producer) → case **`IHO-S164-SIG-PRODUCER`** / `docs/part15-producer-code-contract.md` (next slice after POWERUP; draft pending Planner field/SSE lock). |
 
 ## SSE behaviour (S-98 2.0.0 §20.4.3 c + App. B)
 
@@ -294,7 +296,7 @@ Edits to these three frozen files are a **named deviation** from the prior “by
 
 ### A9 Official / non-official (D8)
 
-`VerificationReport::official` / per-file `OfficialClass` from certificate ST: `DATA_PRODUCER` / `DATA_AGGREGATOR` / `SCHEME_ADMINISTRATOR` → Official; `OTHER_DATA_PRODUCER` or unknown / non-conforming CN → NonOfficial. UI distinction beyond exposing the enum → later. Producer-code matching → Backlog.
+`VerificationReport::official` / per-file `OfficialClass` from certificate ST: `DATA_PRODUCER` / `DATA_AGGREGATOR` / `SCHEME_ADMINISTRATOR` → Official; `OTHER_DATA_PRODUCER` or unknown / non-conforming CN → NonOfficial. UI distinction beyond exposing the enum → later. Producer-code matching → **`IHO-S164-SIG-PRODUCER`** (`docs/part15-producer-code-contract.md`).
 
 ## Fixed verification time (fixtures)
 
@@ -361,7 +363,7 @@ verify_time = 2026-01-15T00:00:00Z
 - Online CRL / OCSP revocation.
 - “Validated system date” / GNSS time (SSE 114).
 - 15-8.10 MRN discovery.
-- Producer-code matching (CN MRN ↔ dataset) — **Backlog** (D8).
+- Producer-code matching (CN MRN ↔ dataset) — **D8** → **`IHO-S164-SIG-PRODUCER`** (`docs/part15-producer-code-contract.md`); not in this SIG slice.
 - Official/non-official **display styling** beyond exposing `OfficialClass`.
 - Re-signing or modifying pre-slice fixture bytes.
 

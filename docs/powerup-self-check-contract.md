@@ -13,7 +13,7 @@ Primary research: `/workspace/research/powerup/BRIEF.md` (Planner, 2026-10-18). 
 
 **PU-3 / PU-4** are **Track B project decisions** (hardening tied to SIG / `s100_security`) — label them as such; do **not** present them as S-164 mandate text.
 
-**Explicit exclusion:** SIG **producer-code matching** (CN MRN ↔ dataset / CATALOG producer; S-98 §9.1.1 style) is **out of this contract** and stays a **separate later slice**.
+**Explicit exclusion:** SIG **producer-code matching** (CN MRN ↔ dataset / CATALOG producer; S-98 §9.1.1 style) is **out of this contract** — tracked as **`IHO-S164-SIG-PRODUCER`** (`docs/part15-producer-code-contract.md`).
 
 ---
 
@@ -179,7 +179,7 @@ Standalone `open_dataset` remains **`UNVERIFIED`** (SIG **D7**). Power-up **read
 
 ## 7. Non-goals
 
-- **SIG producer-code matching** (CN MRN ↔ dataset / CATALOG producer) — separate later slice.
+- **SIG producer-code matching** (CN MRN ↔ dataset / CATALOG producer) — **`IHO-S164-SIG-PRODUCER`**.
 - **Full S-164 PowerUp / InitialPowerUp / PowerUpCatalogues TDS** in repo or CI.
 - **EncDotNet / NIWC / pixel compare** — PU-6 is construct/smoke (or stub) only (`IHO-S164-DISPLAY-COMPARE` stays elsewhere).
 - Reimplement SIG / ECDSA / OpenSSL outside `s100_security`.
