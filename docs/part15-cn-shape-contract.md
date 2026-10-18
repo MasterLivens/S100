@@ -128,7 +128,7 @@ Official ST set (unchanged A9): **`DATA_PRODUCER`**, **`DATA_AGGREGATOR`**, **`S
 - **New Enforce skip** from non-conforming CN (PRODUCER already covers unparseable + `producerCode` present).
 - Producer-code matching / `producerCode` compare / SSE 109 (`IHO-S164-SIG-PRODUCER`).
 - Folding `org:` vs non-`org:` producer-token equivalence for any match gate.
-- Aggregator CN ↔ member HO match (**Backlog**).
+- Aggregator producer policy (permanent exempt + WARN) → **`IHO-S164-SIG-AGGREGATOR`** rev1.
 - Official / NonOfficial **UI styling** / colours.
 - SignatureOnSignature; POWERUP changes; S-102; permits / encryption.
 - Inventing a new S-98 SSE for bad CN shape.
@@ -146,9 +146,9 @@ Official ST set (unchanged A9): **`DATA_PRODUCER`**, **`DATA_AGGREGATOR`**, **`S
 | Classify order | **Closed** — ST first, then CN shape (§4.1) |
 | Exchange-level vs per-file when one CN bad | **Closed** — independent levels (§4.2 Architect lean) |
 | Interaction with PRODUCER skip | **Closed** — this slice does **not** change skip rules (§4.3) |
-| Aggregator ↔ member HO | **Backlog** (after this case) |
+| Aggregator ↔ member HO Block match | **Closed as permanent exempt** → **`IHO-S164-SIG-AGGREGATOR`** rev1 (`docs/part15-aggregator-producer-contract.md`) |
 | QBC multi-grid `.nn` | **Backlog** (queue note; not this case) |
-| Install-prefix | **Backlog** (queue note; not this case) |
+| Install-prefix | **Backlog** (queue note: **next after** `IHO-S164-SIG-AGGREGATOR`; not this case) |
 
 ---
 
@@ -164,6 +164,6 @@ Official ST set (unchanged A9): **`DATA_PRODUCER`**, **`DATA_AGGREGATOR`**, **`S
 
 ## 10. Engineer / Tester
 
-**Engineer:** implement §3–§6 MUST; reuse PRODUCER CN parser; wire CN shape into OfficialClass after ST; new fixtures `cn_shape_ok` / `cn_shape_bad` + CTest `exchange_signature_cn_shape`; **do not** add skip/SSE; do not touch PRODUCER mismatch path; leave aggregator↔member / QBC `.nn` / install-prefix for Backlog.
+**Engineer:** implement §3–§6 MUST; reuse PRODUCER CN parser; wire CN shape into OfficialClass after ST; new fixtures `cn_shape_ok` / `cn_shape_bad` + CTest `exchange_signature_cn_shape`; **do not** add skip/SSE; do not touch PRODUCER mismatch path; aggregator policy → **`IHO-S164-SIG-AGGREGATOR`** rev1; leave QBC `.nn` / install-prefix for Backlog (install-prefix next).
 
 **Tester:** gate on §5–§6; positive → Official + install; negative bad-CN + crypto Ok → NonOfficial + **still installed** (when PRODUCER N/A); assert **no** new skip reason from this case; CTest MUST NOT SKIP Linux + Windows.

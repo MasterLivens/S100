@@ -199,13 +199,24 @@ Details: `docs/s124-contract.md`.
 
 - Details: `docs/part15-producer-code-contract.md` (`IHO-S164-SIG-PRODUCER`) — **rev1** (field/SSE frozen; sync with `38d77b4`+).
 - Under `VerifyPolicy::Enforce`, after crypto Ok: match leaf cert CN **producer segment** (MRN **segment 3 only**, upper; e.g. `aa00`/`99ZZ` — **segment 4** cert instance id never compared) against CATALOG `S100_DatasetDiscoveryMetadata.producerCode` (upper, **exact**; no leading-zero strip; `AA00`≠`AA0`; no `00AA`≡`AA00`). O out. Missing `producerCode` → N/A-pass.
-- **ST**: still drives `OfficialClass` only; if ST ∈ `{DATA_AGGREGATOR}` → **exempt** producer-code match this slice (chain + OfficialClass only). Aggregator CN ↔ member HO matching → Backlog. Fixtures **DATA_PRODUCER 1:1** (`producer_match` / `producer_mismatch`); old `signatures/positive/` exempt.
+- **ST**: still drives `OfficialClass` only; if ST ∈ `{DATA_AGGREGATOR}` → **permanent exempt** from producer-code Block (chain + OfficialClass only; elevated by **`IHO-S164-SIG-AGGREGATOR`** rev1). Optional WARN when `producerCode` present ≠ CN seg3 → reason `aggregator_producer_code_divergent` (no skip / no 109). Fixtures **DATA_PRODUCER 1:1** (`producer_match` / `producer_mismatch`); old `signatures/positive/` exempt.
 - **fileName CCCC fallback OFF** as a check (construction notes only).
 - Hook: existing `verify_exchange_set` / `open_exchange_set` Enforce only — **no** parallel stack. Logic in `s100_security`.
 - Mismatch → **skip that dataset** (others continue); reason **`producer_code_mismatch`** (CTest primary) + project-map SSE **109** (secondary; not App. B literal; not 126). MUST NOT change closed Ok assertions on `exchange_signature`.
 - CN unparseable + `producerCode` present → Enforce **skip** that file; **no** `producer_code_mismatch` / **no** 109 (109 = parse-Ok mismatch only). NonOfficial via A9 may coexist.
 - CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows).
 
+
+
+
+## Part 15 aggregator-signed producer policy (SIG follow-on)
+
+- Details: `docs/part15-aggregator-producer-contract.md` (`IHO-S164-SIG-AGGREGATOR`) — **rev1** (policy frozen; Open O1–O6 closed).
+- Closes SIG-PRODUCER Backlog as **permanent exempt** (not member / aggregator / either-as-Block match).
+- Under `VerifyPolicy::Enforce`, when authenticating leaf cert ST=`DATA_AGGREGATOR`: **permanent exempt** from CN seg3 ↔ `producerCode` Block; crypto / chain / OfficialClass still apply. DATA_PRODUCER path unchanged.
+- Missing `producerCode` → N/A-pass. Optional WARN when `producerCode` present and ≠ CN seg3 → reason **`aggregator_producer_code_divergent`** (**no** skip, **no** SSE 109 / no new SSE).
+- Leaf `certificateRef` only (no whole-chain member-cert scan). **Reuse** PRODUCER/CN-SHAPE helpers; **do not** reopen PRODUCER / CN-SHAPE / POWERUP.
+- CTest `exchange_signature_aggregator` MUST NOT SKIP (Linux + Windows). Synthetic `aggregator_exempt/` (AGGREGATOR ST + member `producerCode` ≠ CN → still installs); TEST-ONLY keys. Queue next: install-prefix.
 
 ## Part 15 CN MRN shape → OfficialClass (SIG follow-on)
 
