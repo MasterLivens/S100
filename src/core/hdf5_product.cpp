@@ -7,6 +7,8 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace s100 {
 namespace {
@@ -24,7 +26,8 @@ bool read_scalar_double(hid_t loc, const char* name, double* out) {
   hid_t t = H5Aget_type(a);
   hid_t nt = H5Tget_native_type(t, H5T_DIR_ASCEND);
   bool ok = false;
-  if (H5Tget_class(nt) == H5T_FLOAT) {
+  const H5T_class_t cls = H5Tget_class(nt);
+  if (cls == H5T_FLOAT) {
     if (H5Tget_size(nt) == 4) {
       float v = 0;
       ok = H5Aread(a, H5T_NATIVE_FLOAT, &v) >= 0;
@@ -32,7 +35,8 @@ bool read_scalar_double(hid_t loc, const char* name, double* out) {
     } else {
       ok = H5Aread(a, H5T_NATIVE_DOUBLE, out) >= 0;
     }
-  } else if (H5Tget_class(nt) == H5T_INTEGER) {
+  } else if (cls == H5T_INTEGER || cls == H5T_ENUM) {
+    // ENUM (e.g. NOAA dataCodingFormat) converts to native integer.
     long long v = 0;
     ok = H5Aread(a, H5T_NATIVE_LLONG, &v) >= 0;
     *out = static_cast<double>(v);
@@ -198,8 +202,7 @@ bool load_instance_grid(hid_t file, hid_t inst, CoverageGrid& grid, LoadError* e
       grid.uncertainty[i] = buf[i].uncertainty;
     }
   } else {
-    // Depth-only compound: no uncertainty channel in memory (has_uncertainty stays false).
-    // Optional min==max broadcast (U2b) is not elected — leave uncertainty empty.
+    // Depth-only compound (PS §10). Elect min==max constant broadcast when usable (BCAST / QBC-META B1).
     struct DepthOnly {
       float depth;
     };
@@ -214,8 +217,35 @@ bool load_instance_grid(hid_t file, hid_t inst, CoverageGrid& grid, LoadError* e
       set_err(err, LoadErrorKind::Parse, "S-102 H5Dread(values depth-only) failed");
       return false;
     }
-    grid.uncertainty.clear();
     for (std::size_t i = 0; i < n; ++i) grid.depth[i] = buf[i].depth;
+
+    double min_u = std::numeric_limits<double>::quiet_NaN();
+    double max_u = std::numeric_limits<double>::quiet_NaN();
+    bool have_min = false, have_max = false;
+    if (H5Lexists(inst, "Group_001", H5P_DEFAULT) > 0) {
+      hid_t g001 = H5Gopen(inst, "Group_001", H5P_DEFAULT);
+      if (g001 >= 0) {
+        have_min = read_scalar_double(g001, "minimumUncertainty", &min_u);
+        have_max = read_scalar_double(g001, "maximumUncertainty", &max_u);
+        H5Gclose(g001);
+      }
+    }
+    const float min_uf = static_cast<float>(min_u);
+    const float max_uf = static_cast<float>(max_u);
+    const bool usable_bcast =
+        have_min && have_max && std::isfinite(min_u) && std::isfinite(max_u) &&
+        almost_eq(min_uf, max_uf) && !grid.is_fill_uncertainty(min_uf);
+    if (usable_bcast) {
+      grid.uncertainty.resize(n);
+      for (std::size_t i = 0; i < n; ++i) {
+        if (!grid.is_fill_depth(grid.depth[i]))
+          grid.uncertainty[i] = min_uf;
+        else
+          grid.uncertainty[i] = grid.fill_uncertainty;
+      }
+    } else {
+      grid.uncertainty.clear();
+    }
   }
   return true;
 }
@@ -241,6 +271,11 @@ bool CoverageGrid::sample_cell(std::size_t row, std::size_t col, CoverageSample&
   if (uncertainty.size() == depth.size() && !is_fill_uncertainty(uncertainty[i])) {
     out.uncertainty = uncertainty[i];
     out.has_uncertainty = true;
+  }
+  // QBC id fill=0 → has_qbc false; non-zero ids were validated against the table at load.
+  if (qbc_ids.size() == depth.size()) {
+    out.qbc_id = qbc_ids[i];
+    out.has_qbc = (qbc_ids[i] != 0);
   }
   return out.has_depth;
 }
@@ -336,6 +371,205 @@ bool CoverageDataset::sample_wgs84(double lon, double lat, CoverageSample& out) 
     return a.index < b.index;
   });
   return grids[cands.front().index].sample_wgs84(lon, lat, out);
+}
+
+
+namespace {
+
+/** Memory layout for QualityOfBathymetryCoverage/featureAttributeTable (oracle fields). */
+struct FatRowMem {
+  std::uint32_t id;
+  std::uint8_t data_assessment;
+  float zoc_fixed;
+  float zoc_variable;
+  char* date_start;
+  char* date_end;
+  char* source_survey_id;
+  char* survey_authority;
+  std::uint8_t type_unc;
+};
+
+hid_t make_fat_mem_type() {
+  hid_t str_vl = H5Tcopy(H5T_C_S1);
+  H5Tset_size(str_vl, H5T_VARIABLE);
+  H5Tset_cset(str_vl, H5T_CSET_UTF8);
+  hid_t mem = H5Tcreate(H5T_COMPOUND, sizeof(FatRowMem));
+  H5Tinsert(mem, "id", HOFFSET(FatRowMem, id), H5T_NATIVE_UINT32);
+  H5Tinsert(mem, "dataAssessment", HOFFSET(FatRowMem, data_assessment), H5T_NATIVE_UINT8);
+  H5Tinsert(mem, "zoneOfConfidence.horizontalPositionUncertainty.uncertaintyFixed",
+            HOFFSET(FatRowMem, zoc_fixed), H5T_NATIVE_FLOAT);
+  H5Tinsert(mem, "zoneOfConfidence.horizontalPositionUncertainty.uncertaintyVariableFactor",
+            HOFFSET(FatRowMem, zoc_variable), H5T_NATIVE_FLOAT);
+  H5Tinsert(mem, "surveyDateRange.dateStart", HOFFSET(FatRowMem, date_start), str_vl);
+  H5Tinsert(mem, "surveyDateRange.dateEnd", HOFFSET(FatRowMem, date_end), str_vl);
+  H5Tinsert(mem, "sourceSurveyID", HOFFSET(FatRowMem, source_survey_id), str_vl);
+  H5Tinsert(mem, "surveyAuthority", HOFFSET(FatRowMem, survey_authority), str_vl);
+  H5Tinsert(mem, "typeOfBathymetricEstimationUncertainty", HOFFSET(FatRowMem, type_unc),
+            H5T_NATIVE_UINT8);
+  H5Tclose(str_vl);
+  return mem;
+}
+
+bool load_qbc_feature_attribute_table(hid_t file, std::vector<QbcAttributeRecord>* table,
+                                      LoadError* err) {
+  if (!H5Lexists(file, "/QualityOfBathymetryCoverage/featureAttributeTable", H5P_DEFAULT)) {
+    set_err(err, LoadErrorKind::Parse,
+            "S-102 QualityOfBathymetryCoverage present but featureAttributeTable missing");
+    return false;
+  }
+  hid_t ds = H5Dopen(file, "/QualityOfBathymetryCoverage/featureAttributeTable", H5P_DEFAULT);
+  if (ds < 0) {
+    set_err(err, LoadErrorKind::Parse, "S-102 cannot open featureAttributeTable");
+    return false;
+  }
+  hid_t space = H5Dget_space(ds);
+  hsize_t dims[1] = {0};
+  if (H5Sget_simple_extent_ndims(space) != 1 || H5Sget_simple_extent_dims(space, dims, nullptr) < 0 ||
+      dims[0] == 0) {
+    H5Sclose(space);
+    H5Dclose(ds);
+    set_err(err, LoadErrorKind::Parse, "S-102 featureAttributeTable is empty or not 1-D");
+    return false;
+  }
+  const std::size_t nrows = static_cast<std::size_t>(dims[0]);
+  std::vector<FatRowMem> buf(nrows);
+  for (auto& r : buf) {
+    r = FatRowMem{};
+  }
+  hid_t mem = make_fat_mem_type();
+  const herr_t rd = H5Dread(ds, mem, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data());
+  if (rd < 0) {
+    H5Tclose(mem);
+    H5Sclose(space);
+    H5Dclose(ds);
+    set_err(err, LoadErrorKind::Parse, "S-102 H5Dread(featureAttributeTable) failed");
+    return false;
+  }
+  table->clear();
+  table->reserve(nrows);
+  for (std::size_t i = 0; i < nrows; ++i) {
+    QbcAttributeRecord rec;
+    rec.id = buf[i].id;
+    rec.data_assessment = buf[i].data_assessment;
+    rec.zoc_uncertainty_fixed = buf[i].zoc_fixed;
+    rec.zoc_uncertainty_variable = buf[i].zoc_variable;
+    rec.type_of_bathymetric_estimation_uncertainty = buf[i].type_unc;
+    if (buf[i].date_start) rec.survey_date_start = buf[i].date_start;
+    if (buf[i].date_end) rec.survey_date_end = buf[i].date_end;
+    if (buf[i].source_survey_id) rec.source_survey_id = buf[i].source_survey_id;
+    if (buf[i].survey_authority) rec.survey_authority = buf[i].survey_authority;
+    rec.valid = true;
+    table->push_back(std::move(rec));
+  }
+  H5Dvlen_reclaim(mem, space, H5P_DEFAULT, buf.data());
+  H5Tclose(mem);
+  H5Sclose(space);
+  H5Dclose(ds);
+  return true;
+}
+
+bool load_qbc_id_grid(hid_t file, CoverageGrid& target, const std::unordered_set<std::uint32_t>& valid_ids,
+                      LoadError* err) {
+  // Prefer QualityOfBathymetryCoverage.01
+  std::string inst_path = "/QualityOfBathymetryCoverage/QualityOfBathymetryCoverage.01";
+  if (!H5Lexists(file, inst_path.c_str(), H5P_DEFAULT)) {
+    set_err(err, LoadErrorKind::Parse, "S-102 QualityOfBathymetryCoverage missing .01 instance");
+    return false;
+  }
+  const std::string values_path = inst_path + "/Group_001/values";
+  if (!H5Lexists(file, values_path.c_str(), H5P_DEFAULT)) {
+    set_err(err, LoadErrorKind::Parse, "S-102 QoBC missing Group_001/values");
+    return false;
+  }
+  hid_t ds = H5Dopen(file, values_path.c_str(), H5P_DEFAULT);
+  if (ds < 0) {
+    set_err(err, LoadErrorKind::Parse, "S-102 cannot open QoBC values");
+    return false;
+  }
+  hid_t space = H5Dget_space(ds);
+  hsize_t dims[2] = {0, 0};
+  if (H5Sget_simple_extent_ndims(space) != 2 || H5Sget_simple_extent_dims(space, dims, nullptr) < 0) {
+    H5Sclose(space);
+    H5Dclose(ds);
+    set_err(err, LoadErrorKind::Parse, "S-102 QoBC values is not 2-D");
+    return false;
+  }
+  if (dims[0] != target.nrows || dims[1] != target.ncols) {
+    H5Sclose(space);
+    H5Dclose(ds);
+    set_err(err, LoadErrorKind::Parse, "S-102 QoBC id grid shape does not match BathymetryCoverage");
+    return false;
+  }
+  const std::size_t n = target.nrows * target.ncols;
+  std::vector<std::uint32_t> buf(n);
+  const herr_t rd = H5Dread(ds, H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data());
+  H5Sclose(space);
+  H5Dclose(ds);
+  if (rd < 0) {
+    set_err(err, LoadErrorKind::Parse, "S-102 H5Dread(QoBC values) failed");
+    return false;
+  }
+  // Soft: id not in table → store 0 (has_qbc false); do not crash.
+  for (std::size_t i = 0; i < n; ++i) {
+    const std::uint32_t id = buf[i];
+    if (id == 0) continue;
+    if (valid_ids.find(id) == valid_ids.end()) buf[i] = 0;
+  }
+  target.qbc_ids = std::move(buf);
+  return true;
+}
+
+bool load_quality_of_bathymetry_coverage(hid_t file, CoverageDataset& out, LoadError* err) {
+  if (!H5Lexists(file, "/QualityOfBathymetryCoverage", H5P_DEFAULT)) {
+    out.has_qbc_coverage = false;
+    return true;  // optional 0..1
+  }
+  hid_t qbc = H5Gopen(file, "/QualityOfBathymetryCoverage", H5P_DEFAULT);
+  if (qbc < 0) {
+    set_err(err, LoadErrorKind::Parse, "S-102 cannot open /QualityOfBathymetryCoverage");
+    return false;
+  }
+  int dcf = -1;
+  if (!read_scalar_int(qbc, "dataCodingFormat", &dcf) || dcf != 9) {
+    H5Gclose(qbc);
+    set_err(err, LoadErrorKind::Parse,
+            "S-102 QualityOfBathymetryCoverage dataCodingFormat must be 9 (featureOrientedRegularGrid)");
+    return false;
+  }
+  H5Gclose(qbc);
+
+  if (!load_qbc_feature_attribute_table(file, &out.qbc_attribute_table, err)) return false;
+  std::unordered_set<std::uint32_t> valid_ids;
+  for (const auto& r : out.qbc_attribute_table) {
+    if (r.id != 0) valid_ids.insert(r.id);
+  }
+  if (out.grids.empty()) {
+    set_err(err, LoadErrorKind::Parse, "S-102 QoBC load requires BathymetryCoverage grids");
+    return false;
+  }
+  // Attach id raster to first grid when shapes match (typical .01 pairing).
+  if (!load_qbc_id_grid(file, out.grids[0], valid_ids, err)) return false;
+
+  CoverageFeature feat;
+  feat.id = static_cast<std::uint64_t>(out.features.size() + 1);
+  feat.code = "QualityOfBathymetryCoverage";
+  out.features.push_back(std::move(feat));
+  out.has_qbc_coverage = true;
+  return true;
+}
+
+}  // namespace
+
+bool CoverageDataset::lookup_qbc_record(std::uint32_t id, QbcAttributeRecord& out) const {
+  out = {};
+  if (id == 0) return false;
+  for (const auto& r : qbc_attribute_table) {
+    if (r.id == id && r.valid) {
+      out = r;
+      return true;
+    }
+  }
+  return false;
 }
 
 bool load_s102(const std::filesystem::path& path, CoverageDataset& out, LoadError* err) {
@@ -446,6 +680,11 @@ bool load_s102(const std::filesystem::path& path, CoverageDataset& out, LoadErro
     feat.code = "BathymetryCoverage";
     out.grids.push_back(std::move(grid));
     out.features.push_back(std::move(feat));
+  }
+
+  if (!load_quality_of_bathymetry_coverage(file, out, err)) {
+    close_file();
+    return false;
   }
 
   close_file();

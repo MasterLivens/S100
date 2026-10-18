@@ -6,7 +6,9 @@
 |------|------|
 | `synthetic_multigrid_4326.h5` | **Gittracked.** Two small EPSG:4326 regular grids with disjoint envelopes for `IHO-S102-DEEPEN-MULTIGRID` / CTest `s102_deepen_multigrid`. Built with h5py: `BathymetryCoverage.01` (lon/lat≈0–0.4, depth=5) and `.02` (≈10–10.4, depth=50). See `docs/s102-deepen-contract.md`. |
 | `synthetic_uncertainty_4326.h5` | **Gittracked.** Fixture **A** for `IHO-S102-UNCERTAINTY` / CTest `s102_uncertainty`. EPSG:4326, single `BathymetryCoverage.01`, compound `depth`+`uncertainty`. Envelope lon/lat≈20–20.4 (disjoint from deepen). Regenerate: `scripts/gen_s102_uncertainty_synthetic.py`. |
-| `synthetic_uncertainty_depth_only_4326.h5` | **Gittracked.** Fixture **B** (PS §10 depth-only omit). Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty==0.75` (not fill). **UNCERTAINTY rev1:** no broadcast → `has_uncertainty==false`. **`IHO-S102-QBC-META` elects broadcast** → oracle flips to `has_uncertainty==true` / unc **0.75** (`BCAST-*`; see `docs/s102-qbc-meta-contract.md`). |
+| `synthetic_uncertainty_depth_only_4326.h5` | **Gittracked.** Fixture **B** (PS §10 depth-only omit). Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty==0.75` (not fill). **`IHO-S102-QBC-META` elects broadcast** → `has_uncertainty==true` / unc **0.75** (`BCAST-1`; see `docs/s102-qbc-meta-contract.md`). |
+| `synthetic_qbc_meta_4326.h5` | **Gittracked.** Fixture **C** for `IHO-S102-QBC-META` / CTest `s102_qbc_meta`. QoBC `dataCodingFormat=9`, U32 id grid + FAT (≥2 rows). Envelope lon/lat≈40–40.4. Regenerate: `scripts/gen_s102_qbc_meta_synthetic.py`. |
+| `synthetic_uncertainty_depth_only_fillunc_4326.h5` | **Gittracked.** **BCAST-2**: depth-only with fill min==max (`1e6`) → no broadcast (`has_uncertainty==false`). Envelope ≈35–35.4. Same generator script. |
 
 ### Fixture A oracles (`synthetic_uncertainty_4326.h5`)
 
@@ -21,7 +23,7 @@ Grid: 5×5, origin (20,20), spacing 0.1°. All other cells: depth=12.5, unc=2.5.
 
 | Point | Lon | Lat | depth | uncertainty |
 |-------|-----|-----|-------|-------------|
-| sample | 30.0 | 30.0 | **8.0** | **UNCERTAINTY rev1:** none (`has_uncertainty==false`). **After QBC-META broadcast elect:** **0.75** (`has_uncertainty==true`, oracle **`BCAST-1`**) |
+| sample | 30.0 | 30.0 | **8.0** | **0.75** (`has_uncertainty==true`, broadcast elect, oracle **`BCAST-1`**) |
 
 Envelope lon/lat≈30–30.4. `minimumUncertainty==maximumUncertainty==0.75` documented.
 
@@ -69,9 +71,18 @@ When present (gitignored `testdata/chs/`):
 - Uncertainty channel present but typically all-fill; positive `has_uncertainty` oracle is NOAA-only for UNCERTAINTY.
 - **No `QualityOfBathymetryCoverage` group** (Group_F featureCode is BathymetryCoverage only). QBC-META: CHS-without-QoBC → `has_qbc_coverage==false`, not a FAIL.
 
-### Pending Eng (`IHO-S102-QBC-META`)
+### Fixture C oracles (`synthetic_qbc_meta_4326.h5`) — `IHO-S102-QBC-META`
 
-| File | Role |
-|------|------|
-| `synthetic_qbc_meta_4326.h5` | Fixture **C** (tracked when landed). QoBC `dataCodingFormat=9`, U32 id grid + ≥2 FAT rows; oracles in `docs/s102-qbc-meta-contract.md`. |
+| Point | Lon | Lat | qbc_id | Expect |
+|-------|-----|-----|--------|--------|
+| **C1** | 40.0 | 40.0 | **1** | `has_qbc==true`; `surveyAuthority`=`Synthetic Survey Authority Alpha`; `sourceSurveyID`=`SYN-QBC-001` |
+| **C2** | 40.1 | 40.0 | **0** (fill) | `has_qbc==false` |
+| **C3** | — | — | — | Open → `has_qbc_coverage==true`; `dataCodingFormat` validated as 9 |
+
+Grid: 5×5, origin (40,40), spacing 0.1°. Bathymetry depth=15, unc=1.5. FAT rows id=1 and id=2 (`Synthetic Survey Authority Beta` / `SYN-QBC-002` at lon 40.2). Envelope lon/lat≈40–40.4 (disjoint from deepen / unc A/B).
+
+### BCAST-2 fixture (`synthetic_uncertainty_depth_only_fillunc_4326.h5`)
+
+Depth-only compound; `minimumUncertainty==maximumUncertainty==1e6` (fill). Sample (35.0, 35.0) depth=9.0 → **`has_uncertainty==false`** (no broadcast). Oracle **`BCAST-2`**.
+
 

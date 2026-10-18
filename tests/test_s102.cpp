@@ -559,19 +559,20 @@ void test_s102_uncertainty() {
     std::cout << "S-102 unc VG toggle hide/show ok\n";
   }
 
-  // --- #1b Fixture B depth-only compound ---
+  // --- #1b Fixture B depth-only compound (QBC-META elects §10 min==max broadcast) ---
   {
     s100::LoadError err;
     s100::Dataset ds;
     CHECK(s100::open_dataset(fixture_b, ds, &err));
     CHECK(ds.coverage.has_value());
     CHECK(ds.coverage->grids.size() >= 1);
-    CHECK(ds.coverage->grid().uncertainty.empty());  // no channel loaded
+    CHECK(ds.coverage->grid().uncertainty.size() == ds.coverage->grid().depth.size());
     s100::CoverageSample sm;
     CHECK(ds.coverage->sample_wgs84(30.0, 30.0, sm));
     CHECK(sm.has_depth);
     CHECK(std::fabs(sm.depth - 8.0f) < 1e-3f);
-    CHECK(!sm.has_uncertainty);
+    CHECK(sm.has_uncertainty);
+    CHECK(std::fabs(sm.uncertainty - 0.75f) < 1e-3f);
 
     s100::FeatureCatalogue fc;
     s100::PortrayalCatalogue pc;
@@ -589,8 +590,8 @@ void test_s102_uncertainty() {
       if (d.coverage_attribute == "depth") ++n_depth;
     }
     CHECK(n_depth >= 1);
-    CHECK(n_unc == 0);  // no uncertainty CoverageFill for depth-only
-    std::cout << "S-102 unc B depth-only load+sample+no-unc-DI ok\n";
+    CHECK(n_unc >= 1);  // broadcast fills unc channel → vendor VG 13031 DI present
+    std::cout << "S-102 unc B depth-only broadcast unc=0.75 + unc-DI ok\n";
   }
 
   // --- #6 Real NOAA/CHS path (unc metres only; QoBC not asserted) ---
@@ -655,6 +656,172 @@ void test_s102_uncertainty() {
   std::cout << "S-102 uncertainty OK (IHO-S102-UNCERTAINTY)\n";
 }
 
+
+/** IHO-S102-QBC-META / CTest s102_qbc_meta — QBC-* + BCAST-* (separate failure faces). */
+void test_s102_qbc_meta() {
+  const fs::path src = S100_SOURCE_DIR;
+  const fs::path fixture_c = src / "testdata/s102/synthetic_qbc_meta_4326.h5";
+  const fs::path fixture_b = src / "testdata/s102/synthetic_uncertainty_depth_only_4326.h5";
+  const fs::path fixture_b2 = src / "testdata/s102/synthetic_uncertainty_depth_only_fillunc_4326.h5";
+  CHECK(fs::exists(fixture_c));
+  CHECK(fs::exists(fixture_b));
+  CHECK(fs::exists(fixture_b2));
+
+#define CHECK_QBC(tag, cond)                                                           \
+  do {                                                                                 \
+    if (!(cond)) {                                                                     \
+      std::cerr << "FAIL " tag " " << __FILE__ << ":" << __LINE__ << " " << #cond      \
+                << "\n";                                                               \
+      std::exit(1);                                                                    \
+    }                                                                                  \
+  } while (0)
+#define CHECK_BCAST(tag, cond)                                                             \
+  do {                                                                                     \
+    if (!(cond)) {                                                                         \
+      std::cerr << "FAIL " tag " " << __FILE__ << ":" << __LINE__ << " " << #cond          \
+                << "\n";                                                                   \
+      std::exit(1);                                                                        \
+    }                                                                                      \
+  } while (0)
+
+  // --- QBC-1 / QBC-2 / QBC-3 Fixture C ---
+  {
+    s100::LoadError err;
+    s100::Dataset ds;
+    CHECK_QBC("QBC-3", s100::open_dataset(fixture_c, ds, &err));
+    CHECK_QBC("QBC-3", ds.coverage.has_value());
+    // QBC-3 open: has_qbc_coverage
+    CHECK_QBC("QBC-3", ds.coverage->has_qbc_coverage);
+    CHECK_QBC("QBC-3", ds.coverage->grids.size() >= 1);
+    CHECK_QBC("QBC-3", !ds.coverage->grid().qbc_ids.empty());
+
+    // QBC-1 Point C1
+    s100::CoverageSample c1;
+    CHECK_QBC("QBC-1", ds.coverage->sample_wgs84(40.0, 40.0, c1));
+    CHECK_QBC("QBC-1", c1.has_depth);
+    CHECK_QBC("QBC-1", c1.has_qbc);
+    CHECK_QBC("QBC-1", c1.qbc_id == 1u);
+    s100::QbcAttributeRecord rec;
+    CHECK_QBC("QBC-1", ds.coverage->lookup_qbc_record(1u, rec));
+    CHECK_QBC("QBC-1", rec.valid);
+    CHECK_QBC("QBC-1", rec.survey_authority == "Synthetic Survey Authority Alpha");
+    CHECK_QBC("QBC-1", rec.source_survey_id == "SYN-QBC-001");
+    std::cout << "QBC-1 C1 id=" << c1.qbc_id << " auth=" << rec.survey_authority << "\n";
+
+    // QBC-2 Point C2 fill id 0
+    s100::CoverageSample c2;
+    CHECK_QBC("QBC-2", ds.coverage->sample_wgs84(40.1, 40.0, c2));
+    CHECK_QBC("QBC-2", c2.has_depth);
+    CHECK_QBC("QBC-2", !c2.has_qbc);
+    CHECK_QBC("QBC-2", c2.qbc_id == 0u);
+    std::cout << "QBC-2 C2 fill id has_qbc=false\n";
+
+    // QBC-3 Portray: no CoverageFill for QBC id raster / continuous unc-from-id
+    s100::FeatureCatalogue fc;
+    s100::PortrayalCatalogue pc;
+    std::string perr;
+    CHECK_QBC("QBC-3", s100::load_feature_catalogue(src / "catalogues/S-102/S-102_FC_3.0.0.xml", fc, &perr));
+    CHECK_QBC("QBC-3", s100::load_portrayal_catalogue(src / "catalogues/S-102/PC_3.0.0", pc, &perr));
+    auto ctx = s100::PortrayalContext::defaults(pc);
+    s100::DrawingInstructions di;
+    s100::PortrayalStats st;
+    CHECK_QBC("QBC-3", s100::portray(*ds.coverage, fc, pc, ctx, di, &perr, &st));
+    CHECK_QBC("QBC-3", st.lua_errors == 0);
+    int n_depth = 0, n_unc = 0, n_qbc_fill = 0, n_null = 0;
+    bool saw_qbc_feature = false;
+    for (const auto& f : ds.coverage->features) {
+      if (f.code == "QualityOfBathymetryCoverage") saw_qbc_feature = true;
+    }
+    CHECK_QBC("QBC-3", saw_qbc_feature);
+    for (const auto& d : di) {
+      if (d.command == "NullInstruction") ++n_null;
+      if (d.kind != s100::DrawingInstruction::Kind::Coverage || d.command != "CoverageFill") continue;
+      if (d.coverage_attribute == "depth") ++n_depth;
+      else if (d.coverage_attribute == "uncertainty") ++n_unc;
+      else if (d.coverage_attribute == "iD" || d.coverage_attribute == "id" ||
+               d.coverage_attribute == "qbc" || d.coverage_attribute.find("Quality") != std::string::npos) {
+        ++n_qbc_fill;
+      }
+    }
+    CHECK_QBC("QBC-3", n_depth >= 1);
+    CHECK_QBC("QBC-3", n_qbc_fill == 0);  // MUST NOT paint QBC id as CoverageFill colour band
+    std::cout << "QBC-3 portray depth=" << n_depth << " unc=" << n_unc << " qbc_fill=" << n_qbc_fill
+              << " null=" << n_null << "\n";
+  }
+
+  // --- QBC-4 Real NOAA/CHS ---
+  {
+    const fs::path noaa = src / "testdata/s102/102US004AK5HQ262267.h5";
+    fs::path cell;
+    bool prefer_noaa = false;
+    if (fs::exists(noaa)) {
+      cell = noaa;
+      prefer_noaa = true;
+    } else if (s100test::chs_exercised("s102.qbc_meta")) {
+      cell = s100test::chs_s100_root() / "S-102" / "DATASET_FILES" / "CA00" /
+             "102CA0064682N07116W" / "16" / "102CA0064682N07116W.h5";
+    }
+    if (cell.empty()) {
+      std::cout << "QBC-4 real sample: not exercised (no NOAA/CHS under TEST-DATA-ROOTS)\n";
+    } else {
+      s100::LoadError err;
+      s100::Dataset ds;
+      CHECK_QBC("QBC-4", s100::open_dataset(cell, ds, &err));
+      CHECK_QBC("QBC-4", ds.coverage.has_value());
+      if (prefer_noaa) {
+        CHECK_QBC("QBC-4", ds.coverage->has_qbc_coverage);
+        s100::CoverageSample sm;
+        CHECK_QBC("QBC-4", ds.coverage->grid().sample_cell(700, 700, sm));
+        CHECK_QBC("QBC-4", sm.has_qbc);
+        CHECK_QBC("QBC-4", sm.qbc_id == 1u);
+        s100::QbcAttributeRecord rec;
+        CHECK_QBC("QBC-4", ds.coverage->lookup_qbc_record(1u, rec));
+        CHECK_QBC("QBC-4", rec.survey_authority.find("Office of Coast Survey") != std::string::npos);
+        CHECK_QBC("QBC-4", rec.survey_authority ==
+                  "DOC/NOAA/NOS/OCS -- Office of Coast Survey");
+        std::cout << "QBC-4 NOAA cell(700,700) id=1 auth=" << rec.survey_authority << "\n";
+      } else {
+        // CHS may lack QoBC → has_qbc_coverage==false is pass
+        CHECK_QBC("QBC-4", ds.coverage->has_qbc_coverage == false);
+        std::cout << "QBC-4 CHS without QoBC has_qbc_coverage=false (pass)\n";
+      }
+    }
+  }
+
+  // --- BCAST-1 Fixture B broadcast election ---
+  {
+    s100::LoadError err;
+    s100::Dataset ds;
+    CHECK_BCAST("BCAST-1", s100::open_dataset(fixture_b, ds, &err));
+    CHECK_BCAST("BCAST-1", ds.coverage.has_value());
+    s100::CoverageSample sm;
+    CHECK_BCAST("BCAST-1", ds.coverage->sample_wgs84(30.0, 30.0, sm));
+    CHECK_BCAST("BCAST-1", sm.has_depth);
+    CHECK_BCAST("BCAST-1", sm.has_uncertainty);
+    CHECK_BCAST("BCAST-1", std::fabs(sm.uncertainty - 0.75f) < 1e-3f);
+    std::cout << "BCAST-1 fixture B broadcast unc=" << sm.uncertainty << "\n";
+  }
+
+  // --- BCAST-2 depth-only with fill min==max → no broadcast ---
+  {
+    s100::LoadError err;
+    s100::Dataset ds;
+    CHECK_BCAST("BCAST-2", s100::open_dataset(fixture_b2, ds, &err));
+    CHECK_BCAST("BCAST-2", ds.coverage.has_value());
+    CHECK_BCAST("BCAST-2", ds.coverage->grid().uncertainty.empty());
+    s100::CoverageSample sm;
+    CHECK_BCAST("BCAST-2", ds.coverage->sample_wgs84(35.0, 35.0, sm));
+    CHECK_BCAST("BCAST-2", sm.has_depth);
+    CHECK_BCAST("BCAST-2", std::fabs(sm.depth - 9.0f) < 1e-3f);
+    CHECK_BCAST("BCAST-2", !sm.has_uncertainty);
+    std::cout << "BCAST-2 fill minmax depth-only has_uncertainty=false\n";
+  }
+
+#undef CHECK_QBC
+#undef CHECK_BCAST
+  std::cout << "S-102 QBC meta OK (IHO-S102-QBC-META)\n";
+}
+
 void run_s102_tests() {
   test_s102_fc_and_pc_pair();
   test_s102_open_bounds_sample_portray();
@@ -662,4 +829,5 @@ void run_s102_tests() {
   test_s102_session_overlay();
   test_s102_deepen_multigrid();
   test_s102_uncertainty();
+  test_s102_qbc_meta();
 }

@@ -18,12 +18,29 @@ struct CoverageFeature {
   std::vector<Attribute> attributes;  // feature-instance metadata attributes
 };
 
+/** One row from QualityOfBathymetryCoverage/featureAttributeTable (oracle subset). */
+struct QbcAttributeRecord {
+  std::uint32_t id{0};
+  std::string survey_authority;       // "surveyAuthority"
+  std::string source_survey_id;       // "sourceSurveyID"
+  std::string survey_date_start;      // "surveyDateRange.dateStart"
+  std::string survey_date_end;        // "surveyDateRange.dateEnd"
+  float zoc_uncertainty_fixed{0};     // zoneOfConfidence.horizontalPositionUncertainty.uncertaintyFixed
+  float zoc_uncertainty_variable{0};  // ...uncertaintyVariableFactor
+  std::uint8_t data_assessment{0};
+  std::uint8_t type_of_bathymetric_estimation_uncertainty{0};
+  bool valid{false};
+};
+
 /** One sample from a coverage grid. */
 struct CoverageSample {
   float depth{0};
   float uncertainty{0};
   bool has_depth{false};
   bool has_uncertainty{false};
+  // Additive QBC meta (IHO-S102-QBC-META):
+  std::uint32_t qbc_id{0};  // 0 = fill / none
+  bool has_qbc{false};
 };
 
 /**
@@ -44,6 +61,8 @@ struct CoverageGrid {
   float fill_uncertainty{1.0e6f};
   std::vector<float> depth;
   std::vector<float> uncertainty;
+  /** Optional QoBC U32 id raster (same shape as depth when attached). Fill id = 0. */
+  std::vector<std::uint32_t> qbc_ids;
 
   Bounds geographic_bounds() const {
     Bounds b;
@@ -65,7 +84,7 @@ struct CoverageGrid {
 
 /**
  * Coverage product payload (S-102+). Host portrayal uses `features`
- * (one BathymetryCoverage instance per loaded grid).
+ * (one BathymetryCoverage instance per loaded grid; optional QoBC meta feature).
  */
 struct CoverageDataset {
   ProductId product{ProductId::S102};
@@ -75,13 +94,21 @@ struct CoverageDataset {
   std::vector<CoverageGrid> grids;    // size >= 1 after successful open
   std::vector<CoverageFeature> features;
 
+  /** True iff /QualityOfBathymetryCoverage was loaded (multiplicity 1). */
+  bool has_qbc_coverage{false};
+  /** Rows from featureAttributeTable (id-keyed lookup). */
+  std::vector<QbcAttributeRecord> qbc_attribute_table;
+
   /** Temporary shim → grids[0] (one release; prefer grids / sample_wgs84). */
   CoverageGrid& grid() { return grids.at(0); }
   const CoverageGrid& grid() const { return grids.at(0); }
 
   /** Among grids whose geographic envelope contains (lon,lat), pick smallest
-   *  enclosing area then lowest index; else false. */
+   *  enclosing area then lowest index; else false. Fills QBC fields when loaded. */
   bool sample_wgs84(double lon, double lat, CoverageSample& out) const;
+
+  /** Look up featureAttributeTable row by id field (not array index). */
+  bool lookup_qbc_record(std::uint32_t id, QbcAttributeRecord& out) const;
 };
 
 }  // namespace s100

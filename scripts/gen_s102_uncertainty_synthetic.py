@@ -24,7 +24,7 @@ NROWS = NCOLS = 5
 # Point B (fixture A): row0,col1 → depth=12.5, unc=FILL → has_uncertainty=false
 DEPTH_A = np.float32(12.5)
 UNC_A = np.float32(2.5)
-# Fixture B constant (min==max, not fill); loader does not broadcast → has_uncertainty=false
+# Fixture B constant (min==max, not fill); QBC-META elects broadcast → has_uncertainty=true, unc=0.75
 UNC_CONST_B = np.float32(0.75)
 DEPTH_B = np.float32(8.0)
 
@@ -131,8 +131,8 @@ def write_b():
         rows = np.array([_depth_row()], dtype=_group_f_dtype())
         gf.create_dataset("BathymetryCoverage", data=rows)
     print("wrote", OUT_B)
-    print(f"  depth-only; minUncertainty==maxUncertainty=={UNC_CONST_B} (not broadcast)")
-    print(f"  sample lon={west} lat={south} → has_uncertainty==false")
+    print(f"  depth-only; minUncertainty==maxUncertainty=={UNC_CONST_B} (broadcast elect → has_uncertainty=true)")
+    print(f"  sample lon={west} lat={south} → has_uncertainty==true unc={UNC_CONST_B}")
 
 
 if __name__ == "__main__":
