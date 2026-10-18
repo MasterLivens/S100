@@ -82,7 +82,7 @@ CHS cell `102CA0064682N07116W.h5` (when present): **`Group_F/featureCode` has on
 
 ### QBC (primary)
 
-- **Q1 Optional load (0..1).** If `/QualityOfBathymetryCoverage` is absent → success; `CoverageDataset` reports no QBC coverage. If present → load **one** instance (`.01`), U32 id grid + `featureAttributeTable`. Reject / `LoadError` if present but `dataCodingFormat != 9`, or table missing, or id grid unreadable.
+- **Q1 Optional load (0..1).** If `/QualityOfBathymetryCoverage` is absent → success; `CoverageDataset` reports no QBC coverage. If present → load **one** instance (`.01`), U32 id grid + `featureAttributeTable`. Reject / `LoadError` if present but `dataCodingFormat != 9`, or table missing, or id grid unreadable. **Multi-grid attach** (which `grids[i]` receive `qbc_ids`) → **`IHO-S102-QBC-MULTIGRID`** / `docs/s102-qbc-multigrid-contract.md` (rev1; do not hard-bind `grids[0]` only).
 - **Q2 Id fill.** Cell id **`0`** → `has_qbc == false` (no table lookup). Non-zero id → look up row where `featureAttributeTable.id == cell_id` (match by **`id` field**, not array index). Missing id in table → `has_qbc == false` (or soft warn — MUST NOT crash); do not invent a record.
 - **Q3 Sample / pick lookup.** `sample_wgs84` / `sample_cell` (same cell routing as depth) fill additive QBC fields on the sample when QBC is loaded. Callers may also `lookup_qbc_record(id, …)` on the dataset. Session pick may surface QBC meta on the existing S-102 `CoverageSample` hit (additive fields / attributes) — **no** new session member key.
 - **Q4 Official PC is NullInstruction.** Portrayal of QoBC follows shipped `QualityOfBathymetryCoverage.lua` → **`NullInstruction`**. This slice **MUST NOT** emit a CoverageFill / colour band for the id raster. Depth (`13030`) and uncertainty vendor VG (`13031` from UNCERTAINTY) unchanged.
@@ -197,6 +197,12 @@ Soft pixel / screenshot: **WARN-only**. EncDotNet: **out**.
 - Exact fixture **C** lon/lat / id values — Eng pins in `testdata/s102/SOURCE.md` when generating the file.
 - Whether session-pick prints QBC strings in CLI in this slice or only exposes fields on `CoverageSample` / `QbcAttributeRecord` (default: fields on sample + lookup API; CLI pretty-print optional WARN).
 - Full FAT field round-trip vs oracle subset above — Eng MAY load all HDF5 members internally; public record MUST cover the oracle columns.
+
+---
+
+## Backlog (taken by follow-on)
+
+- **Multi-grid QoBC bind** → **`IHO-S102-QBC-MULTIGRID`** (`docs/s102-qbc-multigrid-contract.md`, **rev1**). §10 QoBC root remains **0..1** / `.01` only (shared across co-located multi-VD `BathymetryCoverage.nn`). Do **not** hard-bind to `grids[0]`; O1 hybrid shape+origin/spacing attach; no matcher → `LoadError`; **`QBC-MG-*`** oracles. This contract’s **`QBC-*`** / **`BCAST-*`** surfaces stay closed.
 
 ---
 
