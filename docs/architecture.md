@@ -25,6 +25,7 @@ Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: S
 │   ├─ products/gml   (S-124)                 │  P3
 │   ├─ catalogue (FC/PC) + portrayal (Lua)    │  P1
 │   ├─ exchange_set (CATALOG.XML, updates)    │  P1
+│   ├─ security (Part 15 signatures)          │  Active
 │   ├─ layer / pick / crs / time              │  shared
 │   └─ types (Geometry, Feature, Bounds)      │  shared
 └─────────────────────────────────────────────┘
@@ -40,6 +41,7 @@ Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: S
 | `iso8211` | binary cell decode + spatial | **next (Eng)** |
 | `catalogue` / `portrayal` | FC/PC XML + Lua | P1 |
 | `exchange_set` | CATALOG.XML, .001… updates | **done (P1)** |
+| `security` | Part 15 verify (`s100_security`); OpenSSL 3; exchange-set Enforce path | **Active (`IHO-S164-SIG`)** |
 | `coverage` | grid `bounds` / `sample_wgs84` (EPSG:4326) | S-102 first slice |
 | `viewer` | Qt map, toggles, status pick | P0 shell |
 
@@ -82,4 +84,4 @@ Planned future top-level modules (not P0 work): `data_mgmt` (exchange + Part15/S
 
 ## Out of scope (for now)
 
-ECDIS type-approval claims, S-57/S-52 dual-fuel (deferred), DRM beyond reading CATALOG.XML.
+ECDIS type-approval claims, S-57/S-52 dual-fuel (deferred), Part 15 encryption/permits (signature verify is Active — see `docs/part15-signature-contract.md`).

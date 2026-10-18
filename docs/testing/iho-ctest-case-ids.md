@@ -36,6 +36,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S164-UPD-CORRUPT` | 2.2.1 / 2.1.5 | 截断/坏 leader/未知 RUIN/缺目标 → 拒收，数据集逐位不变（强保证）；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
 | `IHO-S164-CANCEL-REISSUE` | S-164 Ed1.0.0 取消 2.9.1（2.8.1）/ 取消替换 2.9.2 / 再版 2.3.6、2.9.3（2.8.2）/ 新版迟到 2.3.4（2.3.3）/ 旧版更新 2.3.5；S-101 PS §11.3.1–11.3.3、B-7.1.1 | DSED 无点修复；ED=0 取消→清空+后续 `DatasetCancelled`；再版跳过 ≤n；新版 superseded；ED> → `NewerEditionPending`；会话整体替换；no-SKIP；Linux+Win | `exchange_cancel_reissue` | Active |
 | `IHO-S164-EDITION-HARDEN` | S-164 Ed1.0.0 旧版更新 2.3.5 / 新版迟到 2.3.4；S-101 PS §11.3.2–11.3.3、B-7.1.1 | 旧版更新（0<ED<基版 ED）在所有序列路径（`open_dataset_with_updates`/`open_cell_series`/会话/viewer/CLI）→ `superseded`，不报错；单独 `apply_s101_update` 仍 `EditionMismatch`；ED> 仍 `NewerEditionPending`；共用 `classify_update_edition`；基版 DSED 不可解析/缺 DSID/ED=0 → 拒收（`Invalid`/`BadStructure`），绝不按 ED0 加载；`[[edition_fixture]]`；rev1.4 与 cancel-reissue 断言不变；no-SKIP；Linux+Win | `exchange_edition_hardening` | Active |
+| `IHO-S164-SIG` | S-100 Ed 5.2.1 Part 15 / Part 17; S-98 2.0.0 §9.1.1 / §20.4.3 c / App. B; S-164 1.0.0 §2.5–2.7 (2.0.1 draft names) | CATALOG.SIGN + per-file ECDSA-384-SHA2; id/issuer chain; injectable verify_time; SSE map (116/124→109); VerifyPolicy Enforce/Off (product Enforce, lib default Off); trust IHO 5.2 + test SA in test_mode; official/non-official; standalone UNVERIFIED; no --allow-unsigned; OpenSSL 3.0 + OPENSSL_API_COMPAT=30000 + OPENSSL_NO_DEPRECATED; no-SKIP; Linux+Win | `exchange_signature` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 
@@ -50,7 +51,6 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S101-POINT-LABEL-COLLISION` | 3.1 ENC Display | PointLabel 配对 Text；开/关 PointLabel 重叠对数；符号存活计数 | `viewer_point_label_collision` | Active |
 | `IHO-DISP-REF-COMPARE` | Display Test Template | 参考实现截图 | 替代「只靠像素漂移」谈观感 |
 | `IHO-S164-POWERUP` | 2.1.1 | Track B | 认证启动包 |
-| `IHO-S164-SIG` | CertificatesAndKeys | Track B | Part 15 |
 
 ## Tester 操作建议
 

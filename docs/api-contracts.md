@@ -180,6 +180,16 @@ Details: `docs/s124-contract.md`.
 - `load_s101` / `open_dataset(.000)`: base with missing DSID, unparseable DSED or DSED edition 0 → `false` (`LoadErrorKind::Invalid`; `BadStructure` with `rejected == base` on update paths); `out` untouched on any `false`. Signatures unchanged.
 - CTest `exchange_edition_hardening` MUST NOT SKIP (Linux + Windows).
 
+
+## Part 15 signature verification (exchange set)
+
+- Details: `docs/part15-signature-contract.md` (`IHO-S164-SIG`).
+- New module `s100_security` (`include/s100/security/…`): `verify_exchange_set(root, TrustStore, VerifyOptions) → VerificationReport`; `VerifyPolicy {Off, Enforce}`; `TrustStore` value type; `sse_code` / `sse_message` in **one** map TU.
+- `ChartSession::open_exchange_set` gains optional `VerifyPolicy` (**library default `Off`** so existing tests need no edit). Product CLI and viewer **hardcode `Enforce`**. No `--allow-unsigned` / env escape in the product.
+- Standalone `open_dataset` / `.000` unchanged; CLI and viewer show `UNVERIFIED`.
+- Build: `find_package(OpenSSL 3.0 REQUIRED)`; target defines `OPENSSL_API_COMPAT=30000` and `OPENSSL_NO_DEPRECATED`.
+- CTest `exchange_signature` MUST NOT SKIP (Linux + Windows).
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
