@@ -185,7 +185,7 @@ Details: `docs/s124-contract.md`.
 
 - Details: `docs/part15-signature-contract.md` (`IHO-S164-SIG`).
 - New module `s100_security` (`include/s100/security/…`): `verify_exchange_set(root, TrustStore, VerifyOptions) → VerificationReport`; `VerifyPolicy {Off, Enforce}`; `TrustStore` value type; `sse_code` / `sse_message` in **one** map TU.
-- `ChartSession::open_exchange_set` gains optional `VerifyPolicy` (**library default `Off`** so existing tests need no edit). Product CLI and viewer **hardcode `Enforce`**. No `--allow-unsigned` / env escape in the product.
+- `ChartSession::open_exchange_set` / `open_cell_series` gain optional `VerifyPolicy` (**library default `Enforce`** — security boundary; a forgotten policy must refuse unsigned data). Existing tests pass `VerifyPolicy::Off` **explicitly** (named deviation for frozen test files: call-arg only). Product CLI and viewer **hardcode `Enforce`**. No `--allow-unsigned` / env escape in the product. See `docs/part15-signature-contract.md` rev 1.1.
 - Standalone `open_dataset` / `.000` unchanged; CLI and viewer show `UNVERIFIED`.
 - Build: `find_package(OpenSSL 3.0 REQUIRED)`; target defines `OPENSSL_API_COMPAT=30000` and `OPENSSL_NO_DEPRECATED`.
 - CTest `exchange_signature` MUST NOT SKIP (Linux + Windows).

@@ -1,9 +1,11 @@
-# Part 15 data protection · signature verification (rev 1)
+# Part 15 data protection · signature verification (rev 1.1)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-S164-SIG`** (**Active**). CTest: **`exchange_signature`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
 
 Primary source: `/workspace/research/part15/BRIEF.md` (Planner) and `/workspace/research/part15/verify/{verify_chs,verify_generic}.py`. Spec texts: S-100 Ed 5.2.1 Part 15 / Part 17, S-98 Ed 2.0.0 §9.1.1 / §20.4.3 c / App. B, S-164 Ed 1.0.0 §2.5–2.7 (+ 2.0.1 draft names). Docs only in this slice; **no engine / fixture / CMake / CI change in the Architect commit**.
+
+**rev1.1 change (Planner overrule of A5):** library C++ default is **`VerifyPolicy::Enforce`**, not `Off`. Reason: signature verification is a security boundary; a new import call site that forgets to pass a policy must refuse unsigned data, not silently accept it. Existing 34 tests pass `Off` explicitly (one-time, intentional and visible). Product CLI/viewer hardcode `Enforce`; `Off` unreachable from the product (grep). Standalone `open_dataset` stays `UNVERIFIED`. Do not re-sign or modify old fixture bytes. OPENSSL_API_COMPAT, check order, oracles 1–6, SSE mapping unchanged from rev1.
 
 Strong guarantees (same family as update-robustness):
 1. A **rejected exchange set** (SSE 134 / 105 / … at catalogue level) leaves the caller’s `ChartSession` **bit-for-bit unchanged** (no members inserted, catalogue/series maps cleared only if `open_exchange_set` had already mutated — prefer verify-before-mutate: fail before writing session state).
@@ -27,7 +29,7 @@ Strong guarantees (same family as update-robustness):
 | **D4** | Trust store defaults to the built-in IHO 5.2 root; the user may install an SA. The S-164 test SA is trusted **only in test mode**. A self-signed certificate shipped **inside** an exchange set is **never** a trust anchor. |
 | **D5** | Internal enum, mapped to S-98 SSE codes. S-164 116 / 124 map to **109**. The mapping table lives in **ONE** separate place (own file or clearly bounded section), because S-164 2.0.1 and S-98 3.0.0 are drafts and codes may change. |
 | **D6** | Data signatures accept **only** ECDSA-384-SHA2 (P-384 + SHA-384, Base64 DER `SEQUENCE{r,s}`, over raw file bytes). Certificate signatures accept `ecdsa-with-SHA256` and `ecdsa-with-SHA384`. **No** mandatory X.509 extension checks (BasicConstraints / KeyUsage). |
-| **D7** | Verification is enforced **only** on the exchange-set import path. Standalone `open_dataset(.000)` stays for tests and dev; CLI and viewer show **`UNVERIFIED`**. **No** `--allow-unsigned` (or equivalent) in the product. The existing 34 tests must not need signature / assertion / fixture-byte changes. |
+| **D7** | Verification is enforced **only** on the exchange-set import path. Standalone `open_dataset(.000)` stays for tests and dev; CLI and viewer show **`UNVERIFIED`**. **No** `--allow-unsigned` (or equivalent) in the product. The existing 34 tests keep **assertions and fixture bytes** unchanged; they pass `VerifyPolicy::Off` **explicitly** at every exchange-set import call site (A5 / A8). |
 | **D8** | This slice outputs an **official / non-official** classification (ST role + CN shape). Producer-code matching (CN MRN ↔ dataset producer) → **Backlog**. |
 
 ## SSE behaviour (S-98 2.0.0 §20.4.3 c + App. B)
@@ -173,9 +175,12 @@ enum class VerifyPolicy { Off, Enforce };
 | Product CLI exchange-set path | **`Enforce`** (hardcoded at the call site) |
 | Product viewer exchange-set path | **`Enforce`** (hardcoded) |
 | Standalone `open_dataset` / CLI cell / viewer `.000` | No verification; UI shows **`UNVERIFIED`** (D7) |
-| Library `ChartSession::open_exchange_set` | Optional `VerifyPolicy` parameter; **C++ default = `Off`** |
+| Library `ChartSession::open_exchange_set` | Optional `VerifyPolicy` parameter; **C++ default = `Enforce`** |
+| Library `open_cell_series` | Optional `VerifyPolicy` parameter; **C++ default = `Enforce`** |
 
-**Why default Off:** every existing test that opens an unsigned `CATALOG.XML` through `ChartSession` or will gain a policy argument compiles and behaves as today **without editing frozen files**. “Product default is Enforce” means the **shipped apps** always pass `Enforce`; the library default exists solely for test / back-compat. Document this in the header comment so it is not mistaken for a product escape hatch.
+**Why default Enforce (Planner overrule of rev1 Off):** signature verification is a **security boundary**. A new import call site that forgets to pass a policy must **refuse** unsigned data, not silently accept it. Existing 34 tests that open unsigned catalogues pass `VerifyPolicy::Off` **explicitly** at every exchange-set import site (one-time, intentional and visible). “Product default is Enforce” means both the **library default** and the **shipped apps** (CLI / viewer hardcode `Enforce`). Document in the header comment that `Off` is for tests / explicit opt-out only — not a product escape hatch.
+
+**Every existing test import call site must pass `Off` explicitly** (see A8 enumeration). Relying on a default of `Off` is forbidden.
 
 **Off is unreachable from the product:**
 - No CLI flag, no env var, no settings key that selects `Off` or “allow unsigned”.
@@ -183,7 +188,7 @@ enum class VerifyPolicy { Off, Enforce };
   `rg -n 'VerifyPolicy::Off|--allow-unsigned|S100_ALLOW_UNSIGNED|allow_unsigned' src/cli src/viewer` → **empty**.  
   `rg -n 'VerifyPolicy::Enforce' src/cli src/viewer` → **≥ 1 hit each** (every exchange-set open site).
 
-**Off still leaves standalone `open_dataset` showing `UNVERIFIED`** (D7) — that path never calls `verify_exchange_set`.
+**Standalone `open_dataset` stays `UNVERIFIED`** (D7) — that path never calls `verify_exchange_set`.
 
 ### A6 OpenSSL build pin (Eng + Tester + Planner binding)
 
@@ -229,7 +234,7 @@ When several defects exist on one resource, the **lowest step number** in 9–16
 
 ### A8 Existing tests / fixtures under enforcement — enumeration and resolution
 
-**Resolution (Tester):** do **not** re-sign or modify old fixture bytes. Diff on the old 34 tests’ assertions and on existing fixture bytes must be **empty**. Callers that must stay green use `VerifyPolicy::Off` via the **library default** (A5) — frozen files need **no edit**.
+**Resolution (Tester):** do **not** re-sign or modify old fixture bytes. Diff on the old 34 tests’ **assertions** and on existing **fixture bytes** must be **empty of semantic changes**. Every call site on the exchange-set import path (`ChartSession::open_exchange_set`, `open_cell_series`) that must stay green **passes `VerifyPolicy::Off` explicitly**. `group_cell_series` is catalogue grouping only — **no** `VerifyPolicy` parameter; sites that call it then `open_cell_series` attach `Off` on the `open_cell_series` call.
 
 #### Every committed `CATALOG.XML` used by exchange-set import today
 
@@ -244,24 +249,41 @@ When several defects exist on one resource, the **lowest step number** in 9–16
 | `testdata/s101/updates/edition/nocat/CATALOG.XML` | `test_edition_hardening` | **No** |
 | CHS `COMBINED/S100_ROOT/CATALOG.XML` (gitignored) | `test_exchange_set`, `test_s102`, … via TEST-DATA-ROOTS | **Yes** (PRIMAR; DS notAfter **2026-04-02**) |
 
-#### Call sites that open an exchange set
+#### Call sites that open an exchange set (re-enumerated from contract + code search 2026-10-18)
 
-| File | Call | Under Enforce would… | Resolution |
-|------|------|----------------------|------------|
-| `tests/test_exchange_set.cpp` | `session.open_exchange_set(synthetic)` | Reject unsigned → **134** | Default **Off** (no edit); optional later explicit Off |
-| `tests/test_exchange_set.cpp` | CHS `open_exchange_set` / `open_cell_series` | Wall-clock **122** after 2026-04-02 | Default Off; local WARN case under Enforce + injected time (A3) |
-| `tests/test_update_robustness.cpp` | `open_exchange_set(session/)`, `open_exchange_set(exchange_set/)`, `open_cell_series(catalog/)` | Reject / break oracles | **Frozen — no edit**; default Off |
-| `tests/test_cancel_reissue.cpp` | `open_exchange_set` A/B/X/C, `open_cell_series(newed)` | Reject | **Frozen — no edit**; default Off |
-| `tests/test_edition_hardening.cpp` | `open_exchange_set(nocat)`, `open_exchange_set(base_bad_cat)`, `open_cell_series` | Reject | **Frozen — no edit**; default Off |
-| `tests/test_s102.cpp` | CHS `open_exchange_set` | 122 risk | Default Off |
-| `src/cli/main.cpp` | `session.open_exchange_set(path)` | Product | Pass **`VerifyPolicy::Enforce`** |
+| File | Approx. function / site | Call | Under library default Enforce would… | Required edit |
+|------|-------------------------|------|--------------------------------------|---------------|
+| `tests/test_exchange_set.cpp` | `test_exchange_set_synthetic_and_chs` | `session.open_exchange_set(synthetic)` | Reject unsigned → **134** | Pass **`VerifyPolicy::Off`** explicitly |
+| `tests/test_exchange_set.cpp` | `test_exchange_set_synthetic_and_chs` | `open_cell_series(*with_upd, …)` (CHS) | Wall-clock **122** after 2026-04-02 | Pass **`Off`** explicitly; local WARN case under Enforce + injected time (A3) |
+| `tests/test_exchange_set.cpp` | `test_exchange_set_synthetic_and_chs` | `chs_session.open_exchange_set(chs)` | 122 risk | Pass **`Off`** explicitly |
+| `tests/test_update_robustness.cpp` | `test_exchange_update_robustness` (catalog block) | `open_cell_series(series[0], …)` on `catalog/CATALOG.XML` | Reject / break oracles | **Named deviation** — pass **`Off`** (call-arg only) |
+| `tests/test_update_robustness.cpp` | `test_exchange_update_robustness` (oracle 11) | `session.open_exchange_set(session/CATALOG.XML)` | Reject | **Named deviation** — pass **`Off`** |
+| `tests/test_update_robustness.cpp` | `test_exchange_update_robustness` (oracle 11 ok path) | `ok_session.open_exchange_set(exchange_set/CATALOG.XML)` | Reject | **Named deviation** — pass **`Off`** |
+| `tests/test_cancel_reissue.cpp` | `run` (oracle 5 newed) | `open_cell_series(series[0], …)` on `newed/CATALOG.XML` | Reject | **Named deviation** — pass **`Off`** |
+| `tests/test_cancel_reissue.cpp` | `run` (session_replace) | `session.open_exchange_set` A / B / X / C | Reject | **Named deviation** — pass **`Off`** (each site) |
+| `tests/test_cancel_reissue.cpp` | `run` (session_replace fresh) | `open_cell_series(group_cell_series(cat).front(), …)` | Reject | **Named deviation** — pass **`Off`** |
+| `tests/test_edition_hardening.cpp` | `via_series` helper | `open_cell_series(series.front(), …)` | Reject | **Named deviation** — pass **`Off`** |
+| `tests/test_edition_hardening.cpp` | `run` (oracle 4 / nocat) | `session.open_exchange_set(edition/nocat/…)` | Reject | **Named deviation** — pass **`Off`** |
+| `tests/test_edition_hardening.cpp` | `run` (base_bad_cat, two sites) | `session.open_exchange_set(edition/base_bad_cat/…)` | Reject | **Named deviation** — pass **`Off`** (each site) |
+| `tests/test_s102.cpp` | `test_s102_session_overlay` | `chs_session.open_exchange_set(chs)` | 122 risk | Pass **`Off`** explicitly |
+| `src/cli/main.cpp` | exchange-set open (~line 401) | `session.open_exchange_set(path)` | Product | Pass **`VerifyPolicy::Enforce`** (hardcoded) |
 | `src/viewer/main.cpp` | (when exchange-set open is wired; today overlays use `insert` on already-open cells) | Product | Pass **`Enforce`** at every future/present exchange-set open; standalone stays `UNVERIFIED` |
 
-**Named deviation:** **none required** for frozen files (`test_update_robustness.cpp`, `test_cancel_reissue.cpp`, `test_edition_hardening.cpp`) — library default Off is the designed escape. If Engineer finds a site that gains a **mandatory** new parameter without a default, stop and report; do not edit assertions or fixture bytes.
+`group_cell_series` call sites (no policy arg; listed for completeness): `test_exchange_set_synthetic_and_chs`, `test_exchange_update_robustness` (catalog), `run` in cancel-reissue (newed + session_replace), `via_series` in edition-hardening. Policy attaches on the subsequent `open_cell_series` / `open_exchange_set` only.
+
+#### Named deviations (frozen files)
+
+Edits to these three frozen files are a **named deviation** from the prior “byte-identical frozen” rule:
+
+| Frozen file | Allowed edit | Forbidden |
+|-------------|--------------|-----------|
+| `tests/test_update_robustness.cpp` | Call-argument only: add `VerifyPolicy::Off` (and maybe an `#include` for the policy enum) at each `open_exchange_set` / `open_cell_series` site listed above | Assertion changes; fixture-byte changes; behaviour / oracle rewrites |
+| `tests/test_cancel_reissue.cpp` | Same — call-argument only | Same |
+| `tests/test_edition_hardening.cpp` | Same — call-argument only | Same |
+
+**Tester check:** `git diff` on assertions and fixtures must still be empty of semantic changes; only the `Off` argument (and maybe an include) appears in those three files. Existing fixture bytes under `testdata/s101/updates/**` and `testdata/exchange_set/**` remain **byte-identical**. `update_fixtures_reproducible` untouched. Do **not** re-sign or modify old fixture bytes.
 
 **Non-CATALOG paths unchanged by D7:** `open_dataset_with_updates`, `discover_update_files`, standalone `apply_s101_update`, all portrayal/S-102/104/111/124 unit tests — no signature gate.
-
-**Frozen (byte-identical):** `tests/test_update_robustness.cpp`, `tests/test_cancel_reissue.cpp`, `tests/test_edition_hardening.cpp`, existing fixture bytes under `testdata/s101/updates/**` and `testdata/exchange_set/**`, `update_fixtures_reproducible`.
 
 ### A9 Official / non-official (D8)
 
@@ -287,7 +309,7 @@ verify_time = 2026-01-15T00:00:00Z
 ## API (additive) — also recorded in `docs/api-contracts.md`
 
 - New headers under `include/s100/security/`.
-- `ChartSession::open_exchange_set(path, err, VerifyPolicy policy = VerifyPolicy::Off)` (or equivalent overload); session retains policy + last `VerificationReport`.
+- `ChartSession::open_exchange_set(path, err, VerifyPolicy policy = VerifyPolicy::Enforce)` (or equivalent overload); likewise `open_cell_series(..., VerifyPolicy policy = VerifyPolicy::Enforce)`. Session retains policy + last `VerificationReport`.
 - `load_member` / `load_all_members` under Enforce skip resources listed in `report.skipped` and do not insert them.
 - No change to `open_dataset` / `load_s101` signatures.
 - No product `--allow-unsigned`.
@@ -317,8 +339,8 @@ verify_time = 2026-01-15T00:00:00Z
 | 7 | `VerifyPolicy::Off` grep empty in `src/cli` + `src/viewer`; `VerifyPolicy::Enforce` present; no `--allow-unsigned` | MUST |
 | 8 | OpenSSL include grep empty outside `src/security/*.cpp` | MUST |
 | 9 | SSE mapping: only `sse_map` TU contains integer SSE codes used for Part 15 outcomes | MUST |
-| 10 | Frozen files + old fixture bytes: `git diff` empty vs pre-slice for `test_update_robustness.cpp`, `test_cancel_reissue.cpp`, `test_edition_hardening.cpp`, and existing unsigned CATALOG trees listed in A8 | MUST |
-| 11 | Existing 34-test set still green under default Off (Linux + Windows) | MUST |
+| 10 | Named-deviation frozen files + old fixture bytes: for `test_update_robustness.cpp`, `test_cancel_reissue.cpp`, `test_edition_hardening.cpp`, `git diff` shows **only** `VerifyPolicy::Off` call-args (and maybe an include) — **no** assertion or fixture-byte semantic changes; existing unsigned CATALOG trees listed in A8 remain byte-identical | MUST |
+| 11 | Existing 34-test set still green with every exchange-set import call site passing `VerifyPolicy::Off` **explicitly** (Linux + Windows); library default remains Enforce | MUST |
 | 12 | Standalone CLI/viewer `.000` shows `UNVERIFIED` | WARN |
 | 13 | Local optional IHO_SIGNED PC and CHS SSE 122: print `exercised` / `not exercised` per TEST-DATA-ROOTS; never SKIP | WARN |
 
