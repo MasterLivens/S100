@@ -53,6 +53,9 @@ struct Dataset {
   int edition_number{0};
   int update_number{0};
   std::string dataset_name;  // DSID DSNM (file name in the cell)
+  /** Set by a cancellation update (DSED "0"); features/information/spatial are then empty and
+   *  every later update is rejected (docs/cancel-reissue-contract.md). */
+  bool cancelled{false};
   std::vector<Feature> features;
   LayerSet layers;
   std::vector<InformationRecord> information;  // IRID records
@@ -83,6 +86,7 @@ struct DatasetIdentification {
   int update_number{0};
   std::string dataset_name;
   std::string product_specification;  // DSID PRSP, e.g. "INT.IHO.S-101.2.0"
+  std::string profile;                // DSID PROF: "1" base, "2" update / cancellation
   bool ok{false};
 };
 

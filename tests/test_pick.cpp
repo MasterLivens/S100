@@ -46,6 +46,7 @@ void test_display_priority_order();
 void test_timeline_ui();
 void test_association_faui_merge();
 void test_exchange_update_robustness();
+void test_exchange_cancel_reissue();
 
 int main(int argc, char** argv) {
   if (argc >= 2 && std::string(argv[1]) == "s102_deepen_multigrid") {
@@ -111,6 +112,10 @@ int main(int argc, char** argv) {
     std::cout << "display_priority_order ok\n";
     return 0;
   }
+  if (argc >= 2 && std::string(argv[1]) == "exchange_cancel_reissue") {
+    test_exchange_cancel_reissue();  // exits non-zero on the first failed check
+    return failures ? 1 : 0;
+  }
   if (argc >= 2 && std::string(argv[1]) == "exchange_update_robustness") {
     test_exchange_update_robustness();  // exits non-zero on the first failed check
     return failures ? 1 : 0;
@@ -155,6 +160,7 @@ int main(int argc, char** argv) {
   test_display_priority_order();
   test_timeline_ui();
   test_exchange_update_robustness();
+  test_exchange_cancel_reissue();
   if (failures) {
     std::cerr << failures << " failure(s)\n";
     return 1;

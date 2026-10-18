@@ -227,7 +227,10 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
       if (with_updates) {
         std::cout << "updates applied=" << report.applied << " rejected="
                   << (report.rejected.empty() ? std::string("-") : report.rejected.string())
-                  << " code=" << s100::update_reject_code_name(report.code) << "\n";
+                  << " code=" << s100::update_reject_code_name(report.code)
+                  << " skipped=" << report.skipped << " cancelled=" << (report.cancelled ? 1 : 0)
+                  << " superseded=" << report.superseded.size() << "\n";
+        if (!report.notice.empty()) std::cerr << "notice: " << report.notice << "\n";
         if (!ok) {
           std::cerr << "warning: " << report.message << "\n";
           if (report.rejected != path)
@@ -235,6 +238,11 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
                       << ds.update_number << " features=" << ds.features.size() << "\n";
           return 1;
         }
+      }
+      // docs/cancel-reissue-contract.md #8: a cancelled cell is reported, not drawn; exit 0.
+      if (ok && ds.cancelled) {
+        std::cout << "cancelled " << path << " (" << report.notice << "), not drawn\n";
+        return 0;
       }
     } else {
       ok = s100::open_dataset(path, ds, &err);

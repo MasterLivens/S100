@@ -259,6 +259,10 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
       acc.have_meta = true;
     }
     if (n == 0) {
+      // New edition (cancel-reissue Behaviour #5): the highest-ED base for a cell wins.
+      if (!acc.s.base.empty() && acc.s.base_entry.has_edition_meta && e.has_edition_meta &&
+          e.edition_number < acc.s.base_entry.edition_number)
+        continue;
       acc.s.base = e.file_path;
       acc.s.base_entry = e;
       acc.s.edition_number = e.edition_number;
@@ -275,10 +279,26 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
   out.reserve(by_key.size() + coverage_series.size());
   for (auto& [_, acc] : by_key) {
     if (acc.s.base.empty()) continue;
-    // Prefer catalogue ED/UPD order; fall back to extension number.
-    std::sort(acc.s.update_entries.begin(), acc.s.update_entries.end(),
+    // Updates of a lower edition than the chosen base are superseded, not applied (D3).
+    // Edition 0 is a cancellation, never superseded.
+    if (acc.s.base_entry.has_edition_meta) {
+      std::vector<ExchangeDatasetEntry> keep;
+      for (auto& ue : acc.s.update_entries) {
+        if (ue.has_edition_meta && ue.edition_number != 0 &&
+            ue.edition_number < acc.s.base_entry.edition_number)
+          acc.s.superseded.push_back(ue.file_path);
+        else
+          keep.push_back(std::move(ue));
+      }
+      acc.s.update_entries = std::move(keep);
+      std::sort(acc.s.superseded.begin(), acc.s.superseded.end());
+    }
+    // Prefer catalogue ED/UPD order; fall back to extension number. A cancellation (ED 0) is
+    // ordered by its update number / extension, not by edition.
+    std::stable_sort(acc.s.update_entries.begin(), acc.s.update_entries.end(),
               [](const ExchangeDatasetEntry& a, const ExchangeDatasetEntry& b) {
-                if (a.has_edition_meta && b.has_edition_meta && a.edition_number != b.edition_number)
+                if (a.has_edition_meta && b.has_edition_meta && a.edition_number != 0 &&
+                    b.edition_number != 0 && a.edition_number != b.edition_number)
                   return a.edition_number < b.edition_number;
                 if (a.has_update_meta && b.has_update_meta && a.update_number != b.update_number)
                   return a.update_number < b.update_number;
@@ -361,10 +381,33 @@ bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError*
     }
   }
   // Updates: catalogue-vs-DSID runs inside the per-update check order (contract Behaviour #3).
-  std::vector<const ExchangeDatasetEntry*> entries(series.updates.size(), nullptr);
-  if (series.update_entries.size() == series.updates.size())
-    for (std::size_t i = 0; i < entries.size(); ++i) entries[i] = &series.update_entries[i];
-  return detail::open_s101_with_updates(series.base, series.updates, &entries, out, err, report);
+  // Old-edition updates without catalogue ED are recognised by DSID ED < base DSID ED (D3).
+  std::vector<std::filesystem::path> superseded = series.superseded;
+  std::vector<std::filesystem::path> updates;
+  std::vector<const ExchangeDatasetEntry*> entries;
+  DatasetIdentification base_id;
+  const bool have_base_id = read_s101_dsid(series.base, base_id, nullptr);
+  const bool entries_ok = series.update_entries.size() == series.updates.size();
+  for (std::size_t i = 0; i < series.updates.size(); ++i) {
+    const ExchangeDatasetEntry* e = entries_ok ? &series.update_entries[i] : nullptr;
+    if (have_base_id && (!e || !e->has_edition_meta)) {
+      DatasetIdentification uid;
+      if (read_s101_dsid(series.updates[i], uid, nullptr) && uid.edition_number != 0 &&
+          uid.edition_number < base_id.edition_number) {
+        superseded.push_back(series.updates[i]);
+        continue;
+      }
+    }
+    updates.push_back(series.updates[i]);
+    entries.push_back(e);
+  }
+  const bool ok = detail::open_s101_with_updates(series.base, updates, &entries, out, err, report);
+  if (report && !superseded.empty()) {
+    report->superseded = std::move(superseded);
+    if (report->notice.empty()) report->notice = "superseded updates can be removed";
+    else report->notice += "; superseded updates can be removed";
+  }
+  return ok;
 }
 
 }  // namespace s100

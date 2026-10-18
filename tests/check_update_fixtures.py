@@ -33,7 +33,7 @@ def manifest(path):
         for raw in fh.read().decode("utf-8").splitlines():
             line = raw.strip()
             if line.startswith("["):
-                in_fixture = line == "[[update_fixture]]"
+                in_fixture = line in ("[[update_fixture]]", "[[cancel_fixture]]")
                 cur = None
                 continue
             if not in_fixture:

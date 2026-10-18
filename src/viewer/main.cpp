@@ -1549,7 +1549,14 @@ int main(int argc, char** argv) {
       }
       return s100::open_dataset(p, ds, &err);
     };
-    if (open_cell()) {
+    // docs/cancel-reissue-contract.md: a cancelled dataset is not drawn; status bar says so.
+    auto open_drawable = [&]() -> bool {
+      if (!open_cell()) return false;
+      if (!ds.cancelled) return true;
+      err.message = "CANCELLED: " + std::filesystem::path(cell.toStdString()).stem().string();
+      return false;
+    };
+    if (open_drawable()) {
       s100::DrawingInstructions instructions;
       s100::PortrayalStats ps;
       QString msg;

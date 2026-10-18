@@ -91,8 +91,9 @@ def u32(v):
     return struct.pack("<I", v)
 
 
-def make_dsid(base_dsid, dsnm, ed, upd):
-    """Rewrite DSNM and DSED ("ED.UPD", repo convention) of a base DSID field."""
+def make_dsid(base_dsid, dsnm, ed, upd, dsed=None, prof=None):
+    """Rewrite DSNM and DSED ("ED.UPD", repo convention; or a raw `dsed` string such as "9"
+    or "0") and optionally PROF of a base DSID field."""
     d = base_dsid[:-1]  # drop FT
     head, rest = d[:5], d[5:]
     parts = []
@@ -107,7 +108,9 @@ def make_dsid(base_dsid, dsnm, ed, upd):
         tail_parts.append(rest[:j])
         rest = rest[j + 1:]
     parts[5] = dsnm.encode("ascii")
-    tail_parts[2] = ("%d.%d" % (ed, upd)).encode("ascii")
+    if prof is not None:
+        parts[4] = prof.encode("ascii")
+    tail_parts[2] = (("%d.%d" % (ed, upd)) if dsed is None else dsed).encode("ascii")
     out = bytearray(head)
     for p in parts:
         out += p + bytes([UT])
@@ -159,6 +162,14 @@ class Base:
         self.raw = raw
         recs = read_records(raw)
         self.ddr = raw[:int(recs[0][0][0:5])]
+        # Raw byte span of every record, in file order (for re-encoding a base cell).
+        self.spans = []
+        off = 0
+        for lead, _ in recs:
+            n = int(lead[0:5])
+            self.spans.append(raw[off:off + n])
+            off += n
+        self.record_fields = [f for _, f in recs]
         assert chr(recs[0][0][6]) == "L"
         self.dsid_fields = dict(recs[1][1])
         assert "DSID" in self.dsid_fields
@@ -265,6 +276,96 @@ def generate(out_dir):
     files["session/%s.002" % CELL] = update(9, 2, [delete_record(missing_rcid)])
     files["session/CATALOG.XML"] = session_catalog_xml()
 
+    # ---- docs/cancel-reissue-contract.md rev 2.1 (IHO-S164-CANCEL-REISSUE) ----
+    # Loader Feature::id = position among FRID records (1..80); a feature record appended after
+    # all of them gets 81, the same id the update path assigns (max + 1) -> digest equivalence.
+    assert len(base.features) == max(base.rcids) == 80
+
+    def dsid_fields(dsnm, ed, upd, dsed=None, prof=None, only_dsid=False):
+        out = []
+        for tag, d in base.dsid_rec_fields:
+            if tag == "DSID":
+                out.append((tag, make_dsid(d, dsnm, ed, upd, dsed=dsed, prof=prof)))
+            elif not only_dsid:
+                out.append((tag, d))
+        return out
+
+    def base_cell(dsed, extra_records=()):
+        """Base cell re-encoded with a new DSED (DSNM unchanged) + appended feature records."""
+        return (base.ddr + build_data_record(dsid_fields("%s.000" % CELL, 0, 0, dsed=dsed))
+                + b"".join(base.spans[2:]) + b"".join(build_data_record(r) for r in extra_records))
+
+    def update_named(stem, ext, ed, upd, feature_records, dsed=None):
+        return (base.ddr + build_data_record(dsid_fields("%s.%s" % (stem, ext), ed, upd, dsed=dsed))
+                + b"".join(build_data_record(r) for r in feature_records))
+
+    def cancel(stem, ext, extra_records=()):
+        """S-101 PS 2.0.0 B-7: one record, DSID only, PROF "2", DSED "0"."""
+        return (base.ddr + build_data_record(dsid_fields("%s.%s" % (stem, ext), 0, 0, dsed="0",
+                                                         prof="2", only_dsid=True))
+                + b"".join(build_data_record(r) for r in extra_records))
+
+    def materialized_feature(value):
+        """The feature seq/.001 inserts, encoded as a base record with valueOfDepthContour=value."""
+        return [("FRID", frid(new_rcid, contour, 1, 1)), ("FOID", foid(agen, new_fidn, 1)),
+                ("ATTR", attr([(natc_vdc, t_atix, t_paix, 1, value)])), ("SPAS", template["SPAS"])]
+
+    seq2 = files["seq/%s.002" % CELL]
+    seq3 = files["seq/%s.003" % CELL]
+    other = "101AA00DS0006"
+
+    # nodot: prerequisite fix positive control (DSED "9" = ED 9 UPD 0).
+    files["nodot/%s.000" % CELL] = base_cell("9")
+    files["nodot/%s.001" % CELL] = seq1
+    # cancel: 001 valid, 002 cancel, 003 valid-looking (9.2 modify; would apply on base+001).
+    files["cancel/%s.001" % CELL] = seq1
+    files["cancel/%s.002" % CELL] = cancel(CELL, "002")
+    files["cancel/%s.003" % CELL] = update_named(CELL, "003", 9, 2,
+                                                 [modify_attr_record(new_rcid, patched_value)])
+    # cancel_bad: cancellation that also carries a FRID record -> BadStructure.
+    files["cancel_bad/%s.002" % CELL] = cancel(CELL, "002", [insert_record(new_rcid, new_fidn)])
+    # cancel_wrong_name: cancel naming another cell -> DatasetNameMismatch (D5).
+    files["cancel_wrong_name/%s.001" % other] = cancel(other, "001")
+    # cancel_ooo: 001 + cancel numbered 003 (002 never arrives) -> executes (D4).
+    files["cancel_ooo/%s.001" % CELL] = seq1
+    files["cancel_ooo/%s.003" % CELL] = cancel(CELL, "003")
+    # wrong_name: valid-looking 001 naming another cell -> DatasetNameMismatch (D5).
+    files["wrong_name/%s.001" % other] = update_named(other, "001", 9, 1,
+                                                      [insert_record(new_rcid, new_fidn)])
+    # reissue: base 9.2 = materialized base + 001 + 002, with the seq chain alongside.
+    files["reissue/%s.000" % CELL] = base_cell("9.2", [materialized_feature(patched_value)])
+    files["reissue/%s.001" % CELL] = seq1
+    files["reissue/%s.002" % CELL] = seq2
+    files["reissue/%s.003" % CELL] = seq3
+    # newed: ED 10 base (materialized base + 001 at its original value) + leftover ED 9 001.
+    files["newed/%s.000" % CELL] = base_cell("10.0", [materialized_feature(t_value)])
+    files["newed/%s.001" % CELL] = seq1
+    files["newed/CATALOG.XML"] = _catalog(
+        [("file:/%s.000" % CELL, 10, 0, "newEdition"), ("file:/%s.001" % CELL, 9, 1, "update")],
+        "cancel-reissue newed fixture")
+    # pending: update with DSED "10.1" on the ED 9 base -> NewerEditionPending.
+    files["pending/%s.001" % CELL] = update_named(CELL, "001", 10, 1,
+                                                  [insert_record(new_rcid, new_fidn)])
+    # session_replace: A (ED 9 + 001,002), B (re-issue 9.2 + 003), X (ED 9 + 001 + cancel 002),
+    # C (fresh ED 10 base, same name as X). Bytes are shared with the dirs above.
+    files["session_replace/A/CATALOG.XML"] = _catalog(
+        [("file:/../../../%s" % BASE_REL, 9, 0, "newDataset"),
+         ("file:/../../seq/%s.001" % CELL, 9, 1, "update"),
+         ("file:/../../seq/%s.002" % CELL, 9, 2, "update")], "cancel-reissue session A")
+    files["session_replace/B/CATALOG.XML"] = _catalog(
+        [("file:/../../reissue/%s.000" % CELL, 9, 2, "reissue"),
+         ("file:/../../seq/%s.003" % CELL, 9, 3, "update")], "cancel-reissue session B")
+    files["session_replace/X/CATALOG.XML"] = _catalog(
+        [("file:/../../../%s" % BASE_REL, 9, 0, "newDataset"),
+         ("file:/../../seq/%s.001" % CELL, 9, 1, "update"),
+         ("file:/../../cancel/%s.002" % CELL, 0, 2, "cancellation")], "cancel-reissue session X")
+    files["session_replace/C/CATALOG.XML"] = _catalog(
+        [("file:/../../newed/%s.000" % CELL, 10, 0, "newEdition")], "cancel-reissue session C")
+    # dsed_bad: DSED negatives of the prerequisite fix -> BadStructure when loaded.
+    for name, dsed in (("empty", ""), ("ed_x", "9.x"), ("x", "x"), ("ed_dot", "9."), ("dot_upd", ".1")):
+        files["dsed_bad/%s.001" % name] = update_named(CELL, "001", 9, 1,
+                                                       [insert_record(new_rcid, new_fidn)], dsed=dsed)
+
     meta = {
         "new_rcid": new_rcid, "patched_value": patched_value, "delete_rcid": delete_rcid,
         "missing_rcid": missing_rcid, "late_modify": late_modify, "late_delete": late_delete,
@@ -342,6 +443,17 @@ def _meta(file_name, ed, upd, purpose):
         "    </S100XC:S100_DatasetDiscoveryMetadata>\n" % (file_name, purpose, ed, upd))
 
 
+# docs/cancel-reissue-contract.md fixtures are pinned in their own [[cancel_fixture]] table:
+# tests/test_update_robustness.cpp (rev 1.4, must not be modified) asserts the exact count of
+# [[update_fixture]] entries.
+CANCEL_DIRS = ("nodot", "cancel", "cancel_bad", "cancel_wrong_name", "cancel_ooo", "wrong_name",
+               "reissue", "newed", "pending", "session_replace", "dsed_bad")
+
+
+def manifest_table(rel):
+    return "cancel_fixture" if rel.split("/")[0] in CANCEL_DIRS else "update_fixture"
+
+
 def manifest_block(files):
     lines = [MANIFEST_BEGIN,
              "# Update-robustness fixtures (docs/update-robustness-contract.md rev 1.2).",
@@ -350,7 +462,7 @@ def manifest_block(files):
              'generator = "tools/gen_update_fixtures.py"',
              "seed = %d" % SEED, ""]
     for rel in sorted(files):
-        lines += ["[[update_fixture]]",
+        lines += ["[[%s]]" % manifest_table(rel),
                   'path = "updates/%s"' % rel,
                   'sha256 = "%s"' % hashlib.sha256(files[rel]).hexdigest(), ""]
     lines.append(MANIFEST_END)

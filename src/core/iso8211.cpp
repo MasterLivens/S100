@@ -237,6 +237,7 @@ DatasetIdentification parse_dsid_field(const std::vector<std::uint8_t>& d) {
   for (int n = 0; n < 5; ++n) {
     if (!read_ut(skip)) return id;  // ENSP, ENED, PRSP, PRED, PROF
     if (n == 2) id.product_specification = skip;
+    if (n == 4) id.profile = skip;
   }
   if (!read_ut(id.dataset_name)) return id;  // DSNM
   if (!read_ut(skip)) return id;            // DSTL
@@ -246,14 +247,27 @@ DatasetIdentification parse_dsid_field(const std::vector<std::uint8_t>& d) {
   if (!read_ut(dslg)) return id;
   if (!read_ut(dsab)) return id;
   if (!read_ut(dsed)) return id;
+  // DSED: "ED.UPD" (repo convention) or a bare edition "ED" (UPD 0; "0" = cancellation,
+  // S-101 PS 2.0.0 B-7.1.1). Each part must be 1..9 ASCII digits; "", "9.", ".1", "9.x", "x"
+  // are rejected (docs/cancel-reissue-contract.md, prerequisite fix).
+  auto number = [](const std::string& t, int& v) -> bool {
+    if (t.empty() || t.size() > 9) return false;
+    v = 0;
+    for (char c : t) {
+      if (c < '0' || c > '9') return false;
+      v = v * 10 + (c - '0');
+    }
+    return true;
+  };
   const auto dot = dsed.find('.');
-  if (dot == std::string::npos) return id;
-  try {
-    id.edition_number = std::stoi(dsed.substr(0, dot));
-    id.update_number = std::stoi(dsed.substr(dot + 1));
-  } catch (...) {
+  int ed = 0, upd = 0;
+  if (dot == std::string::npos) {
+    if (!number(dsed, ed)) return id;
+  } else if (!number(dsed.substr(0, dot), ed) || !number(dsed.substr(dot + 1), upd)) {
     return id;
   }
+  id.edition_number = ed;
+  id.update_number = upd;
   id.ok = true;
   return id;
 }

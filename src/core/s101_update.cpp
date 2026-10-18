@@ -389,6 +389,9 @@ const char* update_reject_code_name(UpdateRejectCode code) {
     case UpdateRejectCode::BadInstruction: return "BadInstruction";
     case UpdateRejectCode::MissingTarget: return "MissingTarget";
     case UpdateRejectCode::CatalogueMismatch: return "CatalogueMismatch";
+    case UpdateRejectCode::DatasetCancelled: return "DatasetCancelled";
+    case UpdateRejectCode::NewerEditionPending: return "NewerEditionPending";
+    case UpdateRejectCode::DatasetNameMismatch: return "DatasetNameMismatch";
   }
   return "Unknown";
 }
@@ -585,8 +588,32 @@ bool ruin_ok(std::uint8_t r) { return r >= 1 && r <= 3; }
 
 /** Applies one update to `ds` in place, in contract check order. Caller guarantees `ds` is a
  *  working copy (strong guarantee lives in apply_one). */
+/** Per-call options / side results of one apply (docs/cancel-reissue-contract.md). */
+struct ApplyOptions {
+  int reissue_upd{0};  // base is a re-issue at UPD n > 0: same-ED updates with UPD <= n skip (D2)
+};
+struct ApplyOutcome {
+  bool skipped{false};    // already contained in a re-issue base; dataset unchanged
+  bool cancelled{false};  // a cancellation was applied
+  std::string notice;
+};
+
+/** DSNM stem: file identifier without its extension ("101AA00DS0003.001" -> "101AA00DS0003"). */
+std::string dsnm_stem(const std::string& dsnm) {
+  const auto slash = dsnm.find_last_of("/\\");
+  std::string name = slash == std::string::npos ? dsnm : dsnm.substr(slash + 1);
+  const auto dot = name.find_last_of('.');
+  return dot == std::string::npos ? name : name.substr(0, dot);
+}
+
+std::string dataset_stem(const Dataset& ds) {
+  if (!ds.dataset_name.empty()) return dsnm_stem(ds.dataset_name);
+  return ds.path.stem().string();
+}
+
 bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
-                    const ExchangeDatasetEntry* entry, const Reject& reject_in) {
+                    const ExchangeDatasetEntry* entry, const Reject& reject_in,
+                    const ApplyOptions& opts, ApplyOutcome& outcome) {
   Reject reject = reject_in;
   std::vector<std::uint8_t> bytes;
   {
@@ -613,7 +640,7 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
       return reject(UpdateRejectCode::BadStructure, LoadErrorKind::Parse, perr.message);
   }
 
-  // 3. DSID: base / non-S-101 -> NotUpdateFile.
+  // DSID (missing -> NotUpdateFile: nothing names a target; unparseable DSED -> BadStructure).
   const Iso8211Field* dsid = nullptr;
   for (const auto& rec : records) {
     if (rec.leader_id != 'D') continue;
@@ -627,6 +654,45 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
     return reject(UpdateRejectCode::BadStructure, LoadErrorKind::Invalid,
                   "DSID DSED missing or unparseable");
   reject.file_ed_upd = ed_upd(upd_id.edition_number, upd_id.update_number);
+
+  // Check order: docs/cancel-reissue-contract.md rev 2.1 Behaviour #1.
+  // 3. DSNM stem must name this dataset (D5), cancel included.
+  const std::string target = dataset_stem(ds);
+  const std::string named = dsnm_stem(upd_id.dataset_name);
+  if (!target.empty() && named != target)
+    return reject(UpdateRejectCode::DatasetNameMismatch, LoadErrorKind::Invalid,
+                  "update DSNM '" + upd_id.dataset_name + "' does not name dataset '" + target +
+                      "'");
+  // 4. target already cancelled (D1).
+  if (ds.cancelled)
+    return reject(UpdateRejectCode::DatasetCancelled, LoadErrorKind::Invalid,
+                  "dataset " + target + " is cancelled; no further updates apply");
+  // 5. cancellation (DSED ED 0): DSID-only, PROF "2"; not sequence-checked (D4).
+  if (upd_id.edition_number == 0) {
+    std::size_t data_records = 0;
+    bool only_dsid = true;
+    for (const auto& rec : records) {
+      if (rec.leader_id == 'L') continue;
+      ++data_records;
+      for (const auto& f : rec.fields)
+        if (f.tag != "DSID" && f.tag != "0001") only_dsid = false;
+    }
+    if (upd_id.profile != "2")
+      return reject(UpdateRejectCode::BadStructure, LoadErrorKind::Invalid,
+                    "cancellation DSID PROF '" + upd_id.profile + "' is not \"2\"");
+    if (data_records != 1 || !only_dsid)
+      return reject(UpdateRejectCode::BadStructure, LoadErrorKind::Invalid,
+                    "cancellation file must contain only the DSID record");
+    ds.features.clear();
+    ds.information.clear();
+    ds.spatial.records.clear();
+    ds.layers.clear();
+    ds.cancelled = true;
+    outcome.cancelled = true;
+    outcome.notice = "cancelled: " + (ds.dataset_name.empty() ? target : ds.dataset_name);
+    return true;  // ED/UPD unchanged
+  }
+  // 6. base / non-S-101 -> NotUpdateFile.
   if (upd_id.product_specification.find("S-101") == std::string::npos)
     return reject(UpdateRejectCode::NotUpdateFile, LoadErrorKind::Invalid,
                   "DSID PRSP '" + upd_id.product_specification + "' is not S-101");
@@ -634,7 +700,7 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
     return reject(UpdateRejectCode::NotUpdateFile, LoadErrorKind::Invalid,
                   "DSID UPD 0: base cell, not an update");
 
-  // 4. catalogue vs DSID -> CatalogueMismatch.
+  // 7. catalogue vs DSID -> CatalogueMismatch.
   if (entry && ((entry->has_edition_meta && entry->edition_number != upd_id.edition_number) ||
                 (entry->has_update_meta && entry->update_number != upd_id.update_number)))
     return reject(UpdateRejectCode::CatalogueMismatch, LoadErrorKind::Invalid,
@@ -643,18 +709,30 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
                       (entry->has_update_meta ? std::to_string(entry->update_number) : "?") +
                       " does not match DSID " + reject.file_ed_upd);
 
-  // 5. ED -> EditionMismatch; 6. UPD -> OutOfSequence (sequencing by DSID, not file name).
+  // 8. ED > installed -> NewerEditionPending (D3); 9. ED < installed -> EditionMismatch.
+  if (upd_id.edition_number > ds.edition_number) {
+    outcome.notice = "newer edition " + std::to_string(upd_id.edition_number) + " pending";
+    return reject(UpdateRejectCode::NewerEditionPending, LoadErrorKind::Invalid,
+                  "newer edition " + std::to_string(upd_id.edition_number) +
+                      " exists, dataset not up to date (installed " +
+                      ed_upd(ds.edition_number, ds.update_number) + ")");
+  }
   if (upd_id.edition_number != ds.edition_number)
     return reject(UpdateRejectCode::EditionMismatch, LoadErrorKind::Invalid,
                   "update DSID ED/UPD " + reject.file_ed_upd + " edition differs from dataset " +
                       ed_upd(ds.edition_number, ds.update_number));
+  // 10. UPD -> OutOfSequence, except updates already contained in a re-issue base (D2).
+  if (opts.reissue_upd > 0 && upd_id.update_number <= opts.reissue_upd) {
+    outcome.skipped = true;
+    return true;  // dataset unchanged
+  }
   if (upd_id.update_number != ds.update_number + 1)
     return reject(UpdateRejectCode::OutOfSequence, LoadErrorKind::Invalid,
                   "update DSID ED/UPD " + reject.file_ed_upd + " mismatch: expected " +
                       ed_upd(ds.edition_number, ds.update_number + 1) + " (dataset at " +
                       ed_upd(ds.edition_number, ds.update_number) + ")");
 
-  // 7. records: BadInstruction / MissingTarget, first failure in record order wins.
+  // 11. records: BadInstruction / MissingTarget, first failure in record order wins.
   Dssi dssi;
   std::unordered_map<std::uint16_t, std::string> ftcs, atcs, itcs, iacs, facs, arcs;
   for (const auto& rec : records) {
@@ -799,26 +877,30 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
   rebuild_feature_geometries(ds);
   ds.edition_number = upd_id.edition_number;
   ds.update_number = upd_id.update_number;
-  if (!upd_id.dataset_name.empty()) ds.dataset_name = upd_id.dataset_name;
+  // D5: an update never overwrites ds.dataset_name (it names its target, not a new identity).
   return true;
 }
 
 /** Strong guarantee (contract Behaviour #1): apply on a copy, swap only on success. */
 bool apply_one(Dataset& ds, const std::filesystem::path& update_path,
                const ExchangeDatasetEntry* entry, LoadError* err, UpdateRejectCode* code,
-               std::string* message) {
+               std::string* message, const ApplyOptions& opts = {},
+               ApplyOutcome* outcome_out = nullptr) {
   if (code) *code = UpdateRejectCode::None;
   Dataset work = ds;
   const Reject reject{update_path, err, code, message};
+  ApplyOutcome outcome;
   bool ok = false;
   try {
-    ok = apply_in_place(work, update_path, entry, reject);
+    ok = apply_in_place(work, update_path, entry, reject, opts, outcome);
   } catch (const std::exception& e) {
     // Contract rule 9: nothing escapes; a decode that throws is a structural defect.
     ok = reject(UpdateRejectCode::BadStructure, LoadErrorKind::Parse,
                 std::string("exception while decoding: ") + e.what());
   }
+  if (outcome_out) *outcome_out = outcome;
   if (!ok) return false;
+  if (outcome.skipped) return true;  // nothing changed
   using std::swap;
   swap(ds, work);
   return true;
@@ -875,25 +957,47 @@ bool open_s101_with_updates(const std::filesystem::path& base,
 
   // Contract Behaviour #2/#3a: list order, sequenced by DSID; stop at the first rejection and
   // keep base + the applied prefix in `out` (last good state, usable for display).
-  int applied = 0;
+  // Re-issue (cancel-reissue Behaviour #4): a base at UPD n > 0 already contains 1..n.
+  ApplyOptions opts;
+  opts.reissue_upd = tmp.update_number;
+  int applied = 0, skipped = 0;
+  bool cancelled = false;
+  std::string notice;
   for (std::size_t i = 0; i < updates.size(); ++i) {
     const ExchangeDatasetEntry* entry =
         entries && i < entries->size() ? (*entries)[i] : nullptr;
     UpdateRejectCode code = UpdateRejectCode::None;
     std::string message;
-    if (!apply_one(tmp, updates[i], entry, err, &code, &message)) {
+    ApplyOutcome outcome;
+    if (!apply_one(tmp, updates[i], entry, err, &code, &message, opts, &outcome)) {
       if (report) {
         report->applied = applied;
+        report->skipped = skipped;
+        report->cancelled = cancelled;
         report->rejected = updates[i];
         report->code = code;
         report->message = message;
+        report->notice = !outcome.notice.empty() ? outcome.notice : notice;
       }
       out = std::move(tmp);
       return false;
     }
+    if (outcome.skipped) {
+      ++skipped;
+      continue;
+    }
+    if (outcome.cancelled) {
+      cancelled = true;
+      notice = outcome.notice;
+    }
     ++applied;
   }
-  if (report) report->applied = applied;
+  if (report) {
+    report->applied = applied;
+    report->skipped = skipped;
+    report->cancelled = cancelled;
+    report->notice = notice;
+  }
   out = std::move(tmp);
   return true;
 }

@@ -42,6 +42,9 @@ struct ExchangeCellSeries {
   std::vector<std::filesystem::path> updates;  // ordered by catalogue ED/UPD when present
   /** Catalogue ED/UPD for each path in updates (same size); has_* false if omitted in XML. */
   std::vector<ExchangeDatasetEntry> update_entries;
+  /** Updates of a lower edition than the chosen (highest-ED) base: not applied, reported as
+   *  removable (docs/cancel-reissue-contract.md Behaviour #5). */
+  std::vector<std::filesystem::path> superseded;
   ExchangeDatasetEntry base_entry{};
   int edition_number{0};
   int latest_update_number{0};
@@ -65,7 +68,11 @@ enum class UpdateRejectCode {
   BadStructure,      // ISO 8211 leader / directory / field parse error
   BadInstruction,    // unknown RUIN / FAUI / IUIN / ATIN value
   MissingTarget,     // Delete/Modify of a record id that does not exist
-  CatalogueMismatch  // CATALOG.XML ED/UPD disagrees with DSID of the file
+  CatalogueMismatch,  // CATALOG.XML ED/UPD disagrees with DSID of the file
+  // docs/cancel-reissue-contract.md (additive):
+  DatasetCancelled,     // any update to a dataset that is already cancelled (D1)
+  NewerEditionPending,  // update ED > installed ED (D3); EditionMismatch stays for ED < installed
+  DatasetNameMismatch   // update/cancel DSNM stem != dataset DSNM stem (D5)
 };
 
 /** Stable name of a reject code ("None", "OutOfSequence", ...). */
@@ -76,6 +83,11 @@ struct UpdateReport {
   std::filesystem::path rejected;          // first rejected file, empty if none
   UpdateRejectCode code{UpdateRejectCode::None};
   std::string message;                     // human text, includes file name + ED.UPD
+  // docs/cancel-reissue-contract.md (additive):
+  int skipped{0};                                 // re-issue at UPD n: updates UPD <= n skipped (D2)
+  bool cancelled{false};                          // a cancel update was applied
+  std::vector<std::filesystem::path> superseded;  // old-edition updates not applied (D3)
+  std::string notice;  // "cancelled: <DSNM>" / "newer edition N pending" / "superseded updates can be removed"
 };
 
 /** Apply one S-101 update. Strong guarantee: on false `ds` is unchanged and `code` (when

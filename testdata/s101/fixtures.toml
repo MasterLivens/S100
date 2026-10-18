@@ -46,6 +46,34 @@ seed = 20261018
 path = "updates/bad_ed/101AA00DS0003.001"
 sha256 = "158684fd284c027ba900f8017f3a12104f256ecd57b9fb2ab0bd962f5582a143"
 
+[[cancel_fixture]]
+path = "updates/cancel/101AA00DS0003.001"
+sha256 = "8099806fa567258a4d586ffafe247b643ddc2320cf180ae45fe7912874d33bed"
+
+[[cancel_fixture]]
+path = "updates/cancel/101AA00DS0003.002"
+sha256 = "c47b5cfb97c9c381e394452816e2cb40be0462dc3dabf8856e092e96b04cc127"
+
+[[cancel_fixture]]
+path = "updates/cancel/101AA00DS0003.003"
+sha256 = "64979dfd47e53382e05fe39f4c0d5b13179c6ff6151bde6f5104f1d14f9cbc33"
+
+[[cancel_fixture]]
+path = "updates/cancel_bad/101AA00DS0003.002"
+sha256 = "e3aa775ff01f03f5417d532c142b52c53289a6b727c772f98125ec890f6c012b"
+
+[[cancel_fixture]]
+path = "updates/cancel_ooo/101AA00DS0003.001"
+sha256 = "8099806fa567258a4d586ffafe247b643ddc2320cf180ae45fe7912874d33bed"
+
+[[cancel_fixture]]
+path = "updates/cancel_ooo/101AA00DS0003.003"
+sha256 = "7bd8b3db0f37ba3e7e5c901e141f82d482d49621b8b70e53deb3461466651b5a"
+
+[[cancel_fixture]]
+path = "updates/cancel_wrong_name/101AA00DS0006.001"
+sha256 = "5473066fdbadfa9d32dd2716e5eac910f3a638c573bf2e072d5a3e7fa8f836d3"
+
 [[update_fixture]]
 path = "updates/catalog/CATALOG.XML"
 sha256 = "00f0dfe67967fbfc38c2b336733792c2adfcbea91c9e1abb3de1ef0d9d53c257"
@@ -70,9 +98,69 @@ sha256 = "f3734fa51cbe4c610504811e13b7f144057c1a74d63bb35984adc0b5d2154d62"
 path = "updates/corrupt/trunc.001"
 sha256 = "1a0adfed6032bf008f10314d0b54c4924b1859fee7521c8bff3035a8be88a5c2"
 
+[[cancel_fixture]]
+path = "updates/dsed_bad/dot_upd.001"
+sha256 = "f5130089084323aff8ad65fff3158b218714c0356d15d3d2c3d7b736dfadad21"
+
+[[cancel_fixture]]
+path = "updates/dsed_bad/ed_dot.001"
+sha256 = "adc560067f0656ae67f0cfbb43bee8ac295fa97e95fafe6e131f7da61617e4a5"
+
+[[cancel_fixture]]
+path = "updates/dsed_bad/ed_x.001"
+sha256 = "dcbbcdffb5ec43cdb59d0ee20adff893e97e63b7c8c4fd16d937ff9e1748e251"
+
+[[cancel_fixture]]
+path = "updates/dsed_bad/empty.001"
+sha256 = "c8808bb00bd4db5bf9d4daba13d40a182c08b7a08f0fb558cff3d7b3117d9534"
+
+[[cancel_fixture]]
+path = "updates/dsed_bad/x.001"
+sha256 = "bb3e32c2373a280232bb9339392ccded57f6372aa301fa88c7c22f78ad79dbcc"
+
+[[cancel_fixture]]
+path = "updates/newed/101AA00DS0003.000"
+sha256 = "d39753eabaf449c204c9b517a32349d42f0788212e1b7183093f65f35c3f5d51"
+
+[[cancel_fixture]]
+path = "updates/newed/101AA00DS0003.001"
+sha256 = "8099806fa567258a4d586ffafe247b643ddc2320cf180ae45fe7912874d33bed"
+
+[[cancel_fixture]]
+path = "updates/newed/CATALOG.XML"
+sha256 = "1aefeb413e6485b212e6197f44c09680a0404113317f4a5f0fe6311372ec7a04"
+
+[[cancel_fixture]]
+path = "updates/nodot/101AA00DS0003.000"
+sha256 = "7f54d3686d667069836152e0b54e6dc668bf6f1a82053c0b306e31ba91543f5b"
+
+[[cancel_fixture]]
+path = "updates/nodot/101AA00DS0003.001"
+sha256 = "8099806fa567258a4d586ffafe247b643ddc2320cf180ae45fe7912874d33bed"
+
 [[update_fixture]]
 path = "updates/notupd/101AA00DS0003.000"
 sha256 = "27296cdd27067d5963137a07ebabc80fddeacb6624cb4b1d1a14fa86cc650696"
+
+[[cancel_fixture]]
+path = "updates/pending/101AA00DS0003.001"
+sha256 = "f2f09184aa41bf573a449ef8d962671d47e4a25284737e7f4a0c5189056a6165"
+
+[[cancel_fixture]]
+path = "updates/reissue/101AA00DS0003.000"
+sha256 = "a7f7805185560de0148681353c630470430a05f8a61989cbc9e2537e1c346f37"
+
+[[cancel_fixture]]
+path = "updates/reissue/101AA00DS0003.001"
+sha256 = "8099806fa567258a4d586ffafe247b643ddc2320cf180ae45fe7912874d33bed"
+
+[[cancel_fixture]]
+path = "updates/reissue/101AA00DS0003.002"
+sha256 = "5fa42a8dc655706be020f5e33d955fe2d66204dcdc05e8f70355ce6f903c431c"
+
+[[cancel_fixture]]
+path = "updates/reissue/101AA00DS0003.003"
+sha256 = "31a0a15201dbb69386077ff78d0d09e4b8488006e9cffca29d583e23a4cb1038"
 
 [[update_fixture]]
 path = "updates/seq/101AA00DS0003.001"
@@ -93,5 +181,25 @@ sha256 = "2149ba096ea1dec894e7122a5ac95242ffde0052ca3f00271e4c46e75f133a01"
 [[update_fixture]]
 path = "updates/session/CATALOG.XML"
 sha256 = "268b78f0b17b92edb941ed46ed5f4624ceecb4b108909ea520e5e0a8695d00e9"
+
+[[cancel_fixture]]
+path = "updates/session_replace/A/CATALOG.XML"
+sha256 = "5716359a85d00e5fdedc4a31d562f515b4350fc60801d32a51950801e9b478da"
+
+[[cancel_fixture]]
+path = "updates/session_replace/B/CATALOG.XML"
+sha256 = "4cecae90504b060bd752ff929b773bf1eb2f808a414b7ccf67ed5c3ce56ac3e9"
+
+[[cancel_fixture]]
+path = "updates/session_replace/C/CATALOG.XML"
+sha256 = "2dcf70ce8433a009de340432b8dfe7df0d5981e15da5c86489647a6af33495ba"
+
+[[cancel_fixture]]
+path = "updates/session_replace/X/CATALOG.XML"
+sha256 = "5b286d0f11d207f4ff52c6fabc6e61adccbaf4a708ca02483149ffea048f3db2"
+
+[[cancel_fixture]]
+path = "updates/wrong_name/101AA00DS0006.001"
+sha256 = "5d03b8cb027b30750556395e3d0e97dda55a43280bdb7388d3343c1cf0f43177"
 
 # END update fixtures

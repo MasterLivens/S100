@@ -100,7 +100,8 @@ std::string geom_str(const s100::Geometry& g) {
 
 std::string dataset_canonical(const s100::Dataset& ds) {
   std::ostringstream os;
-  os << "ED=" << ds.edition_number << " UPD=" << ds.update_number << "\n";
+  os << "ED=" << ds.edition_number << " UPD=" << ds.update_number
+     << " cancelled=" << (ds.cancelled ? 1 : 0) << "\n";
   os << "features=" << ds.features.size() << "\n";
   std::vector<const s100::Feature*> feats;
   for (const auto& f : ds.features) feats.push_back(&f);
