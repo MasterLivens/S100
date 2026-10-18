@@ -35,6 +35,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-DISPLAY-PRIORITY` | 显示优先级 | plane 秩 + `drawing_priority` 升序；oracle 钉序；viewer 用 core sort；no-SKIP | `display_priority_order` | Active |
 | `IHO-TIMELINE-UI` | 时间轴 UI | S-104/111 `timeline_entries` + CLI `--list-frames` + viewer scrubber；no-SKIP | `timeline_ui` | Active |
 | `IHO-S101-BRIDGE-RENDER` | 桥/组合要素渲染 | **Closed/Done** 2026-10-18 — CI [39117072306](https://github.com/MasterLivens/S100/actions/runs/39117072306) @ `065887b` dual-green `fasc_bridge_render` Passed; oracles 1–11 + **#12 BRIDGE01≥1 MUST** (was WARN); #12a print-only; #13 pixels deferred viewer/DISPLAY-COMPARE; VG12210 UI / other structure–equipment Backlog; next `IHO-S101-TEXT-COLLISION` | `fasc_bridge_render` | Closed |
+| `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | **Open** 2026-10-18 — Planner freeze: 0008 Day 1280×800; default ON / `--no-text-collision` OFF; `pairs_off >= pairs_on` AND `pairs_off > 0`; MUST NOT SKIP; Linux+Win; unpaired `Kind::Text` only; no PC Lua. Eng tip base `9977a34` (code already on tip — verify/polish). Fixture `testdata/s101/101AA00DS0008.000`. O1: Win CI `-E viewer_` vs freeze — ask Planner. POINT-LABEL separate | `viewer_text_collision` | Active |
 | `IHO-S164-UPD-SEQ` | S-164 Ed1.0.0 2.3.3（2.0.1 草案 2.3.2） | 乱序/重复/跳号/错版次 → 拒收，保留最后好状态；正向对照 001–003 先过；各用例断言具体错误码；回滚摘要一致；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
 | `IHO-S164-UPD-CORRUPT` | 2.2.1 / 2.1.5 | 截断/坏 leader/未知 RUIN/缺目标 → 拒收，数据集逐位不变（强保证）；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
 | `IHO-S164-CANCEL-REISSUE` | S-164 Ed1.0.0 取消 2.9.1（2.8.1）/ 取消替换 2.9.2 / 再版 2.3.6、2.9.3（2.8.2）/ 新版迟到 2.3.4（2.3.3）/ 旧版更新 2.3.5；S-101 PS §11.3.1–11.3.3、B-7.1.1 | DSED 无点修复；ED=0 取消→清空+后续 `DatasetCancelled`；再版跳过 ≤n；新版 superseded；ED> → `NewerEditionPending`；会话整体替换；no-SKIP；Linux+Win | `exchange_cancel_reissue` | Active |
@@ -55,7 +56,6 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S101-LOAD-0004..0010` | Sec.4–10 cells | 扩 `testdata/s101` | 扩样例，不改引擎接口 |
 | `IHO-S101-SCAMIN` | 3.7.7 / Sec.9–10 | 显示比例尺 | → `IHO-SCAMIN-FILTER` |
 | `IHO-S101-DRAW-PRIORITY` | 3.6 Display Priorities | → `IHO-DISPLAY-PRIORITY` |
-| `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞开/关重叠对数 | `viewer_text_collision` | Active |
 | `IHO-S101-POINT-LABEL-COLLISION` | 3.1 ENC Display | PointLabel 配对 Text；开/关 PointLabel 重叠对数；符号存活计数 | `viewer_point_label_collision` | Active |
 | `IHO-DISP-REF-COMPARE` | Display Test Template | 参考实现截图 | 替代「只靠像素漂移」谈观感 |
 

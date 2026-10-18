@@ -1,7 +1,15 @@
-# Text collision (viewer layout) — next slice (rev 2)
+# Text collision (viewer layout) — rev 2 · Open
 
-Owner: SoftwareArchitecture (2026-10-11). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S101-TEXT-COLLISION`** (also list in `docs/testing/iho-ctest-case-ids.md` when implementing).
+Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S101-TEXT-COLLISION`** (**Active / Open**). CTest: **`viewer_text_collision`** — **MUST NOT SKIP** (Planner freeze); Linux + Windows.
+
+**Status: Active / Open (2026-10-18)** — Planner freeze applied. Eng tip base: **`origin/main` @ `9977a34`**. Implementation already on tip (`50ab9ba` viewer layout + CLI/oracle; `ba9aa10` PointLabel follow-on). **Not greenfield** — Eng verify / polish only; Tester dual-green then Close. Do **not** edit PC Lua / `catalogues/`.
+
+**Planner freeze (MUST):** fixture `101AA00DS0008.000` Day 1280×800; default collision ON; `--no-text-collision` OFF; oracle `pairs_off >= pairs_on` **and** `pairs_off > 0`; CTest **MUST NOT SKIP**; Linux+Win; **unpaired `Kind::Text` only**; no PC Lua. Point-companion → `IHO-S101-POINT-LABEL-COLLISION` / `docs/point-symbol-text-collision-contract.md` (separate).
+
+**Eng notes:** contract + CTest name above; cell path **`testdata/s101/101AA00DS0008.000`** (existence-only; not under `testdata/fixtures/catalogues`). Golden/palette paths already pass `--no-text-collision`. Optional tip: count oracle with `--class Text` so pairs are unpaired-Text only (PointLabel has its own CTest).
+
+**O1 (ask Planner if blocking Close):** Windows CI currently runs `ctest -E "viewer_"` (Qt offscreen hang). Planner freeze says Linux+Win MUST NOT SKIP. Resolve: (a) accept Linux CI as bind + document Win exclude, or (b) Eng/CI tip to run `viewer_text_collision` on Win without hang. Do not silently reopen freeze.
 
 ## Scope
 
