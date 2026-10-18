@@ -29,6 +29,8 @@ int sse_code(SigRejectCode c) {
       return 129;
     case SigRejectCode::UnsupportedDataStatus:
       return 0;
+    case SigRejectCode::ProducerCodeMismatch:
+      return 109;  // project mapping — not S-98 App. B literal (IHO-S164-SIG-PRODUCER)
   }
   return 0;
 }
@@ -61,6 +63,8 @@ const char* sse_message(SigRejectCode c) {
       return "Feature/Portrayal catalogue is not authenticated directly by the Scheme Administrator";
     case SigRejectCode::UnsupportedDataStatus:
       return "unsupported dataStatus (compressed/encrypted)";
+    case SigRejectCode::ProducerCodeMismatch:
+      return "producer_code_mismatch";
   }
   return "";
 }

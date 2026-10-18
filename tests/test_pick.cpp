@@ -51,6 +51,7 @@ void test_exchange_update_robustness();
 void test_exchange_cancel_reissue();
 void test_exchange_edition_hardening();
 void test_exchange_signature();
+void test_exchange_signature_producer();
 void test_powerup_self_check();
 
 int main(int argc, char** argv) {
@@ -139,6 +140,10 @@ int main(int argc, char** argv) {
     test_exchange_signature();
     return failures ? 1 : 0;
   }
+  if (argc >= 2 && std::string(argv[1]) == "exchange_signature_producer") {
+    test_exchange_signature_producer();
+    return failures ? 1 : 0;
+  }
   if (argc >= 2 && std::string(argv[1]) == "powerup_self_check") {
     test_powerup_self_check();
     return failures ? 1 : 0;
@@ -198,6 +203,7 @@ int main(int argc, char** argv) {
   test_exchange_cancel_reissue();
   test_exchange_edition_hardening();
   test_exchange_signature();
+  test_exchange_signature_producer();
   test_powerup_self_check();
   if (failures) {
     std::cerr << failures << " failure(s)\n";

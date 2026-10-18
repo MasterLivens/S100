@@ -113,6 +113,7 @@ add_executable(s100_tests
   tests/test_cancel_reissue.cpp
   tests/test_edition_hardening.cpp
   tests/test_exchange_signature.cpp
+  tests/test_exchange_signature_producer.cpp
   tests/test_powerup_self_check.cpp
   tests/support/dataset_digest.cpp
   tests/support/sha256.cpp
@@ -145,6 +146,8 @@ add_test(NAME exchange_cancel_reissue COMMAND s100_tests exchange_cancel_reissue
 add_test(NAME exchange_edition_hardening COMMAND s100_tests exchange_edition_hardening)
 # IHO-S164-SIG (docs/part15-signature-contract.md) — MUST NOT SKIP, Linux + Windows.
 add_test(NAME exchange_signature COMMAND s100_tests exchange_signature)
+# IHO-S164-SIG-PRODUCER (docs/part15-producer-code-contract.md rev1) — MUST NOT SKIP, Linux + Windows.
+add_test(NAME exchange_signature_producer COMMAND s100_tests exchange_signature_producer)
 # IHO-S164-POWERUP (docs/powerup-self-check-contract.md rev1) — MUST NOT SKIP, Linux + Windows.
 add_test(NAME powerup_self_check COMMAND s100_tests powerup_self_check)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)

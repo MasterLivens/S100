@@ -155,6 +155,48 @@ std::string cert_st(X509* x) {
   return std::string(buf, static_cast<std::size_t>(n));
 }
 
+std::string cert_cn(X509* x) {
+  if (!x) return {};
+  char buf[512];
+  const int n = X509_NAME_get_text_by_NID(X509_get_subject_name(x), NID_commonName, buf,
+                                         static_cast<int>(sizeof(buf)));
+  if (n <= 0) return {};
+  return std::string(buf, static_cast<std::size_t>(n));
+}
+
+std::string to_upper_ascii(std::string s) {
+  for (char& c : s) {
+    if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A');
+  }
+  return s;
+}
+
+/** IHO MRN producer token = namespace segment 3 only (after urn:mrn:iho: or urn:mrn:iho:org:).
+ *  Segment 4 (cert instance id) is never returned. Empty if CN is not a conforming MRN. */
+std::string cn_producer_segment(const std::string& cn) {
+  if (cn.empty()) return {};
+  std::string lower = cn;
+  for (char& c : lower) {
+    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+  }
+  const std::string kOrg = "urn:mrn:iho:org:";
+  const std::string kIho = "urn:mrn:iho:";
+  std::string rest;
+  if (lower.rfind(kOrg, 0) == 0) {
+    rest = cn.substr(kOrg.size());
+  } else if (lower.rfind(kIho, 0) == 0) {
+    rest = cn.substr(kIho.size());
+  } else {
+    return {};
+  }
+  // rest is "<producer>:<id>" or just "<producer>"; take first colon-separated token only
+  const auto colon = rest.find(':');
+  std::string token = (colon == std::string::npos) ? rest : rest.substr(0, colon);
+  // reject empty or nested leftovers that look like bare "org" without org: prefix handling
+  if (token.empty()) return {};
+  return token;
+}
+
 OfficialClass classify_st(const std::string& st) {
   if (st == "DATA_PRODUCER" || st == "DATA_AGGREGATOR" || st == "SCHEME_ADMINISTRATOR")
     return OfficialClass::Official;
@@ -541,7 +583,8 @@ VerificationReport verify_exchange_set(const std::filesystem::path& exchange_roo
   report.status = AuthStatus::Ok;
   report.official = exchange_official;
 
-  auto handle_resource = [&](pugi::xml_node meta, bool is_catalogue_resource) {
+  auto handle_resource = [&](pugi::xml_node meta, bool is_catalogue_resource,
+                             bool check_producer_code) {
     const std::string file_name = text_of(child_local(meta, "fileName"));
     if (file_name.empty()) return;
     const fs::path path = resolve_file_name(root, file_name);
@@ -644,6 +687,42 @@ VerificationReport verify_exchange_set(const std::filesystem::path& exchange_roo
       return;
     }
 
+    // IHO-S164-SIG-PRODUCER: after crypto Ok, match CN producer seg3 vs CATALOG producerCode.
+    // Datasets only; FC/PC out of scope; support deferred. Missing producerCode → N/A-pass.
+    // ST=DATA_AGGREGATOR → exempt this slice.
+    if (check_producer_code) {
+      X509* leaf = cit->second.cert.get();
+      const std::string st = cert_st(leaf);
+      if (st != "DATA_AGGREGATOR") {
+        // producerCode is optional (0..1); CharacterString wrapper or bare text
+        std::string declared;
+        if (auto pc = child_local(meta, "producerCode")) {
+          declared = text_of(pc);
+          if (declared.empty()) declared = pc.text().as_string();
+          // trim surrounding whitespace only (do NOT strip leading zeros inside the code)
+          while (!declared.empty() && std::isspace(static_cast<unsigned char>(declared.front())))
+            declared.erase(declared.begin());
+          while (!declared.empty() && std::isspace(static_cast<unsigned char>(declared.back())))
+            declared.pop_back();
+        }
+        if (!declared.empty()) {
+          const std::string seg = cn_producer_segment(cert_cn(leaf));
+          if (!seg.empty()) {
+            if (to_upper_ascii(seg) != to_upper_ascii(declared)) {
+              auto fv = make_file(path, SigRejectCode::ProducerCodeMismatch, oc);
+              // Primary report reason (CTest asserts this first); SSE 109 is secondary.
+              fv.message = "producer_code_mismatch";
+              report.files.push_back(fv);
+              report.skipped.push_back(path);
+              return;
+            }
+          }
+          // Unparseable CN while producerCode present: no new SSE this slice (NonOfficial path
+          // is separate / A9); treat as N/A for the match so we do not invent a reject code.
+        }
+      }
+    }
+
     auto fv = make_file(path, SigRejectCode::None, oc);
     fv.status = AuthStatus::Ok;
     fv.message = "ok";
@@ -652,11 +731,13 @@ VerificationReport verify_exchange_set(const std::filesystem::path& exchange_roo
   };
 
   // Dataset + support + catalogue discovery metadata
-  auto walk_discovery = [&](const char* container, const char* item, bool is_cat) {
+  // Producer-code matching applies to datasets only (FC/PC out of scope; support deferred).
+  auto walk_discovery = [&](const char* container, const char* item, bool is_cat,
+                            bool check_producer) {
     auto cont = child_local(cat_el, container);
     if (!cont) return;
     for (auto c : cont.children()) {
-      if (name_is(c, item)) handle_resource(c, is_cat);
+      if (name_is(c, item)) handle_resource(c, is_cat, check_producer);
     }
   };
   // Sometimes discovery entries are direct children of catalogue root
@@ -664,15 +745,15 @@ VerificationReport verify_exchange_set(const std::filesystem::path& exchange_roo
     if (name_is(c, "S100_DatasetDiscoveryMetadata") || name_is(c, "datasetDiscoveryMetadata")) {
       if (name_is(c, "datasetDiscoveryMetadata")) {
         for (auto d : c.children())
-          if (name_is(d, "S100_DatasetDiscoveryMetadata")) handle_resource(d, false);
+          if (name_is(d, "S100_DatasetDiscoveryMetadata")) handle_resource(d, false, true);
       } else {
-        handle_resource(c, false);
+        handle_resource(c, false, true);
       }
     }
   }
-  walk_discovery("datasetDiscoveryMetadata", "S100_DatasetDiscoveryMetadata", false);
-  walk_discovery("supportFileDiscoveryMetadata", "S100_SupportFileDiscoveryMetadata", false);
-  walk_discovery("catalogueDiscoveryMetadata", "S100_CatalogueDiscoveryMetadata", true);
+  walk_discovery("datasetDiscoveryMetadata", "S100_DatasetDiscoveryMetadata", false, true);
+  walk_discovery("supportFileDiscoveryMetadata", "S100_SupportFileDiscoveryMetadata", false, false);
+  walk_discovery("catalogueDiscoveryMetadata", "S100_CatalogueDiscoveryMetadata", true, false);
 
   // Also handle support/catalogue if nested differently — already covered by walk.
 

@@ -39,6 +39,7 @@ enum class SigRejectCode {
   CertificateMissing,       // → 107
   CatalogueNotSaDirect,     // → 129
   UnsupportedDataStatus,    // skip, no SSE number required
+  ProducerCodeMismatch,     // → 109 (project-map; not S-98 App.B literal; see part15-producer-code-contract)
 };
 
 struct FileVerification {
