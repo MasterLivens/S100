@@ -169,7 +169,7 @@ Details: `docs/s124-contract.md`.
 ## Cancel / re-issue / new edition (S-101)
 
 - Details: `docs/cancel-reissue-contract.md` (`IHO-S164-CANCEL-REISSUE`).
-- Additive: `UpdateRejectCode::DatasetCancelled`, `NewerEditionPending`; `UpdateReport::skipped/cancelled/superseded/notice`; `Dataset::cancelled`; DSED bare integer accepted.
+- Additive: `UpdateRejectCode::DatasetCancelled`, `NewerEditionPending`, `DatasetNameMismatch`; `UpdateReport::skipped/cancelled/superseded/notice`; `Dataset::cancelled`; DSED bare integer accepted.
 - CTest `exchange_cancel_reissue` MUST NOT SKIP (Linux + Windows).
 
 ## Stability
