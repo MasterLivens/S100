@@ -3,7 +3,7 @@
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLLISION`** (**Active / Open**). CTest: **`viewer_point_label_collision`**.
 
-**Status: Active / Open (2026-10-18)** — Planner freeze + **O1(b→a)**. Eng tip base: **after TEXT Closed tip `61a5b89` on main** (do **not** stack Eng before that lands). Implementation already on tip (`ba9aa10` PointLabel classify / dump / CTest — **verify**, not greenfield). Ubuntu tip CI already Passed (`viewer_point_label_collision`); this slice = **docs close primarily** + Win policy; independent tip from TEXT. Do **not** edit PC Lua / `catalogues/`. No algorithm rewrite. Do **not** change TEXT cmake `--class Text`.
+**Status: Active / Open (2026-10-18)** — Planner freeze + **O1(b→a)**. Eng tip base: **`origin/main` @ `b02a4ac`**（≡ TEXT Closed `61a5b89`；可叠）。 Implementation already on tip (`ba9aa10` PointLabel classify / dump / CTest — **verify**, not greenfield). Ubuntu tip CI already Passed (`viewer_point_label_collision`); this slice = **docs close primarily** + Win policy; independent tip from TEXT. Do **not** edit PC Lua / `catalogues/`. No algorithm rewrite. Do **not** change TEXT cmake `--class Text`.
 
 **Planner freeze (MUST):** fixture `101AA00DS0008.000` Day 1280×800 (no synth needed — off pairs>0); PointLabel = same-feature nearest Text within N=48 px; label-beside text AABB; shared `--no-text-collision` (default ON; OFF for Text **and** PointLabel; no second flag); greedy priority → unpaired Text before PointLabel → stable; dump `class=Text|PointLabel`; oracle **only** PointLabel∩PointLabel `pairs_off >= pairs_on` **and** `pairs_off > 0`; `point_glyphs_drawn(ON)==(OFF)`; Ubuntu CI: `viewer_point_label_collision` MUST NOT SKIP, Passed. Optional symbol-AABB-as-obstacle → **Backlog**, not this slice.
 
@@ -15,7 +15,7 @@ Extends `docs/text-collision-contract.md`. Case id: **`IHO-S101-POINT-LABEL-COLL
 - Docs → Closed + CI Notes when done; if (b) needs Eng `ci.yml` narrow-open
 - After Close next: **S-102 deepen** or **`IHO-S164-DISPLAY-COMPARE`** — Planner will nail one later
 
-**Eng notes:** verify `ba9aa10` on tip; cell `testdata/s101/101AA00DS0008.000`; shared flag already covers PointLabel; PL∩PL pairs + glyph survival oracles already wired. Wait for TEXT Closed tip `61a5b89` on main before stacking this Eng tip. Do **not** edit `check_text_collision.cmake` / TEXT `--class Text`. Symbol-AABB obstacle = Backlog.
+**Eng notes:** verify `ba9aa10` on tip; cell `testdata/s101/101AA00DS0008.000`; shared flag already covers PointLabel; PL∩PL pairs + glyph survival oracles already wired. TEXT Closed already on main (`b02a4ac`); Eng may stack this Open + Win (b) `ci.yml` narrow-open. Do **not** edit `check_text_collision.cmake` / TEXT `--class Text`. Symbol-AABB obstacle = Backlog.
 
 **Notes (Win CI):** Existing policy: Windows `ctest -E "viewer_"` then TEXT narrow-open only `^viewer_text_collision$`. O1 tries a narrow exception for **`viewer_point_label_collision`** first; on hang, document exclude and bind Close on Ubuntu Passed + Win matrix green.
 
