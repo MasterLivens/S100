@@ -227,6 +227,7 @@ void bridge_render() {
     }
     // row 3: every Span/Pylon has a Bridge parent, confirmed by the Host query (inverse role).
     std::size_t orphan_pylons = 0;
+    std::set<std::uint64_t> orphan_ids;
     for (const auto& f : ds.features) {
       const std::string& t = f.feature_type;
       if (t != "SpanFixed" && t != "SpanOpening" && t != "PylonBridgeSupport") continue;
@@ -248,9 +249,10 @@ void bridge_render() {
       if (parents.empty()) {
         if (t == "PylonBridgeSupport") {
           ++orphan_pylons;
+          orphan_ids.insert(f.id);
           std::cout << "WARN row3: PylonBridgeSupport " << f.id << " (rcid " << f.record_id
                     << ") has no Bridge FASC parent in 0006: own FASC empty and no Bridge FASC targets it"
-                       " (see s100_cli --fasc). Demotion pending Tester approval.\n";
+                       " (see s100_cli --fasc). (rev2.2 WARN)\n";
         } else {
           std::cerr << t << " " << f.id << " has no Bridge parent\n";
           BR_CHECK(!"span without Bridge parent");  // MUST for spans
@@ -269,6 +271,8 @@ void bridge_render() {
         BR_CHECK(got == kids);
       }
     }
+    // rev2.2: orphan pylon set pinned to the measured 0006 result.
+    BR_CHECK((orphan_ids == std::set<std::uint64_t>{33, 43, 47, 69}));
     lua_close(L);
     std::cout << "row3/4 |B|=" << B.size() << " |C|=" << C.size() << " Host query == G; orphan pylons="
               << orphan_pylons << " (WARN)\n";
