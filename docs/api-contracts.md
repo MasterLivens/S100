@@ -160,8 +160,8 @@ Details: `docs/s124-contract.md`.
 
 ## Update robustness (S-101)
 
-- Details: `docs/update-robustness-contract.md` (`IHO-S164-UPD-SEQ`, `IHO-S164-UPD-CORRUPT`, `IHO-S164-CANCEL-REISSUE`).
-- Additive: `UpdateRejectCode`, `UpdateReport`, optional out-params on `apply_s101_update` / `open_dataset_with_updates` / `open_cell_series`; `Dataset::cancelled`.
+- Details: `docs/update-robustness-contract.md` (`IHO-S164-UPD-SEQ`, `IHO-S164-UPD-CORRUPT`; cancel/reissue next slice).
+- Additive: `UpdateRejectCode`, `UpdateReport`, optional out-params on `apply_s101_update` / `open_dataset_with_updates` / `open_cell_series`.
 - `apply_s101_update` strong guarantee; series stops at first rejection with last good state.
 - CTest `exchange_update_robustness` MUST NOT SKIP (Linux + Windows).
 

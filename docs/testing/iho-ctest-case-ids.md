@@ -32,9 +32,8 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-DISPLAY-PRIORITY` | 显示优先级 | plane 秩 + `drawing_priority` 升序；oracle 钉序；viewer 用 core sort；no-SKIP | `display_priority_order` | Active |
 | `IHO-TIMELINE-UI` | 时间轴 UI | S-104/111 `timeline_entries` + CLI `--list-frames` + viewer scrubber；no-SKIP | `timeline_ui` | Active |
 | `IHO-S101-BRIDGE-RENDER` | 桥/组合要素渲染 | 0006 夹具 Bridge10/SpanFixed6/SpanOpening4/Pylon6；VG12210/prio24；聚合 Null；CHGRD 线；BRIDGE01 存在；FASC 图 B∪C 在 VG12210 开/关下同出同滤；RadarOverlay 翻 plane；Linux+Win；no-SKIP | `fasc_bridge_render` | Active |
-| `IHO-S164-UPD-SEQ` | 2.2.3 Invalid Sequence | 乱序/重复/跳号/错版次 → 拒收，保留最后好状态；有效链 001–003 生效；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
+| `IHO-S164-UPD-SEQ` | 2.2.3 Invalid Sequence | 乱序/重复/跳号/错版次 → 拒收，保留最后好状态；正向对照 001–003 先过；各用例断言具体错误码；回滚摘要一致；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
 | `IHO-S164-UPD-CORRUPT` | 2.2.1 / 2.1.5 | 截断/坏 leader/未知 RUIN/缺目标 → 拒收，数据集逐位不变（强保证）；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
-| `IHO-S164-CANCEL-REISSUE` | 2.2.6 / 2.2.7 | ED=0 取消 → 清空+后续拒收；再版 UPD=n 跳过 ≤n；合成夹具 `testdata/s101/updates/`；no-SKIP；Linux+Win | `exchange_update_robustness` | Active |
 | `IHO-VIEW-GOLDEN-DAY` | 显示冒烟 | 锚点色 + 无洋红 + 漂移帽 | `viewer_golden` | Reuse（非 ECDIS 观感） |
 | `IHO-S164-DISPLAY-COMPARE` | S-164 AA5 Base/Standard figs | MUST: SHA+SOURCE, snapshot, Day RGB anchors, display-presets on/off via dump; soft pixel WARN | `viewer_s164_display_compare` | Active |
 
@@ -43,6 +42,7 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | Case ID | IHO 来源 | 依赖 | 说明 |
 |---------|----------|------|------|
 | `IHO-S101-LOAD-0004..0010` | Sec.4–10 cells | 扩 `testdata/s101` | 扩样例，不改引擎接口 |
+| `IHO-S164-CANCEL-REISSUE` | 2.2.6 / 2.2.7 | `exchange_update_robustness` 签收后 | 取消/再版，下一刀 |
 | `IHO-S101-SCAMIN` | 3.7.7 / Sec.9–10 | 显示比例尺 | → `IHO-SCAMIN-FILTER` |
 | `IHO-S101-DRAW-PRIORITY` | 3.6 Display Priorities | → `IHO-DISPLAY-PRIORITY` |
 | `IHO-S101-TEXT-COLLISION` | 3.1 ENC Display | 文字碰撞开/关重叠对数 | `viewer_text_collision` | Active |
