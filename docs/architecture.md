@@ -39,7 +39,7 @@ Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: S
 | `layer` | LAND/DEPARE visibility | P0 |
 | `pick` | screen → WGS84 (≤1e-5°) | P0 |
 | `iso8211` | binary cell decode + spatial | **next (Eng)** |
-| `catalogue` / `portrayal` | FC/PC XML + Lua | P1 |
+| `catalogue` / `portrayal` | FC/PC XML + Lua; install-tree root `(prefix)/share/s100` (`IHO-S164-POWERUP-INSTALL-PREFIX` rev1) | P1 + **Active install-prefix** |
 | `exchange_set` | CATALOG.XML, .001… updates | **done (P1)** |
 | `security` | Part 15 verify (`s100_security`); OpenSSL 3; exchange-set Enforce path; CN-shape OfficialClass + producer-code + aggregator follow-ons | **Active (`IHO-S164-SIG`)** + **`IHO-S164-SIG-CN-SHAPE`** (rev1) + **`IHO-S164-SIG-PRODUCER`** (rev1) + **`IHO-S164-SIG-AGGREGATOR`** (rev1 policy-exempt) |
 | `coverage` | grid `bounds` / `sample_wgs84` (EPSG:4326) | S-102 first slice |
@@ -77,6 +77,8 @@ Stable surface for CTest / `fixtures.toml`. Apps and tests call these only — n
 ## Track B — certification (architecture only for now)
 
 See `docs/certification/`. Next architect deliverable: `docs/certification/iec61174-requirements-matrix.md` (shall → module → auto vs lab test).
+
+Power-up self-check **Active** (`IHO-S164-POWERUP` / `powerup_self_check`). Install-prefix follow-on **Active** (`IHO-S164-POWERUP-INSTALL-PREFIX` / `powerup_install_prefix`): after `cmake --install`, PU-2 + `S100_DEFAULT_*` resolve under `(prefix)/share/s100` (env `S100_CATALOGUE_ROOT` override); build-tree CTest kept — see `docs/powerup-install-prefix-contract.md`.
 
 Product decision (2026-10-10): **ignore S-57 for now** — S-100-only product path. Do **not** start S-57 dual-fuel or sensor/BAM/route modules in P0.
 

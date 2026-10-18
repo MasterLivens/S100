@@ -143,7 +143,7 @@ Engineer **SHOULD** emit this WARN (MUST-log preferred; Tester may assert presen
 - New S-98 App. B SSE; emit 109 on AGGREGATOR divergent WARN path.
 - ST=`AGGREGATOR` (S-128) classify change.
 - Real PRIMAR / HO private keys in product or committed fixtures.
-- QBC / install-prefix (queue: **next after this = install-prefix**).
+- QBC (still Backlog). Install-prefix queue → **Active** as **`IHO-S164-POWERUP-INSTALL-PREFIX`** (`docs/powerup-install-prefix-contract.md` rev1).
 
 ---
 

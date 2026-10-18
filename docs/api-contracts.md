@@ -216,7 +216,7 @@ Details: `docs/s124-contract.md`.
 - Under `VerifyPolicy::Enforce`, when authenticating leaf cert ST=`DATA_AGGREGATOR`: **permanent exempt** from CN seg3 ↔ `producerCode` Block; crypto / chain / OfficialClass still apply. DATA_PRODUCER path unchanged.
 - Missing `producerCode` → N/A-pass. Optional WARN when `producerCode` present and ≠ CN seg3 → reason **`aggregator_producer_code_divergent`** (**no** skip, **no** SSE 109 / no new SSE).
 - Leaf `certificateRef` only (no whole-chain member-cert scan). **Reuse** PRODUCER/CN-SHAPE helpers; **do not** reopen PRODUCER / CN-SHAPE / POWERUP.
-- CTest `exchange_signature_aggregator` MUST NOT SKIP (Linux + Windows). Synthetic `aggregator_exempt/` (AGGREGATOR ST + member `producerCode` ≠ CN → still installs); TEST-ONLY keys. Queue next: install-prefix.
+- CTest `exchange_signature_aggregator` MUST NOT SKIP (Linux + Windows). Synthetic `aggregator_exempt/` (AGGREGATOR ST + member `producerCode` ≠ CN → still installs); TEST-ONLY keys. Queue next install-prefix → **`IHO-S164-POWERUP-INSTALL-PREFIX`** (`docs/powerup-install-prefix-contract.md` rev1).
 
 ## Part 15 CN MRN shape → OfficialClass (SIG follow-on)
 
@@ -235,6 +235,19 @@ Details: `docs/s124-contract.md`.
 - CLI exits: Pass/Warn → **0**; Block → **2** (exit **1** = load failures). CI synthetic only; official PowerUp TDS not in CI.
 - **Calls into** existing Part 15 verify + `open_exchange_set` — does **not** reimplement SIG; **no** producer-code matching in this slice (see `IHO-S164-SIG-PRODUCER`).
 - CTest `powerup_self_check` MUST NOT SKIP (Linux + Windows).
+- Install-tree follow-on: **`IHO-S164-POWERUP-INSTALL-PREFIX`** — see next section.
+
+## Power-up install-prefix / install-tree catalogue root (Track B)
+
+- Details: `docs/powerup-install-prefix-contract.md` (`IHO-S164-POWERUP-INSTALL-PREFIX`) — **rev1** (Planner freeze; Opens cleared).
+- After `cmake --install`: catalogue root **`(prefix)/share/s100`**; optional env **`S100_CATALOGUE_ROOT`** override. PU-2 relative paths unchanged (POWERUP §3.1).
+- **Dev/CI** keep compile-pin `CMAKE_SOURCE_DIR`; **Install** config uses install resolve. **MUST NOT** break `powerup_self_check`.
+- `install()` MUST ship `catalogues/` under that share layout; **MUST NOT** install `testdata/` / TEST-ONLY SA. Headers/libs install unchanged.
+- Product install process: **PU-4/PU-5 skip/N/A** (no source testdata dependency); full PU-4/5 remain build/CI via `powerup_self_check`.
+- **`S100_DEFAULT_*`** FC/PC defaults share the same catalogue-root resolve (no second source of truth).
+- Windows: same DESTDIR/`--prefix` CTest; relative exe fallback `../share/s100` OK.
+- CTest **`powerup_install_prefix`** MUST NOT SKIP (Linux + Windows): temp prefix install → files land + PU-2 Pass (**existence only**; sha stays `catalogue_provenance`).
+- Does **not** reopen POWERUP PU table; no FASC / official TDS / deb·rpm.
 
 ## Stability
 

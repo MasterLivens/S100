@@ -5,6 +5,8 @@ Case id: **`IHO-S164-POWERUP`** (**Active**). CTest: **`powerup_self_check`** �
 
 **Status: rev1 — Planner checklist frozen.** Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here. Engineer may implement after this rev1.
 
+**Install-tree follow-on (separate case):** **`IHO-S164-POWERUP-INSTALL-PREFIX`** — `docs/powerup-install-prefix-contract.md` (rev1). This file’s PU-1…PU-6 table is **unchanged**; install-prefix only relocates catalogue root after `cmake --install`.
+
 Primary research: `/workspace/research/powerup/BRIEF.md` (Planner, 2026-10-18). Spec texts: S-164 Ed 1.0.0 §2.1.1 / §2.2.1–2.2.2 (+ 2.0.1 draft), S-98 Ed 2.0.0 §20.1 / §20.4.3 c / App. B, IEC 61174 4.4.1 (via S-164 cite only), `docs/part15-signature-contract.md`, `docs/catalogue-complete-contract.md`, `docs/certification/*`.
 
 ### Naming context (locked)
@@ -195,6 +197,7 @@ Standalone `open_dataset` remains **`UNVERIFIED`** (SIG **D7**). Power-up **read
 - `docs/testing/iho-ctest-case-ids.md` — `IHO-S164-POWERUP` Active, rev1 locks (no “Pending clauses”).
 - `docs/api-contracts.md` — power-up pointer updated to rev1 (Block scope, exit codes, PU table).
 - This file — **rev1 / Planner checklist frozen**; Open section cleared.
+- Install-prefix follow-on (later commit / sibling case): see `docs/powerup-install-prefix-contract.md` — **do not** edit PU table here for that work.
 
 ---
 
