@@ -1,4 +1,4 @@
-# Update-sequence robustness (rev 1.1)
+# Update-sequence robustness (rev 1.2)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case ids (**Active**): `IHO-S164-UPD-SEQ`, `IHO-S164-UPD-CORRUPT`. `IHO-S164-CANCEL-REISSUE` is the **next** slice (see Non-goals).
@@ -50,7 +50,8 @@ Existing callers that pass no report keep compiling and behaving the same on the
 
 1. **Strong guarantee per update.** `apply_s101_update` returning `false` leaves `ds` **bit-for-bit equal** to its state before the call (features, attributes, FASC/INAS lists, information records, `SpatialStore`, ED/UPD). Implementation: apply to a working copy, swap on success. The current in-place partial path (erase/push before a later `return false`) is a defect this slice removes.
 2. **Stop at first rejection.** `open_dataset_with_updates` / `open_cell_series` return `false` at the first rejected update; `out` holds **base + the applied prefix** (last good state, usable for display); `report` names the file and code. Later files are not attempted.
-3. **Sequencing by DSID**, not file name: ED must equal; UPD must be current+1. Duplicate (UPD == current), gap (UPD > current+1) and reversed order all → `OutOfSequence`. If CATALOG.XML gives ED/UPD for the file and it disagrees with DSID → `CatalogueMismatch`.
+3. **Check order (fixes which code wins):** file size vs leader → `Truncated`; 8211 parse → `BadStructure`; DSID is a base/non-S-101 → `NotUpdateFile`; catalogue vs DSID → `CatalogueMismatch`; ED → `EditionMismatch`; UPD → `OutOfSequence`; then records (`BadInstruction`, `MissingTarget`).
+3a. **Sequencing by DSID**, not file name: ED must equal; UPD must be current+1. Duplicate (UPD == current), gap (UPD > current+1) and reversed order all → `OutOfSequence`. If CATALOG.XML gives ED/UPD for the file and it disagrees with DSID → `CatalogueMismatch`.
 4. **Corrupt input never crashes, never half-applies.** Truncated / bad leader / bad directory → `Truncated` / `BadStructure`; unknown instruction values → `BadInstruction`; Delete/Modify of a non-existent FRID/IRID/spatial RCID → `MissingTarget`. ASan/UBSan clean on Linux CI for these fixtures (WARN if sanitizer job not available yet).
 
 ## Fixtures
@@ -66,7 +67,8 @@ The repo has **no** `.001` files, so the positive control is synthetic too. Fixt
 | `seq` with 001 twice | — | second 001 `OutOfSequence`, `applied=1` |
 | `seq` 001 + 003 (gap) | — | `OutOfSequence` on 003, `applied=1` |
 | `bad_ed/…001` (ED 8) | — | `EditionMismatch` |
-| `corrupt/trunc.001` | valid 001 cut in half | `Truncated` or `BadStructure` |
+| `corrupt/trunc.001` | valid 001 cut in half (leader record length > bytes on disk) | `Truncated` |
+| `notupd/101AA00DS0003.000` | the base cell itself passed as an update | `NotUpdateFile` |
 | `corrupt/leader.001` | leader bytes garbled | `BadStructure` |
 | `corrupt/ruin9.001` | RUIN = 9 on a feature | `BadInstruction` |
 | `corrupt/missing.001` | Delete of non-existent FRID | `MissingTarget` |
@@ -78,10 +80,10 @@ The repo has **no** `.001` files, so the positive control is synthetic too. Fixt
 | # | Check | Sev |
 |---|-------|-----|
 | 0 | **Positive control first:** valid `001` applies (`true`, code `None`, UPD 1). If it fails, the test FAILs before any reject case | MUST |
-| 1 | Every fixture exists (and sha256 matches when committed) | MUST |
-| 2 | Each reject row returns `false` **and exactly** its expected `UpdateRejectCode` and `applied` — asserting only "failed" is not enough. One MUST per case: gap n+2, duplicate n, reversed order, edition mismatch, truncated, bad 8211 leader, missing target (plus bad instruction, catalogue mismatch) | MUST |
+| 1 | Every fixture exists; sha256 equals `fixtures.toml`; running `tools/gen_update_fixtures.py` twice yields byte-identical output (checked in CTest or a sibling `update_fixtures_reproducible` test, both platforms) | MUST |
+| 2 | Each reject row returns `false` **and exactly** its single expected `UpdateRejectCode` (every enum value except `None` has ≥ 1 fixture) and `applied` — asserting only "failed" is not enough. One MUST per case: gap n+2, duplicate n, reversed order, edition mismatch, truncated, bad 8211 leader, missing target (plus not-update-file, bad instruction, catalogue mismatch) | MUST |
 | 3 | Valid chain: inserted feature present after 001; its attribute = patched value after 002; deleted feature absent after 003; feature count = base + 1 − 1 | MUST |
-| 4 | **Rollback:** for every reject, `digest(before) == digest(after)`. `digest` = feature count + ED/UPD + per feature sorted by id: (id, type, hash of sorted attributes, hash of geometry coordinates, FASC/INAS list) + info record ids + spatial ids. Any partial apply = FAIL | MUST |
+| 4 | **Rollback:** one shared helper `dataset_digest(const Dataset&)` (tests/support), compared before vs after **every** reject case. It hashes, in canonical order: ED/UPD; feature count; per feature sorted by id → id, type, attributes (code + value, nested, sorted), geometry **coordinates**, FASC/INAS (rcid, assoc, role, attributes); information records sorted by id with attribute values; `SpatialStore` records sorted by (rcnm, rcid) with **coordinates**. Any difference = FAIL | MUST |
 | 5 | `late_fail`: none of its 3 valid ops visible after rejection | MUST |
 | 6 | `report.message` contains the rejected file name and its ED.UPD | MUST |
 | 9 | No crash / no exception escapes on any corrupt fixture | MUST |
