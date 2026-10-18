@@ -22,7 +22,8 @@ Legend: **Reuse** = 已有或稍加断言；**Backlog** = 排入现计划空档�
 | `IHO-S102-OPEN-SAMPLE` | S-102 产品 | open/bounds/sample WGS84 | s102 tests | Reuse/in flight |
 | `IHO-S102-OVERLAY-SESSION` | 叠显契约 | ChartSession 键叠 S-101 | session | Reuse |
 | `IHO-S102-DEEPEN-MULTIGRID` | S-102 deepen | grids≥2 合成夹具；sample 路由；N×CoverageFill；FourShades/SafetyContour | `s102_deepen_multigrid` | Active |
-| `IHO-S102-UNCERTAINTY` | S-102 uncertainty layer rev1 | dual-channel sample；depth-only compound §10 MUST（fixture B → `has_uncertainty==false`）；VG `13031` vendor ext（toggle 不藏 13030）；symbolic bands；QBC→`IHO-S102-QBC-META`；真样 NOAA unc metres only；Linux+Win | `s102_uncertainty` | Active |
+| `IHO-S102-UNCERTAINTY` | S-102 uncertainty layer rev1 | dual-channel sample；depth-only compound §10（fixture B rev1 → `has_uncertainty==false`；broadcast flip→QBC-META）；VG `13031` vendor ext（toggle 不藏 13030）；symbolic bands；真样 NOAA unc metres only；Linux+Win | `s102_uncertainty` | Active |
+| `IHO-S102-QBC-META` | S-102 QoBC meta + §10 broadcast | QBC U32 id grid + featureAttributeTable load；pick/sample lookup（surveyAuthority/ZOC/…）；PC NullInstruction（不画 id 色带）；fixture C no-SKIP；NOAA QoBC via TEST-DATA-ROOTS（缺→not exercised；set-but-bad→FAIL；CHS 可无 QoBC）；**BCAST-*** 与 **QBC-*** 失败面分离（fixture B broadcast elect）；Linux+Win | `s102_qbc_meta` | Active |
 | `IHO-S104-OPEN-FRAME` | S-104 first slice | open≥2 frames；sample 随帧变；单帧 portray；ChartSession 叠 S-101 | `s104_open_frame` | Active |
 | `IHO-S111-OPEN-FRAME` | S-111 first slice | open≥2 frames；sample speed/dir；Arrow stride；ChartSession 叠 S-101 | `s111_open_frame` | Active |
 | `IHO-S124-OPEN-LIST` | S-124 first slice | GML open；`warnings.size()==2`；列表；叠图一帧；ChartSession | `s124_open_list` | Active |

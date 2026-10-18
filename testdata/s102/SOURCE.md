@@ -6,7 +6,7 @@
 |------|------|
 | `synthetic_multigrid_4326.h5` | **Gittracked.** Two small EPSG:4326 regular grids with disjoint envelopes for `IHO-S102-DEEPEN-MULTIGRID` / CTest `s102_deepen_multigrid`. Built with h5py: `BathymetryCoverage.01` (lon/lat≈0–0.4, depth=5) and `.02` (≈10–10.4, depth=50). See `docs/s102-deepen-contract.md`. |
 | `synthetic_uncertainty_4326.h5` | **Gittracked.** Fixture **A** for `IHO-S102-UNCERTAINTY` / CTest `s102_uncertainty`. EPSG:4326, single `BathymetryCoverage.01`, compound `depth`+`uncertainty`. Envelope lon/lat≈20–20.4 (disjoint from deepen). Regenerate: `scripts/gen_s102_uncertainty_synthetic.py`. |
-| `synthetic_uncertainty_depth_only_4326.h5` | **Gittracked.** Fixture **B** (PS §10 depth-only omit). Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty==0.75` (not fill). Loader does **not** broadcast → samples report `has_uncertainty==false`. |
+| `synthetic_uncertainty_depth_only_4326.h5` | **Gittracked.** Fixture **B** (PS §10 depth-only omit). Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty==0.75` (not fill). **UNCERTAINTY rev1:** no broadcast → `has_uncertainty==false`. **`IHO-S102-QBC-META` elects broadcast** → oracle flips to `has_uncertainty==true` / unc **0.75** (`BCAST-*`; see `docs/s102-qbc-meta-contract.md`). |
 
 ### Fixture A oracles (`synthetic_uncertainty_4326.h5`)
 
@@ -21,9 +21,9 @@ Grid: 5×5, origin (20,20), spacing 0.1°. All other cells: depth=12.5, unc=2.5.
 
 | Point | Lon | Lat | depth | uncertainty |
 |-------|-----|-----|-------|-------------|
-| sample | 30.0 | 30.0 | **8.0** | none (`has_uncertainty==false`) |
+| sample | 30.0 | 30.0 | **8.0** | **UNCERTAINTY rev1:** none (`has_uncertainty==false`). **After QBC-META broadcast elect:** **0.75** (`has_uncertainty==true`, oracle **`BCAST-1`**) |
 
-Envelope lon/lat≈30–30.4. `minimumUncertainty==maximumUncertainty==0.75` documented; Eng elected **no** in-memory broadcast.
+Envelope lon/lat≈30–30.4. `minimumUncertainty==maximumUncertainty==0.75` documented.
 
 ### Uncertainty CoverageFill band table (vendor extension, VG `13031`)
 
@@ -52,7 +52,7 @@ Binaries matching `testdata/s102/*.h5` stay gitignored except the `!` exceptions
 | Product | INT.IHO.S-102.3.0.0 (horizontal CRS EPSG:32609 UTM 9N; geographic bounds on root attrs) |
 | Fetched | 2026-10-11 |
 | Size | ~895 KiB |
-| Notes | Small public sample. Grid axes are projected metres; `sample_wgs84` converts UTM 326xx/327xx internally (see `docs/s102-contract.md`). Prefer CHS WGS84 cell when present. **Uncertainty:** per-cell metres present (e.g. cell `(700,700)` → unc **40.34**); also has QoBC U32 (out of slice — `IHO-S102-QBC-META`). |
+| Notes | Small public sample. Grid axes are projected metres; `sample_wgs84` converts UTM 326xx/327xx internally (see `docs/s102-contract.md`). Prefer CHS WGS84 cell when present. **Uncertainty:** per-cell metres present (e.g. cell `(700,700)` → unc **40.34**). **QoBC:** U32 id grid + `featureAttributeTable` (14 rows); cell `(700,700)` id **1** → `surveyAuthority` `DOC/NOAA/NOS/OCS -- Office of Coast Survey` — asserted by **`IHO-S102-QBC-META`**. |
 
 ```
 curl -L -o testdata/s102/102US004AK5HQ262267.h5 \
@@ -66,4 +66,12 @@ When present (gitignored `testdata/chs/`):
 `testdata/chs/COMBINED/S100_ROOT/S-102/DATASET_FILES/CA00/102CA0064682N07116W/16/102CA0064682N07116W.h5`
 
 - Spec `INT.IHO.S-102.3.0.0`, horizontal CRS EPSG:4326, ~635 KiB, fill depth `1e+06`.
-- Uncertainty channel present but typically all-fill; positive `has_uncertainty` oracle is NOAA-only in this slice.
+- Uncertainty channel present but typically all-fill; positive `has_uncertainty` oracle is NOAA-only for UNCERTAINTY.
+- **No `QualityOfBathymetryCoverage` group** (Group_F featureCode is BathymetryCoverage only). QBC-META: CHS-without-QoBC → `has_qbc_coverage==false`, not a FAIL.
+
+### Pending Eng (`IHO-S102-QBC-META`)
+
+| File | Role |
+|------|------|
+| `synthetic_qbc_meta_4326.h5` | Fixture **C** (tracked when landed). QoBC `dataCodingFormat=9`, U32 id grid + ≥2 FAT rows; oracles in `docs/s102-qbc-meta-contract.md`. |
+

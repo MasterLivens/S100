@@ -16,7 +16,7 @@ Primary research: `/workspace/research/s102-uncertainty/BRIEF.md` + `SOURCES.md`
 |---|---------------|---------------|
 | **T1** | **Depth-only compound** (PS §10) | Loader **MUST** open a BathymetryCoverage whose `values` compound has **only** `depth` (uncertainty column omitted **and** Group_F `uncertainty` entry omitted) → `has_uncertainty == false` at sample. May broadcast a constant from `minimumUncertainty==maximumUncertainty` when that constant is **not** the fill value (`1e6`). **Synthetic fixture B** + SOURCE.md oracle required. Current loader assumes compound always has `uncertainty` and is **brittle** — Eng must fix. |
 | **T2** | **VG `13031` = project-private vendor extension** | Uncertainty CoverageFill uses viewing group **`13031`** (NOT a PS/PC clause). Official PC only has **`13030`**. Product may hide `13031` by default. Toggle/`set_hidden_viewing_groups` on **`13031` only** — **MUST NOT** hide or strip depth DIs on **`13030`**. Do **not** reuse `13030` for the uncertainty toggle (would hide depth when unc is off). |
-| **T3** | **Non-goals + symbolic bands** | QBC U32 meta → follow-up **`IHO-S102-QBC-META`** (Non-goals here; do **not** treat id raster as continuous unc pseudocolor). EncDotNet pixel compare + S-98 worst-case safety contour / uncertainty buffer → Non-goals. Colour bands: **symbolic colour tokens only**, no hard-coded RGB; Day→Dusk tokens stable (RGB remap only). |
+| **T3** | **Non-goals + symbolic bands** | QBC U32 meta + §10 min==max broadcast → **taken by `IHO-S102-QBC-META`** (`docs/s102-qbc-meta-contract.md`; Non-goals here; do **not** treat id raster as continuous unc pseudocolor). EncDotNet pixel compare + S-98 worst-case safety contour / uncertainty buffer → Non-goals. Colour bands: **symbolic colour tokens only**, no hard-coded RGB; Day→Dusk tokens stable (RGB remap only). |
 
 ---
 
@@ -43,11 +43,11 @@ Primary research: `/workspace/research/s102-uncertainty/BRIEF.md` + `SOURCES.md`
 | Vertical uncertainty (metres) | HDF5 compound member **`uncertainty`** in `/BathymetryCoverage/BathymetryCoverage.NN/Group_001/values` beside **`depth`** | Already read in `hdf5_product.cpp` (`DepthPair::{depth,uncertainty}` → `CoverageGrid::uncertainty`) — **but** today assumes compound always has unc (fails depth-only; see **T1**) |
 | Group_F codes | `/Group_F/BathymetryCoverage` rows `code=depth` and optionally `code=uncertainty`; `fillValue` string **`1000000`**, uom metres | Matches `CoverageGrid::fill_uncertainty` default `1.0e6f` |
 | Depth-only compound (§10) | Compound **one** member (`depth` only); Group_F omits uncertainty row; typically `minimumUncertainty==maximumUncertainty` | Loader MUST support — **T1** / synthetic **B** |
-| `QualityOfBathymetryCoverage` group | Optional `/QualityOfBathymetryCoverage/.../values` = **U32** indices into `featureAttributeTable` | **Not** the metres uncertainty channel. Out of slice → **`IHO-S102-QBC-META`**. NOAA `102US004AK5HQ262267.h5` has it |
+| `QualityOfBathymetryCoverage` group | Optional `/QualityOfBathymetryCoverage/.../values` = **U32** indices into `featureAttributeTable` | **Not** the metres uncertainty channel. **Taken by `IHO-S102-QBC-META`**. NOAA `102US004AK5HQ262267.h5` has it; CHS may lack it |
 | FC | `BathymetryCoverage` binds `depth` (1) + optional `uncertainty` (0..1); meta `QualityOfBathymetryCoverage` (`iD`) | `catalogues/S-102/S-102_FC_3.0.0.xml` |
 | Official PC 3.0.0 | `BathymetryCoverage.lua` → VG **`13030`**, `CoverageFill:depth`; QoBC.lua → VG **`13030`**, **`NullInstruction`** | No official unc CoverageFill; no ShowUncertainty context |
 
-**This slice’s “uncertainty layer”** = load/sample the BathymetryCoverage compound field **`uncertainty`** (metres), including depth-only omit, and optionally portray it as a vendor-extension CoverageFill on VG **`13031`**. QBC U32 / `featureAttributeTable` is **out** (Non-goals / follow-up case).
+**This slice’s “uncertainty layer”** = load/sample the BathymetryCoverage compound field **`uncertainty`** (metres), including depth-only omit, and optionally portray it as a vendor-extension CoverageFill on VG **`13031`**. QBC U32 / `featureAttributeTable` **and** §10 min==max broadcast election are **taken by `IHO-S102-QBC-META`**.
 
 ---
 
@@ -55,7 +55,7 @@ Primary research: `/workspace/research/s102-uncertainty/BRIEF.md` + `SOURCES.md`
 
 - **U1 Dual-channel sample (no side effects).** `CoverageSample` already carries `depth`/`has_depth` and `uncertainty`/`has_uncertainty`. `sample_wgs84` / `sample_cell` fill both from the same cell; return value stays “cell has depth” (existing). Sampling must not mutate grids, session hidden-VG set, or portrayal output. Toggle of the uncertainty layer must not change subsequent `sample_*` results.
 - **U2 Missing-uncertainty sentinel.** Treat as missing when `is_fill_uncertainty(v)` (existing: non-finite, ≈ `fill_uncertainty`, or `|v| >= 1e5`). Then `has_uncertainty == false` and `uncertainty` is unspecified. Default fill **`1.0e6f`** (= Group_F `1000000`). Do not invent a second sentinel API.
-- **U2b Depth-only compound (MUST — was missing in draft).** Per PS §10: when the uncertainty column is omitted and the Group_F uncertainty entry is omitted, loader **MUST** succeed and every sample reports **`has_uncertainty == false`**. Optionally, when `minimumUncertainty == maximumUncertainty` and that value is **not** the fill (`1e6`), the loader **may** broadcast that constant into the in-memory uncertainty channel (then `has_uncertainty == true` for non-fill cells). Eng: current code assumes compound always has `uncertainty` — **fix the brittle path**. Oracle: synthetic fixture **B** (see Fixtures).
+- **U2b Depth-only compound (MUST).** Per PS §10: when the uncertainty column is omitted and the Group_F uncertainty entry is omitted, loader **MUST** succeed. **rev1 landing:** Eng did not elect broadcast → fixture **B** samples `has_uncertainty == false`. **Broadcast election + fixture-B oracle flip** moved to **`IHO-S102-QBC-META`** (`BCAST-*` surface; when min==max and not fill → broadcast, `has_uncertainty == true`). Unusable min/max still → `has_uncertainty == false`.
 - **U3 Independent CoverageFill + vendor-extension VG `13031` (P2).** For each loaded bathymetry grid that has an uncertainty channel to portray, portrayal emits **two** `Kind::Coverage` instructions in stable order: (1) depth — existing PC path, `coverage_attribute == "depth"`, VG **`13030`**; (2) uncertainty — `coverage_attribute == "uncertainty"`, ViewingGroup **`13031`**, DrawingPriority **3**, DisplayPlane **UnderRadar**. **`13031` is a project-private vendor extension — NOT a PS/PC clause.** Official PC 3.0.0 only lists `13030`. Product **may hide `13031` by default**. Viewer paints uncertainty bands from `CoverageGrid::uncertainty` when `coverage_attribute == "uncertainty"`. Hide/show via existing `filter_instructions_by_viewing_group` / `set_hidden_viewing_groups` on **`13031` only** — depth DIs on **`13030` MUST remain**. **Do NOT use `13030` for the uncertainty toggle** (hiding it would hide depth). When the grid is depth-only (`has_uncertainty` never true / no unc channel loaded), emit **no** uncertainty CoverageFill (depth-only DI count unchanged).
 - **U4 Emit path + band table (P4).** Core/host emits the uncertainty CoverageFill after (or beside) the depth PC path — same pattern as S-104’s minimal tokenized CoverageFill. **Do not** edit the shipped `QualityOfBathymetryCoverage.lua` NullInstruction as the contract of record; do not invent a replacement official Lua file in-catalogue. **rev1 band table:** fixed band table in core/host as **vendor extension**; **symbolic colour tokens only** (no hard-coded RGB); Day→Dusk: tokens stable, RGB remap only. Replace later if official PC adds rules. Document bands in SOURCE.md.
 - **U5 Synthetic fixtures mandatory (A + B).** Both gittracked under `testdata/s102/` (`.gitignore` `!` exceptions + SOURCE.md oracles). CTest **`s102_uncertainty` MUST NOT SKIP** on CI (Linux + Windows). Deepen `synthetic_multigrid_4326.h5` stays deepen-only; do not overload it as the uncertainty oracle.
@@ -68,7 +68,7 @@ Primary research: `/workspace/research/s102-uncertainty/BRIEF.md` + `SOURCES.md`
 |---|------------|
 | **P1** | Clause table above (S-102 Ed 3.0.0 §1/§4/§6/§9/§10 + Encoding Guide + Part 8 §8-4.3 + official PC 3.0.0 / S-164 Ed1.0.0). |
 | **P2** | Keep project-private VG **`13031`** as vendor extension — **not** a PS/PC clause. Product may hide 13031 by default. **Do not** use 13030 for unc toggle. |
-| **P3** | QBC U32 → follow-up case **`IHO-S102-QBC-META`**; stays in Non-goals; do not treat id raster as continuous uncertainty pseudocolor. |
+| **P3** | QBC U32 → **`IHO-S102-QBC-META`** (Active; `docs/s102-qbc-meta-contract.md`); stays Non-goal **here**; do not treat id raster as continuous uncertainty pseudocolor. |
 | **P4** | rev1 uses core/host fixed band table as vendor extension; symbolic colour tokens only; Day→Dusk tokens stable; replace later if PC adds official rules. |
 | **P5** | EncDotNet / S-98 worst-case safety contour + uncertainty buffer stay Non-goals. |
 
@@ -97,7 +97,7 @@ Portrayal contract addition: uncertainty Coverage DI must set `coverage_attribut
 | Fixture | File | Purpose / oracle |
 |---------|------|------------------|
 | **A** (dual-channel) | `synthetic_uncertainty_4326.h5` (tracked) | CRS EPSG:4326, single `BathymetryCoverage.01`, compound `depth`+`uncertainty`. **Point A:** both channels — known depth **and** `has_uncertainty` with pinned metres. **Point B:** `has_depth` && **`has_uncertainty == false`** (cell unc = `1e6`). Envelope small, preferably disjoint from deepen multigrid. |
-| **B** (depth-only omit — **T1**) | `synthetic_uncertainty_depth_only_4326.h5` (tracked) | Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty` (document value in SOURCE.md). Open MUST succeed. Sample at documented point: **`has_uncertainty == false`** unless Eng elects broadcast of non-fill constant (then document that oracle instead). **Regresses the brittle loader.** |
+| **B** (depth-only omit — **T1**) | `synthetic_uncertainty_depth_only_4326.h5` (tracked) | Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty==0.75`. **UNCERTAINTY rev1:** `has_uncertainty == false` (no broadcast). **QBC-META elects broadcast** → oracle flips there (`BCAST-*`); see `docs/s102-qbc-meta-contract.md`. |
 | Real NOAA | `102US004AK5HQ262267.h5` (gitignored) | Assert **per-cell unc metres** only (e.g. unc **40.34**); QoBC U32 present but **not** asserted this slice. |
 
 ---
@@ -124,7 +124,7 @@ Soft pixel / screenshot: **WARN-only**. EncDotNet pixel compare: **out** (Non-go
 - EncDotNet pixel compare; S-98 / IMO **worst-case safety contour + uncertainty buffer** (interop beyond S-102 PC) — **P5**.
 - Producer-code matching from SIG backlog.
 - Reopening OPEN / OVERLAY / DEEPEN cases or rewriting deepen fixtures.
-- Loading / portraying `/QualityOfBathymetryCoverage` U32 index grid or `featureAttributeTable` as continuous uncertainty pseudocolor — follow-up **`IHO-S102-QBC-META`** (**P3**).
+- Loading / portraying `/QualityOfBathymetryCoverage` U32 index grid or `featureAttributeTable` as continuous uncertainty pseudocolor — **taken by `IHO-S102-QBC-META`** (`docs/s102-qbc-meta-contract.md`) (**P3**). §10 min==max constant broadcast election also moved there (separate **`BCAST-*`** oracle surface).
 - Editing shipped official `QualityOfBathymetryCoverage.lua` NullInstruction as the long-term PC source of truth; forging a “standard” ShowUncertainty in official PC.
 - S-104/S-111 time; animation; sun illumination / hillshade (PS §9).
 - Hard-coded RGB in uncertainty band table (tokens only — **P4** / **T3**).
@@ -135,7 +135,7 @@ Soft pixel / screenshot: **WARN-only**. EncDotNet pixel compare: **out** (Non-go
 
 *(cleared — P1–P5 resolved above; residual research caveats live in BRIEF §6 and do not block Eng.)*
 
-Follow-up case id (not this slice): **`IHO-S102-QBC-META`**.
+Follow-up **taken**: **`IHO-S102-QBC-META`** — QBC U32 + `featureAttributeTable` load/pick **and** §10 min==max broadcast election (`docs/s102-qbc-meta-contract.md`). Fixture B broadcast oracle flips there (`BCAST-*`); do not conflate with QBC CHECKs.
 
 ---
 
