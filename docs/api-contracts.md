@@ -154,9 +154,9 @@ Details: `docs/s124-contract.md`.
 
 ## Bridge rendering (S-101)
 
-- Details: `docs/bridge-render-contract.md` (`IHO-S101-BRIDGE-RENDER`).
-- Official PC Lua only; no hand-drawn bridge glyphs. Fixture `101AA00DS0006.000`.
-- CTest `fasc_bridge_render` MUST NOT SKIP (Linux + Windows).
+- Details: `docs/bridge-render-contract.md` (`IHO-S101-BRIDGE-RENDER`, **Closed/Done** 2026-10-18 — CI `39117072306` @ `065887b`; #12 BRIDGE01≥1 MUST; #13 pixels deferred).
+- Official PC Lua only; no hand-drawn bridge glyphs. Fixture `testdata/s101/101AA00DS0006.000`.
+- CTest `fasc_bridge_render` (`s100_portrayal_tests bridge_render`) MUST NOT SKIP; CI/local MUST actually run the portrayal binary (Not Run / missing `s100_portrayal_tests` is a gate failure to close) — Linux + Windows.
 - New pure API: `filter_instructions_by_viewing_group(DrawingInstructions&, const std::set<std::string>& hidden_groups)` in `include/s100/viewing_group_filter.hpp`.
 
 

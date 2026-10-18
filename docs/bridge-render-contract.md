@@ -1,7 +1,8 @@
-# Bridge / composite feature rendering — FASC slice (rev 2.2 · association-contract rev 3)
+# Bridge / composite feature rendering — FASC slice (rev 2.3 · association-contract rev 3)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S101-BRIDGE-RENDER`** (**Active**). CTest: **`fasc_bridge_render`** — **MUST NOT SKIP**; registered with no platform guard, must run on **Linux and Windows** CI.
+Case id: **`IHO-S101-BRIDGE-RENDER`** (**Active** — reuse; do **not** invent a new case name). CTest: **`fasc_bridge_render`** — **MUST NOT SKIP**; registered with no platform guard; **Linux + Windows** dual-green.
+**Status: Closed / Done (2026-10-18)** — CI `39117072306` @ `065887b` dual-green `fasc_bridge_render`; oracles 1–11 stay MUST; **#12 BRIDGE01≥1** promoted WARN→MUST. Docs close only — Eng tiny tip if #12 assert not yet hard; next slice `IHO-S101-TEXT-COLLISION`.
 
 Builds on `docs/association-contract.md` rev 2 (FASC/INAS merge + Host queries, `35b5b12`). Frozen with `docs/portrayal-contract.md`, `docs/display-priority-contract.md`, `docs/testing/iho-ctest-case-ids.md`.
 
@@ -70,10 +71,52 @@ Demoting check 3 to WARN is allowed **only** with `s100_cli` output attached pro
 | 10 | Any DI with `symbol_ref == "BRIDGE01"` → file exists under PC `Symbols/` | MUST |
 | 11 | Non-vacuous: B ∪ C has ≥ 1 non-Null DI. Re-portray with `RadarOverlay=true`: total DI count of B ∪ C unchanged, and the 12210 DIs of B ∪ C that were `UnderRadar` become `OverRadar` (PylonBridgeSupport priority‑18 surface branch stays UnderRadar per official rule) | MUST |
 | 12a | Test log prints actual DI count per feature type (pinned as MUST in a later rev) | MUST (print) |
-| 12 | ≥ 1 `BRIDGE01` on this fixture | WARN (depends on `openingBridge` data) |
-| 13 | Viewer snapshot shows bridge lines | WARN |
+| 12 | ≥ 1 `BRIDGE01` on this fixture (openingBridge present on 0006) | **MUST** (promoted 2026-10-18; was WARN) |
+| 13 | Viewer snapshot / pixel compare | **Deferred** — not CTest MUST; → `viewer_*` / DISPLAY-COMPARE |
 
-## Non-goals
+
+## IHO-S101-BRIDGE-RENDER slice (2026-10-18) — MUST / Open / Non-goals
+
+Planner freeze for the **next** Eng slice on top of rev 2.2. Case stays **`IHO-S101-BRIDGE-RENDER`** (Active). Research BRIEF TBD: `/workspace/research/fasc-bridge/` (**Open** — Planner fills; Architect does not invent BRIEF body here).
+
+### MUST
+
+1. **Prove on fixture 0006** (`testdata/s101/101AA00DS0006.000`, gittracked IHO sample): Bridge / SpanFixed / SpanOpening / PylonBridgeSupport **FASC graph** + Host query (`HostFeatureGetAssociatedFeatureIDs`) + PC Lua DI arrival — contract **`bridge-render-contract` rev 2.2 oracles 1–11** (table above). Missing fixture / load fail → **FAIL**, never SKIP.
+2. **CI / local actually run** `s100_portrayal_tests bridge_render` (CTest names **`fasc_bridge_render`** + alias **`bridge_render`**). Recently observed **Not Run** / **missing portrayal binary** — this slice **MUST** close that gap to **always-green** on Linux + Windows (see § CI gap below).
+3. CTest **`fasc_bridge_render` MUST NOT SKIP**; no platform `#ifdef` skip; no `SKIP_RETURN_VALUE`.
+
+### CI gap — MUST close (exact wiring)
+
+| Item | Location / fact |
+|------|-----------------|
+| Executable target | `s100_portrayal_tests` — `CMakeLists.txt` `add_executable(s100_portrayal_tests tests/test_portrayal.cpp tests/test_bridge_render.cpp)` (~L178); links `s100_core` + `s100_lua`; **not** `EXCLUDE_FROM_ALL` |
+| Case entry | `tests/test_bridge_render.cpp` → `void bridge_render()`; dispatched from `tests/test_portrayal.cpp` map key `"bridge_render"` |
+| CTest (contract) | `add_test(NAME fasc_bridge_render COMMAND s100_portrayal_tests bridge_render)` (~L187) |
+| CTest (alias) | `add_test(NAME bridge_render COMMAND s100_portrayal_tests bridge_render)` (~L188) |
+| Sibling portrayal cases | `foreach(...); add_test(NAME portrayal.${c} COMMAND s100_portrayal_tests ${c})` (~L182–184) — same binary |
+| Platform / SKIP guards on these tests | **None** in CMake (no `SKIP_RETURN_VALUE`, no OS `if`) |
+| Test-source SKIP | **None** — missing fixture/catalogues → `FAIL` (`BR_CHECK` / exit 1) |
+| CI invoke | `.github/workflows/ci.yml`: `cmake --build build --config Release` then full `ctest` (Linux) / `ctest -E "viewer_"` (Windows). **`fasc_bridge_render` is not excluded** by `-E viewer_` |
+| Failure mode to close | If `s100_portrayal_tests` is **not built** (selective `--target s100_tests`, stale build tree, or multi-config path miss), CTest reports **`***Not Run`** / unable to find executable — **not** a red Fail. That hides the gate. |
+
+**Close criteria (Eng):** default `cmake --build` (CI shape) **always** produces `s100_portrayal_tests`; `ctest -R '^(fasc_bridge_render|bridge_render)$'` **runs and passes** on Linux + Windows; a missing binary must **not** silently Not-Run the gate (prefer build-all / explicit `--target s100_portrayal_tests` in CI, and/or `REQUIRED_FILES` / `$<TARGET_FILE:s100_portrayal_tests>` hardening — Eng choice). Bump stale CMake comment still saying “rev 2.1” when touching that block.
+
+### Open (Planner)
+
+| # | Topic | Notes |
+|---|-------|-------|
+| **O1** | BRIEF body | Fill `/workspace/research/fasc-bridge/` (directory exists empty). Architect leaves Open. |
+| **O2** | Oracle 1–11 ambiguities | Any Tester/Eng clarification on rev 2.2 rows (esp. **3** / **3w** orphan set, **5** pylon surface 18, **8** VG multiset, **11** RadarOverlay plane flip) — record here after BRIEF; do not silently change MUST sev. |
+| **O3** | Fixture 0006 path | Confirm pinned path remains `testdata/s101/101AA00DS0006.000` (counts 10 / 6 / 4 / 6). CHS cells stay out of CI. |
+
+### Non-goals (this slice)
+
+- **No** official S-101 PC Lua edits (`Bridge.lua` / `Span*.lua` / `PylonBridgeSupport.lua`).
+- **No** hand-drawn bridge symbols in Qt/C++.
+- **Do not reopen** `docs/association-contract.md` (FASC/INAS Host merge) or **`IHO-S164-POWERUP-INSTALL-PREFIX`** / install-prefix layout.
+- Cross-dataset associations; S-98; vertical-clearance alerts (Track B); pinning exact DI counts (12a stays print-only).
+
+## Non-goals (baseline, unchanged)
 
 Hand-drawn bridge glyphs; editing official Lua; cross-dataset associations; S-98; vertical-clearance alerts (Track B).
 
@@ -81,3 +124,21 @@ Hand-drawn bridge glyphs; editing official Lua; cross-dataset associations; S-98
 
 - `bridge_render` may stay registered as an alias; CI gating and the case-id row use `fasc_bridge_render`.
 - Rulings by SoftwareTester 2026-10-18 on `1ac028f`: orphan pylons WARN with pinned set; text DIs only need `12210` in `viewing_groups`; pylon surface prio 18 / UnderRadar.
+- **rev 2.3 (2026-10-18):** Active slice activation — CI Not Run / missing `s100_portrayal_tests` is MUST-to-close; BRIEF Open at `/workspace/research/fasc-bridge/`.
+
+---
+
+## Slice close — 2026-10-18 (Planner BRIEF `/workspace/research/fasc-bridge/BRIEF.md`)
+
+**Status: Closed / Done** (formal docs close — **not** a re-implement of Host/FASC/bridge render).
+
+- Evidence: CI [39117072306](https://github.com/MasterLivens/S100/actions/runs/39117072306) tip `065887b` — Linux+Windows **`fasc_bridge_render` Passed** (not Not Run / not Skip).
+- Oracles **1–11** remain MUST as rev2.2; **#12 `BRIDGE01 ≥ 1`** promoted **WARN → MUST** (fixture 0006 has `openingBridge`). Eng: if assert not yet hard-failing, tiny tip only.
+- **#12a** DI count: print-only — **no** numeric MUST this close.
+- **#13** pixel / DISPLAY-COMPARE: **not** CTest MUST — defer `viewer_*` / DISPLAY-COMPARE.
+- Viewer VG12210 UI switch: **Backlog**.
+- Other structure–equipment FASC: **Backlog** (separate case).
+- **Next Eng after this close:** `IHO-S101-TEXT-COLLISION` (`viewer_text_collision`); POINT-LABEL follows.
+
+**Non-goals this close:** official Lua edits; hand-drawn bridge symbols; reopen association-contract / install-prefix; new feature stack beyond #12 assert if needed.
+
