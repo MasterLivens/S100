@@ -32,14 +32,15 @@ static const char* kUsage =
     "                [--s104-frame <i>] [--s104-time <iso>] [--s111-frame <i>] [--s111-time <iso>]\n"
     "                [--list-frames] [--session-pick <lon> <lat>]\n"
     "                [--portray [--pc <PC dir>] [--set <Param>=<value>]... [--errors]]\n"
-    "                [--view-scale <N>] [--ignore-scamin]\n"
+    "                [--view-scale <N>] [--ignore-scamin] [--fasc]\n"
     "       s100_cli <CATALOG.XML|exchange-set-dir> [--list] [--load <key>|--load-all]\n"
     "                [--fc <FC.xml>] [--layers] [--session-pick <lon> <lat>]\n"
     "  note: lone .001 updates are rejected; use exchange set / with_updates\n"
   "  note: --fc/--pc default to pinned S-101; S-111/S-124 use catalogues/S-111|S-124\n"
   "  note: --view-scale <N> filters portray dump by SCAMIN/SCAMAX (omit = no scale filter)\n"
   "  note: --ignore-scamin skips scale_minimum checks only (SCAMAX still applies)\n"
-  "  note: --list-frames prints product\\tindex\\ttime_iso\\tactive for S-104/S-111\n";
+  "  note: --list-frames prints product\\tindex\\ttime_iso\\tactive for S-104/S-111\n"
+  "  note: --fasc prints S-101 FASC as TSV feature_id\\tfeature_type\\tpeer_id\\tpeer_type\\tassociation\\trole\n";
 
 static long long ms_since(std::chrono::steady_clock::time_point t0) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0)
@@ -462,6 +463,7 @@ int main(int argc, char** argv) {
   long view_scale_denom = 0;
   bool ignore_scamin_flag = false;
   bool list_frames = false;
+  bool dump_fasc = false;
   int s104_frame = -1;
   int s111_frame = -1;
   std::string s104_time, s111_time;
@@ -522,6 +524,8 @@ int main(int argc, char** argv) {
       view_scale_denom = std::atol(argv[++i]);
     } else if (!std::strcmp(argv[i], "--ignore-scamin")) {
       ignore_scamin_flag = true;
+    } else if (!std::strcmp(argv[i], "--fasc")) {
+      dump_fasc = true;
     } else
       path = argv[i];
   }
@@ -538,6 +542,34 @@ int main(int argc, char** argv) {
     }
     std::cerr << kUsage;
     return 2;
+  }
+
+  if (dump_fasc) {
+    // Raw FASC dump (data evidence; docs/association-contract.md). One row per encoded FASC
+    // member, on the side where it is encoded; features without FASC are listed with "-".
+    s100::Dataset ds;
+    s100::LoadError le;
+    if (path.empty() || !s100::open_dataset(path, ds, &le)) {
+      std::cerr << "load failed: " << le.message << "\n";
+      return 1;
+    }
+    std::map<std::uint32_t, const s100::Feature*> by_rcid;
+    for (const auto& f : ds.features) by_rcid[f.record_id] = &f;
+    std::cout << "feature_id\tfeature_type\tpeer_id\tpeer_type\tassociation\trole\n";
+    for (const auto& f : ds.features) {
+      if (f.feature_associations.empty()) {
+        std::cout << f.id << "\t" << f.feature_type << "\t-\t-\t-\t-\n";
+        continue;
+      }
+      for (const auto& a : f.feature_associations) {
+        const auto it = a.rcnm == 100 ? by_rcid.find(a.rcid) : by_rcid.end();
+        std::cout << f.id << "\t" << f.feature_type << "\t"
+                  << (it != by_rcid.end() ? std::to_string(it->second->id) : "dangling:" + std::to_string(a.rcid))
+                  << "\t" << (it != by_rcid.end() ? it->second->feature_type : std::string("?")) << "\t"
+                  << a.association << "\t" << a.role << "\n";
+      }
+    }
+    return 0;
   }
 
   if (!path.empty() && looks_like_exchange_set(path))

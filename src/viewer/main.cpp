@@ -1,6 +1,7 @@
 #include "s100/s100.hpp"
 
 #include <QApplication>
+#include <set>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFile>
@@ -609,6 +610,11 @@ class MapWidget : public QWidget {
   const std::optional<s100::Dataset>& dataset() const { return dataset_; }
   const s100::PortrayalStats& stats() const { return stats_; }
   s100::LayerVisibility& visibility() { return visibility_; }
+  /** Viewing groups switched off (core filter_instructions_by_viewing_group semantics). */
+  void set_hidden_viewing_groups(std::set<std::string> groups) {
+    hidden_viewing_groups_ = std::move(groups);
+    update();
+  }
   void setStatusCallback(std::function<void(const QString&)> cb) { status_cb_ = std::move(cb); }
   void setTextCollisionEnabled(bool on) { text_collision_ = on; update(); }
   void setDumpTextBoxesPath(std::string path) { dump_text_boxes_path_ = std::move(path); }
@@ -858,6 +864,8 @@ class MapWidget : public QWidget {
     order.reserve(instructions_.size());
     for (const auto& di : instructions_) {
       if (di.kind == s100::DrawingInstruction::Kind::Null) continue;
+      // Viewing-group switch first (docs/bridge-render-contract.md hook 6): VG -> SCAMIN -> sort.
+      if (!s100::visible_by_viewing_group(di, hidden_viewing_groups_)) continue;
       if (view_scale > 0 &&
           !s100::visible_at_scale(di, view_scale, ignore_scale_minimum_))
         continue;
@@ -1320,6 +1328,7 @@ class MapWidget : public QWidget {
   std::unordered_map<std::string, AreaFillDef> area_fill_cache_;
   SymbolCache symbol_cache_;
   s100::LayerVisibility visibility_;  // session state, not in Dataset
+  std::set<std::string> hidden_viewing_groups_;  // session state; empty = all groups on
   double west_{-0.05}, south_{-0.05}, east_{0.05}, north_{0.05};
   std::function<void(const QString&)> status_cb_;
   TimelineStepFn timeline_step_;

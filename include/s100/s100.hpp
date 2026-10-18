@@ -14,6 +14,7 @@
 #include "s100/drawing_instructions.hpp"
 #include "s100/scale_filter.hpp"
 #include "s100/draw_order.hpp"
+#include "s100/viewing_group_filter.hpp"
 #include "s100/timeline.hpp"
 #include "s100/host_adapter.hpp"
 #include "s100/portrayal_engine.hpp"

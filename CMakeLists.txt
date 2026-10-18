@@ -34,6 +34,7 @@ add_library(s100_core
   src/core/drawing_instructions.cpp
   src/core/scale_filter.cpp
   src/core/draw_order.cpp
+  src/core/viewing_group_filter.cpp
   src/core/timeline.cpp
   src/core/host_adapter.cpp
   src/core/portrayal_engine.cpp
@@ -104,13 +105,17 @@ add_test(NAME display_priority_order COMMAND s100_tests display_priority_order)
 add_test(NAME pc_wire_111_124 COMMAND s100_tests pc_wire_111_124)
 add_test(NAME third_party_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_third_party.cmake)
 add_test(NAME catalogue_provenance COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR} -P ${CMAKE_SOURCE_DIR}/tests/check_catalogues.cmake)
-add_executable(s100_portrayal_tests tests/test_portrayal.cpp)
+add_executable(s100_portrayal_tests tests/test_portrayal.cpp tests/test_bridge_render.cpp)
 target_link_libraries(s100_portrayal_tests PRIVATE s100_core s100_lua)
 target_include_directories(s100_portrayal_tests PRIVATE ${CMAKE_SOURCE_DIR}/third_party/lua-5.1.5/src)
 target_compile_definitions(s100_portrayal_tests PRIVATE S100_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 foreach(c portrayal_all_cells host_functions_static host_missing_function safety_contour s102_engine drawing_instruction_parser spatial_reference_resolve colour_tokens_symbolic association_host_query association_spatial_host_signatures)
   add_test(NAME portrayal.${c} COMMAND s100_portrayal_tests ${c})
 endforeach()
+# IHO-S101-BRIDGE-RENDER (docs/bridge-render-contract.md rev 2.1) — MUST NOT SKIP, Linux + Windows.
+# fasc_bridge_render is the contract name; bridge_render is the rev-1 name kept as an alias.
+add_test(NAME fasc_bridge_render COMMAND s100_portrayal_tests bridge_render)
+add_test(NAME bridge_render COMMAND s100_portrayal_tests bridge_render)
 set_tests_properties(s100_tests PROPERTIES
   ENVIRONMENT "S100_TESTDATA=${CMAKE_SOURCE_DIR}/testdata/s101"
 )

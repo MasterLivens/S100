@@ -496,6 +496,8 @@ void colour_tokens_symbolic() {
   std::cout << "colour tokens symbolic: " << named << " ColorFill refs\n";
 }
 
+void bridge_render();  // tests/test_bridge_render.cpp (IHO-S101-BRIDGE-RENDER)
+
 int main(int argc, char** argv) {
   const std::map<std::string, std::function<void()>> cases = {
       {"portrayal_all_cells", portrayal_all_cells},
@@ -508,6 +510,7 @@ int main(int argc, char** argv) {
       {"colour_tokens_symbolic", colour_tokens_symbolic},
       {"association_host_query", association_host_query},
       {"association_spatial_host_signatures", association_spatial_host_signatures},
+      {"bridge_render", bridge_render},
   };
   if (argc < 2) {
     for (const auto& [n, f] : cases) f();
