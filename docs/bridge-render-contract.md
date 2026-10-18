@@ -1,4 +1,4 @@
-# Bridge / composite feature rendering — FASC slice (rev 2.1 · association-contract rev 3)
+# Bridge / composite feature rendering — FASC slice (rev 2.2 · association-contract rev 3)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-S101-BRIDGE-RENDER`** (**Active**). CTest: **`fasc_bridge_render`** — **MUST NOT SKIP**; registered with no platform guard, must run on **Linux and Windows** CI.
@@ -44,7 +44,7 @@ Cell-wide portray: `features=113 emitted=113 lua_errors=0 features_without_instr
 5. **Order:** Bridge DIs go through `filter_instructions_by_scale` → `sort_instructions_for_draw` like everything else (priority 24 paints above lower-priority area fills).
 6. **Viewing-group switch (new, pure):** `include/s100/viewing_group_filter.hpp` —
    `void filter_instructions_by_viewing_group(DrawingInstructions& ios, const std::set<std::string>& hidden_groups);`
-   removes every DI whose `viewing_group` is in `hidden_groups`, keeps order of the rest. Pipeline: VG filter → SCAMIN filter → sort → paint. The viewer layer toggle calls it; no FASC-specific code in Qt.
+   removes every DI with **any** entry of `viewing_groups` in `hidden_groups` (so `11,12210` text hides with its bridge), keeps order of the rest. Pipeline: VG filter → SCAMIN filter → sort → paint. The viewer layer toggle calls it; no FASC-specific code in Qt.
 7. **Clearance / name text** goes through the existing text-collision path; no special case.
 
 ## Oracle — CTest `fasc_bridge_render` (no SKIP)
@@ -59,12 +59,13 @@ Demoting check 3 to WARN is allowed **only** with `s100_cli` output attached pro
 |---|-------|-----|
 | 1 | Fixture exists and loads; feature counts equal the fixture table (10 / 6 / 4 / 6) | MUST |
 | 2 | `lua_errors == 0` for the whole cell | MUST |
-| 3 | `|B| ≥ 1` and `|C| ≥ 1`; **every** `SpanFixed`/`SpanOpening`/`PylonBridgeSupport` has a `Bridge` FASC parent (FASC on either side: listed in a Bridge's FASC, or its own FASC targets a Bridge), confirmed by the Host query; every child type ∈ {`SpanFixed`,`SpanOpening`,`PylonBridgeSupport`} | MUST |
+| 3 | `|B| ≥ 1` and `|C| ≥ 1`. FASC lives on the Bridge side only (`BridgeAggregation` / role `theComponent`; reverse lookup role `theCollection` must give the same graph). **Every** `SpanFixed`/`SpanOpening` has exactly a `Bridge` parent; every `PylonBridgeSupport` that has a FASC link has a `Bridge` parent — Host query confirms | MUST |
+| 3w | `PylonBridgeSupport` with no FASC at all in 0006 (ids 33, 43, 47, 69 at `1ac028f`, evidence `s100_cli --fasc`) — logged, not failed; they still obey checks 5/11 | WARN |
 | 4 | For each bridge in B, the C++ backing of `HostFeatureGetAssociatedFeatureIDs(bridge, association, "")` returns exactly that bridge's children in G (set compare, per association code) | MUST |
-| 5 | Every `Bridge`/`SpanFixed`/`SpanOpening`/`PylonBridgeSupport` feature has DI count > 0; every non-Null DI of these types has `viewing_group == "12210"` and `drawing_priority == 24` | MUST |
+| 5 | Every `Bridge`/`SpanFixed`/`SpanOpening`/`PylonBridgeSupport` feature has DI count > 0. Every non-Null DI of these types has `12210` in `viewing_groups`. Non-Text DIs: `viewing_group == "12210"`. Text DIs: `viewing_group ∈ {"11","21"}` (official `PortrayalModel.lua` text VG prefix). `drawing_priority == 24`, except `PylonBridgeSupport` Surface DIs `== 18` (official rule) | MUST |
 | 6 | Every `Bridge` with Empty geometry has only `Kind::Null` DIs | MUST |
 | 7 | **ON** (`hidden_groups = {}`): every id in B has ≥ 1 DI and every id in C has ≥ 1 non-Null DI — bridge and children come out **together** | MUST |
-| 8 | **OFF** (`hidden_groups = {"12210"}`): no DI remains for any id in B ∪ C — filtered **together**; and the multiset of feature ids of DIs whose `viewing_group != "12210"` is identical to ON (nothing else affected) | MUST |
+| 8 | **OFF** (`hidden_groups = {"12210"}`, matched against any entry of `viewing_groups`): no DI remains for any id in B ∪ C — filtered **together**; and the multiset of feature ids of DIs without `12210` in `viewing_groups` is identical to ON (nothing else affected) | MUST |
 | 9 | Non-vacuous: ≥ 1 `SpanFixed` with Curve/Surface geometry exists; every such one has ≥ 1 `Kind::Line` DI with a line style colour `CHGRD` | MUST |
 | 10 | Any DI with `symbol_ref == "BRIDGE01"` → file exists under PC `Symbols/` | MUST |
 | 11 | Non-vacuous: B ∪ C has ≥ 1 non-Null DI. Re-portray with `RadarOverlay=true`: total DI count of B ∪ C unchanged, and the 12210 DIs of B ∪ C that were `UnderRadar` become `OverRadar` (PylonBridgeSupport priority‑18 surface branch stays UnderRadar per official rule) | MUST |
@@ -75,3 +76,7 @@ Demoting check 3 to WARN is allowed **only** with `s100_cli` output attached pro
 ## Non-goals
 
 Hand-drawn bridge glyphs; editing official Lua; cross-dataset associations; S-98; vertical-clearance alerts (Track B).
+
+## Notes
+
+- `bridge_render` may stay registered as an alias; CI gating and the case-id row use `fasc_bridge_render`.
