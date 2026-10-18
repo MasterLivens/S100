@@ -197,11 +197,13 @@ Details: `docs/s124-contract.md`.
 
 ## Part 15 producer-code matching (SIG follow-on)
 
-- Details: `docs/part15-producer-code-contract.md` (`IHO-S164-SIG-PRODUCER`) — **rev1** (field/SSE frozen).
-- Under `VerifyPolicy::Enforce`, after crypto Ok: match leaf cert CN **producer segment** (MRN segment 3, upper; e.g. `aa00`/`99ZZ`) against CATALOG `S100_DatasetDiscoveryMetadata.producerCode` (upper). O out; ST = OfficialClass only. Missing `producerCode` → N/A-pass.
+- Details: `docs/part15-producer-code-contract.md` (`IHO-S164-SIG-PRODUCER`) — **rev1** (field/SSE frozen; sync with `38d77b4`+).
+- Under `VerifyPolicy::Enforce`, after crypto Ok: match leaf cert CN **producer segment** (MRN **segment 3 only**, upper; e.g. `aa00`/`99ZZ` — **segment 4** cert instance id never compared) against CATALOG `S100_DatasetDiscoveryMetadata.producerCode` (upper, **exact**; no leading-zero strip; `AA00`≠`AA0`; no `00AA`≡`AA00`). O out. Missing `producerCode` → N/A-pass.
+- **ST**: still drives `OfficialClass` only; if ST ∈ `{DATA_AGGREGATOR}` → **exempt** producer-code match this slice (chain + OfficialClass only). Aggregator CN ↔ member HO matching → Backlog. Fixtures **DATA_PRODUCER 1:1** (`producer_match` / `producer_mismatch`); old `signatures/positive/` exempt.
+- **fileName CCCC fallback OFF** as a check (construction notes only).
 - Hook: existing `verify_exchange_set` / `open_exchange_set` Enforce only — **no** parallel stack. Logic in `s100_security`.
 - Mismatch → **skip that dataset** (others continue); reason **`producer_code_mismatch`** (CTest primary) + project-map SSE **109** (secondary; not App. B literal; not 126). MUST NOT change closed Ok assertions on `exchange_signature`.
-- CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows). DATA_PRODUCER 1:1 fixtures; AGGREGATOR → Backlog.
+- CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows).
 
 ## Power-up / start-up self-check (Track B)
 
