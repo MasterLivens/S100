@@ -284,8 +284,9 @@ std::vector<ExchangeCellSeries> group_cell_series(const ExchangeCatalogue& cat) 
     if (acc.s.base_entry.has_edition_meta) {
       std::vector<ExchangeDatasetEntry> keep;
       for (auto& ue : acc.s.update_entries) {
-        if (ue.has_edition_meta && ue.edition_number != 0 &&
-            ue.edition_number < acc.s.base_entry.edition_number)
+        if (ue.has_edition_meta &&
+            classify_update_edition(acc.s.base_entry.edition_number, ue.edition_number) ==
+                UpdateEditionRelation::Superseded)
           acc.s.superseded.push_back(ue.file_path);
         else
           keep.push_back(std::move(ue));
@@ -380,33 +381,18 @@ bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError*
       return false;
     }
   }
-  // Updates: catalogue-vs-DSID runs inside the per-update check order (contract Behaviour #3).
-  // Old-edition updates without catalogue ED are recognised by DSID ED < base DSID ED (D3).
-  std::vector<std::filesystem::path> superseded = series.superseded;
-  std::vector<std::filesystem::path> updates;
-  std::vector<const ExchangeDatasetEntry*> entries;
-  DatasetIdentification base_id;
-  const bool have_base_id = read_s101_dsid(series.base, base_id, nullptr);
-  const bool entries_ok = series.update_entries.size() == series.updates.size();
-  for (std::size_t i = 0; i < series.updates.size(); ++i) {
-    const ExchangeDatasetEntry* e = entries_ok ? &series.update_entries[i] : nullptr;
-    if (have_base_id && (!e || !e->has_edition_meta)) {
-      DatasetIdentification uid;
-      if (read_s101_dsid(series.updates[i], uid, nullptr) && uid.edition_number != 0 &&
-          uid.edition_number < base_id.edition_number) {
-        superseded.push_back(series.updates[i]);
-        continue;
-      }
-    }
-    updates.push_back(series.updates[i]);
-    entries.push_back(e);
-  }
-  const bool ok = detail::open_s101_with_updates(series.base, updates, &entries, out, err, report);
-  if (report && !superseded.empty()) {
-    report->superseded = std::move(superseded);
-    if (report->notice.empty()) report->notice = "superseded updates can be removed";
-    else report->notice += "; superseded updates can be removed";
-  }
+  // Updates: catalogue-vs-DSID and the edition step run inside the per-update check order;
+  // old editions without catalogue ED are superseded there (edition-hardening E4: no ad-hoc
+  // DSID pre-filter here). Catalogue pre-classified ones come from group_cell_series.
+  std::vector<const ExchangeDatasetEntry*> entries(series.updates.size(), nullptr);
+  if (series.update_entries.size() == series.updates.size())
+    for (std::size_t i = 0; i < entries.size(); ++i) entries[i] = &series.update_entries[i];
+  UpdateReport local;
+  UpdateReport* rep = report ? report : &local;
+  const bool ok =
+      detail::open_s101_with_updates(series.base, series.updates, &entries, out, err, rep);
+  rep->superseded.insert(rep->superseded.end(), series.superseded.begin(), series.superseded.end());
+  detail::finish_superseded(*rep);
   return ok;
 }
 

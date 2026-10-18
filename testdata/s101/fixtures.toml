@@ -118,6 +118,66 @@ sha256 = "c8808bb00bd4db5bf9d4daba13d40a182c08b7a08f0fb558cff3d7b3117d9534"
 path = "updates/dsed_bad/x.001"
 sha256 = "bb3e32c2373a280232bb9339392ccded57f6372aa301fa88c7c22f78ad79dbcc"
 
+[[edition_fixture]]
+path = "updates/edition/base_bad_cat/CATALOG.XML"
+sha256 = "a66b9a87bded3e7c22a7c458f021b5a6ce9863a8a34c611de65b9c4bb980e6ec"
+
+[[edition_fixture]]
+path = "updates/edition/base_dsed_dot_upd/101AA00DS0003.000"
+sha256 = "f8821c181fa791e5bd56554a9bbdcf5c68afcb85536a8de246e252e39d5c7ef7"
+
+[[edition_fixture]]
+path = "updates/edition/base_dsed_ed_dot/101AA00DS0003.000"
+sha256 = "402c9b4114f08185466d9f3333ea7d09f75ef98277b2d434659ba0f02557e720"
+
+[[edition_fixture]]
+path = "updates/edition/base_dsed_ed_x/101AA00DS0003.000"
+sha256 = "6c8783c11f4c713478a9ac11a239eb515f826320a4e4c9d0b98d02ad9ca2626b"
+
+[[edition_fixture]]
+path = "updates/edition/base_dsed_empty/101AA00DS0003.000"
+sha256 = "fa0fbbc8c8931b3184ab625d2e42e0f259a38ea5fe4d1cc15a8ebd95cb34733d"
+
+[[edition_fixture]]
+path = "updates/edition/base_dsed_x/101AA00DS0003.000"
+sha256 = "e0dc2a16f43b3848c48525de85c2efb0d0da12f946f556893ffb3641521b7713"
+
+[[edition_fixture]]
+path = "updates/edition/base_dsed_zero/101AA00DS0003.000"
+sha256 = "306e39bcd0d3113d4bdc5593356703daa6a6b2e531928fc3dc4f65d9819dedf5"
+
+[[edition_fixture]]
+path = "updates/edition/base_no_dsid/101AA00DS0003.000"
+sha256 = "96d5f86526a0605be22b16f3a534df24cabb9e032293ea14e0fb92a23ee1d1ca"
+
+[[edition_fixture]]
+path = "updates/edition/mixed/101AA00DS0003.000"
+sha256 = "1bdcd1fe960b9f0d476f74a76d81e8db710e974f8146d8e0890d140e21215bdb"
+
+[[edition_fixture]]
+path = "updates/edition/mixed/101AA00DS0003.001"
+sha256 = "f2f09184aa41bf573a449ef8d962671d47e4a25284737e7f4a0c5189056a6165"
+
+[[edition_fixture]]
+path = "updates/edition/mixed/101AA00DS0003.002"
+sha256 = "5fa42a8dc655706be020f5e33d955fe2d66204dcdc05e8f70355ce6f903c431c"
+
+[[edition_fixture]]
+path = "updates/edition/nocat/CATALOG.XML"
+sha256 = "4c83ddcb5f26dc0c74b9a10bc19fbc8f5956e86af436b444518fb75d5f1b8ed9"
+
+[[edition_fixture]]
+path = "updates/edition/old_left/101AA00DS0003.000"
+sha256 = "1bdcd1fe960b9f0d476f74a76d81e8db710e974f8146d8e0890d140e21215bdb"
+
+[[edition_fixture]]
+path = "updates/edition/old_left/101AA00DS0003.001"
+sha256 = "8099806fa567258a4d586ffafe247b643ddc2320cf180ae45fe7912874d33bed"
+
+[[edition_fixture]]
+path = "updates/edition/old_left/101AA00DS0003.002"
+sha256 = "5fa42a8dc655706be020f5e33d955fe2d66204dcdc05e8f70355ce6f903c431c"
+
 [[cancel_fixture]]
 path = "updates/newed/101AA00DS0003.000"
 sha256 = "d39753eabaf449c204c9b517a32349d42f0788212e1b7183093f65f35c3f5d51"

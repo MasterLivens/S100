@@ -378,6 +378,13 @@ bool apply_association_updates(std::vector<AssociationRef>& existing,
   return true;
 }
 
+UpdateEditionRelation classify_update_edition(int installed_ed, int update_ed) {
+  if (update_ed == 0) return UpdateEditionRelation::Cancel;
+  if (update_ed > installed_ed) return UpdateEditionRelation::NewerPending;
+  if (update_ed == installed_ed) return UpdateEditionRelation::Current;
+  return UpdateEditionRelation::Superseded;
+}
+
 const char* update_reject_code_name(UpdateRejectCode code) {
   switch (code) {
     case UpdateRejectCode::None: return "None";
@@ -591,9 +598,11 @@ bool ruin_ok(std::uint8_t r) { return r >= 1 && r <= 3; }
 /** Per-call options / side results of one apply (docs/cancel-reissue-contract.md). */
 struct ApplyOptions {
   int reissue_upd{0};  // base is a re-issue at UPD n > 0: same-ED updates with UPD <= n skip (D2)
+  bool series{false};  // called from a series path: old-edition updates are superseded (E1)
 };
 struct ApplyOutcome {
-  bool skipped{false};    // already contained in a re-issue base; dataset unchanged
+  bool skipped{false};     // already contained in a re-issue base; dataset unchanged
+  bool superseded{false};  // series: 0 < ED < installed, skipped and listed (E1); unchanged
   bool cancelled{false};  // a cancellation was applied
   std::string notice;
 };
@@ -668,7 +677,9 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
     return reject(UpdateRejectCode::DatasetCancelled, LoadErrorKind::Invalid,
                   "dataset " + target + " is cancelled; no further updates apply");
   // 5. cancellation (DSED ED 0): DSID-only, PROF "2"; not sequence-checked (D4).
-  if (upd_id.edition_number == 0) {
+  const UpdateEditionRelation relation =
+      classify_update_edition(ds.edition_number, upd_id.edition_number);
+  if (relation == UpdateEditionRelation::Cancel) {
     std::size_t data_records = 0;
     bool only_dsid = true;
     for (const auto& rec : records) {
@@ -709,15 +720,20 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
                       (entry->has_update_meta ? std::to_string(entry->update_number) : "?") +
                       " does not match DSID " + reject.file_ed_upd);
 
-  // 8. ED > installed -> NewerEditionPending (D3); 9. ED < installed -> EditionMismatch.
-  if (upd_id.edition_number > ds.edition_number) {
+  // 8. edition step (edition-hardening E3): NewerPending -> NewerEditionPending; Superseded ->
+  // series: skip + list (E1) / standalone: EditionMismatch (E2); Current -> sequencing.
+  if (relation == UpdateEditionRelation::NewerPending) {
     outcome.notice = "newer edition " + std::to_string(upd_id.edition_number) + " pending";
     return reject(UpdateRejectCode::NewerEditionPending, LoadErrorKind::Invalid,
                   "newer edition " + std::to_string(upd_id.edition_number) +
                       " exists, dataset not up to date (installed " +
                       ed_upd(ds.edition_number, ds.update_number) + ")");
   }
-  if (upd_id.edition_number != ds.edition_number)
+  if (relation == UpdateEditionRelation::Superseded && opts.series) {
+    outcome.superseded = true;
+    return true;  // dataset unchanged, UPD not advanced
+  }
+  if (relation != UpdateEditionRelation::Current)
     return reject(UpdateRejectCode::EditionMismatch, LoadErrorKind::Invalid,
                   "update DSID ED/UPD " + reject.file_ed_upd + " edition differs from dataset " +
                       ed_upd(ds.edition_number, ds.update_number));
@@ -900,7 +916,7 @@ bool apply_one(Dataset& ds, const std::filesystem::path& update_path,
   }
   if (outcome_out) *outcome_out = outcome;
   if (!ok) return false;
-  if (outcome.skipped) return true;  // nothing changed
+  if (outcome.skipped || outcome.superseded) return true;  // nothing changed
   using std::swap;
   swap(ds, work);
   return true;
@@ -933,6 +949,16 @@ bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, Lo
 
 namespace detail {
 
+void finish_superseded(UpdateReport& report) {
+  auto& v = report.superseded;
+  std::sort(v.begin(), v.end());
+  v.erase(std::unique(v.begin(), v.end()), v.end());
+  if (v.empty()) return;
+  const std::string text = "superseded updates can be removed";
+  if (report.notice.find(text) != std::string::npos) return;
+  report.notice = report.notice.empty() ? text : report.notice + "; " + text;
+}
+
 bool open_s101_with_updates(const std::filesystem::path& base,
                             const std::vector<std::filesystem::path>& updates,
                             const std::vector<const ExchangeDatasetEntry*>* entries, Dataset& out,
@@ -960,6 +986,8 @@ bool open_s101_with_updates(const std::filesystem::path& base,
   // Re-issue (cancel-reissue Behaviour #4): a base at UPD n > 0 already contains 1..n.
   ApplyOptions opts;
   opts.reissue_upd = tmp.update_number;
+  opts.series = true;
+  std::vector<std::filesystem::path> superseded;
   int applied = 0, skipped = 0;
   bool cancelled = false;
   std::string notice;
@@ -978,9 +1006,15 @@ bool open_s101_with_updates(const std::filesystem::path& base,
         report->code = code;
         report->message = message;
         report->notice = !outcome.notice.empty() ? outcome.notice : notice;
+        report->superseded = superseded;
+        finish_superseded(*report);
       }
       out = std::move(tmp);
       return false;
+    }
+    if (outcome.superseded) {
+      superseded.push_back(updates[i]);
+      continue;
     }
     if (outcome.skipped) {
       ++skipped;
@@ -997,6 +1031,8 @@ bool open_s101_with_updates(const std::filesystem::path& base,
     report->skipped = skipped;
     report->cancelled = cancelled;
     report->notice = notice;
+    report->superseded = superseded;
+    finish_superseded(*report);
   }
   out = std::move(tmp);
   return true;

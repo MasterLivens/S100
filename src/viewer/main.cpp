@@ -1535,9 +1535,14 @@ int main(int argc, char** argv) {
         const auto updates = s100::discover_update_files(p);
         if (!updates.empty()) {
           s100::UpdateReport rep;
-          if (s100::open_dataset_with_updates(p, updates, ds, &err, &rep)) return true;
+          const bool ok = s100::open_dataset_with_updates(p, updates, ds, &err, &rep);
+          // edition-hardening E1: old-edition leftovers are skipped by the core; just say so.
+          if (!rep.superseded.empty())
+            update_warning = QString("NOTICE: %1 superseded update(s) can be removed — ")
+                                 .arg(static_cast<qulonglong>(rep.superseded.size()));
+          if (ok) return true;
           if (rep.code == s100::UpdateRejectCode::None || rep.rejected == p) return false;
-          update_warning = QString("WARNING: update rejected (%1, code=%2) — showing last good "
+          update_warning += QString("WARNING: update rejected (%1, code=%2) — showing last good "
                                    "state %3.%4 (applied=%5) — ")
                                .arg(QString::fromStdString(rep.rejected.filename().string()))
                                .arg(QString::fromLatin1(s100::update_reject_code_name(rep.code)))

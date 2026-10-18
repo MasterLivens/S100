@@ -350,7 +350,10 @@ bool parse_iso8211_records(const std::vector<std::uint8_t>& bytes,
   return !out.empty();
 }
 
-bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadError* err) {
+bool load_iso8211_file(const std::filesystem::path& path, Dataset& out_param, LoadError* err) {
+  // edition-hardening rev 1: decode into a local; the caller's Dataset is only assigned on
+  // success, so every false return leaves it untouched.
+  Dataset out;
   std::ifstream in(path, std::ios::binary);
   if (!in) {
     if (err) {
@@ -494,17 +497,41 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
   out = Dataset{};
   out.path = path;
   out.product = ProductId::S101;
-  for (const auto& rec : records) {
-    if (rec.leader_id != 'D') continue;
-    if (auto* f = rec.find("DSID")) {
-      const auto id = parse_dsid_field(f->data);
-      if (id.ok) {
-        out.edition_number = id.edition_number;
-        out.update_number = id.update_number;
-        out.dataset_name = id.dataset_name;
-      }
-      break;
+  {
+    // Strict base DSID (edition-hardening E5/E6): DSID present -> DSED parses -> ED >= 1.
+    const Iso8211Field* dsid = nullptr;
+    bool has_dspm = false;
+    for (const auto& rec : records) {
+      if (rec.leader_id != 'D') continue;
+      if (!dsid) dsid = rec.find("DSID");
+      if (rec.find("DSPM")) has_dspm = true;
     }
+    // Not S-101 (no S-100 Part 10a ENSP, or an S-57 DSPM record): name it in the message.
+    std::string kind_hint;
+    if (has_dspm) {
+      kind_hint = "not an S-101 dataset (S-57 not supported): ";
+    } else if (dsid) {
+      const std::string ensp_prefix = "S-100";
+      const auto& d = dsid->data;
+      if (d.size() < 5 + ensp_prefix.size() ||
+          std::string(reinterpret_cast<const char*>(d.data() + 5), ensp_prefix.size()) != ensp_prefix)
+        kind_hint = "not an S-101 dataset (DSID ENSP is not S-100 Part 10a): ";
+    }
+    auto refuse = [&](const std::string& why) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message = "base cell " + path.string() + ": " + kind_hint + why;
+      }
+      return false;
+    };
+    if (!dsid) return refuse("no DSID record");
+    const auto id = parse_dsid_field(dsid->data);
+    if (!id.ok) return refuse("DSID DSED missing or unparseable");
+    if (id.edition_number == 0)
+      return refuse("DSID DSED edition 0 (cancellation) is not a base cell");
+    out.edition_number = id.edition_number;
+    out.update_number = id.update_number;
+    out.dataset_name = id.dataset_name;
   }
 
   // Keep topology + information records for the portrayal host (Part 13 spatial access).
@@ -642,6 +669,7 @@ bool load_iso8211_file(const std::filesystem::path& path, Dataset& out, LoadErro
     }
     return false;
   }
+  out_param = std::move(out);
   return true;
 }
 

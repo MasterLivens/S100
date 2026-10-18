@@ -61,7 +61,7 @@ std::vector<std::filesystem::path> discover_update_files(const std::filesystem::
  *  Additive: the CANCEL-REISSUE slice extends this enum without breaking callers. */
 enum class UpdateRejectCode {
   None,
-  EditionMismatch,   // update ED != dataset ED
+  EditionMismatch,   // standalone apply_s101_update: 0 < update ED < installed ED (edition-hardening E2)
   OutOfSequence,     // update UPD != dataset UPD + 1 (covers duplicate, gap, reversed)
   NotUpdateFile,     // DSID says base / wrong product / not S-101
   Truncated,         // file shorter than leader/directory claims
@@ -75,6 +75,12 @@ enum class UpdateRejectCode {
   DatasetNameMismatch   // update/cancel DSNM stem != dataset DSNM stem (D5)
 };
 
+/** docs/edition-hardening-contract.md E3/E4: the single edition rule. */
+enum class UpdateEditionRelation { Cancel, Current, Superseded, NewerPending };
+/** update_ed == 0 -> Cancel; > installed -> NewerPending; == installed -> Current;
+ *  0 < update_ed < installed -> Superseded. Pure, no I/O. */
+UpdateEditionRelation classify_update_edition(int installed_ed, int update_ed);
+
 /** Stable name of a reject code ("None", "OutOfSequence", ...). */
 const char* update_reject_code_name(UpdateRejectCode code);
 
@@ -86,7 +92,7 @@ struct UpdateReport {
   // docs/cancel-reissue-contract.md (additive):
   int skipped{0};                                 // re-issue at UPD n: updates UPD <= n skipped (D2)
   bool cancelled{false};                          // a cancel update was applied
-  std::vector<std::filesystem::path> superseded;  // old-edition updates not applied (D3)
+  std::vector<std::filesystem::path> superseded;  // old-edition updates skipped on any series path (E1)
   std::string notice;  // "cancelled: <DSNM>" / "newer edition N pending" / "superseded updates can be removed"
 };
 

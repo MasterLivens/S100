@@ -89,6 +89,7 @@ add_executable(s100_tests
   tests/test_timeline_ui.cpp
   tests/test_update_robustness.cpp
   tests/test_cancel_reissue.cpp
+  tests/test_edition_hardening.cpp
   tests/support/dataset_digest.cpp
   tests/support/sha256.cpp
 )
@@ -114,6 +115,8 @@ add_test(NAME pc_wire_111_124 COMMAND s100_tests pc_wire_111_124)
 add_test(NAME exchange_update_robustness COMMAND s100_tests exchange_update_robustness)
 # IHO-S164-CANCEL-REISSUE (docs/cancel-reissue-contract.md rev 2.1) — MUST NOT SKIP, no guard.
 add_test(NAME exchange_cancel_reissue COMMAND s100_tests exchange_cancel_reissue)
+# IHO-S164-EDITION-HARDEN (docs/edition-hardening-contract.md rev 1) — MUST NOT SKIP, no guard.
+add_test(NAME exchange_edition_hardening COMMAND s100_tests exchange_edition_hardening)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME update_fixtures_reproducible
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/check_update_fixtures.py

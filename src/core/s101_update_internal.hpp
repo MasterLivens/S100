@@ -17,5 +17,9 @@ bool open_s101_with_updates(const std::filesystem::path& base,
                             const std::vector<const ExchangeDatasetEntry*>* entries, Dataset& out,
                             LoadError* err, UpdateReport* report);
 
+/** Sort + dedupe report.superseded by path; add the "superseded updates can be removed"
+ *  notice when non-empty (edition-hardening E1). */
+void finish_superseded(UpdateReport& report);
+
 }  // namespace detail
 }  // namespace s100

@@ -366,6 +366,32 @@ def generate(out_dir):
         files["dsed_bad/%s.001" % name] = update_named(CELL, "001", 9, 1,
                                                        [insert_record(new_rcid, new_fidn)], dsed=dsed)
 
+    # ---- docs/edition-hardening-contract.md rev 1 (IHO-S164-EDITION-HARDEN) ----
+    # Bases: root base records with only the DSID changed (E5/E6 rejects), or DSED 10.0.
+    for name, dsed in (("empty", ""), ("ed_x", "9.x"), ("x", "x"), ("ed_dot", "9."), ("dot_upd", ".1")):
+        files["edition/base_dsed_%s/%s.000" % (name, CELL)] = base_cell(dsed)
+    files["edition/base_dsed_zero/%s.000" % CELL] = (
+        base.ddr + build_data_record(dsid_fields("%s.000" % CELL, 0, 0, dsed="0", prof="1"))
+        + b"".join(base.spans[2:]))
+    files["edition/base_no_dsid/%s.000" % CELL] = base.ddr + b"".join(base.spans[2:])
+    files["edition/base_bad_cat/CATALOG.XML"] = _catalog(
+        [("file:/../base_dsed_x/%s.000" % CELL, None, 0, "newDataset"),
+         ("file:/../../seq/%s.001" % CELL, 9, 1, "update")], "edition-hardening base_bad_cat")
+    # old_left: ED 10 base + leftover ED 9 001/002 (seq bytes) -> superseded {001, 002}.
+    files["edition/old_left/%s.000" % CELL] = base_cell("10.0")
+    files["edition/old_left/%s.001" % CELL] = seq1
+    files["edition/old_left/%s.002" % CELL] = seq2
+    # mixed: ED 10 base + 10.1 (ops of seq/001) + leftover 9.2 -> applied 1, superseded {002}.
+    files["edition/mixed/%s.000" % CELL] = base_cell("10.0")
+    files["edition/mixed/%s.001" % CELL] = update_named(CELL, "001", 10, 1,
+                                                        [insert_record(new_rcid, new_fidn)])
+    files["edition/mixed/%s.002" % CELL] = seq2
+    # nocat: old_left via a catalogue whose update entries omit editionNumber (in-apply E1).
+    files["edition/nocat/CATALOG.XML"] = _catalog(
+        [("file:/../old_left/%s.000" % CELL, 10, 0, "newEdition"),
+         ("file:/../old_left/%s.001" % CELL, None, 1, "update"),
+         ("file:/../old_left/%s.002" % CELL, None, 2, "update")], "edition-hardening nocat")
+
     meta = {
         "new_rcid": new_rcid, "patched_value": patched_value, "delete_rcid": delete_rcid,
         "missing_rcid": missing_rcid, "late_modify": late_modify, "late_delete": late_delete,
@@ -430,17 +456,18 @@ def _catalog(rows, ident):
 
 
 def _meta(file_name, ed, upd, purpose):
+    """ed / upd None -> element omitted (edition-hardening nocat / base_bad_cat)."""
     return (
         "    <S100XC:S100_DatasetDiscoveryMetadata>\n"
         "      <S100XC:fileName>%s</S100XC:fileName>\n"
-        "      <S100XC:purpose>%s</S100XC:purpose>\n"
-        "      <S100XC:editionNumber>%d</S100XC:editionNumber>\n"
-        "      <S100XC:updateNumber>%d</S100XC:updateNumber>\n"
-        "      <S100XC:productSpecification>\n"
+        "      <S100XC:purpose>%s</S100XC:purpose>\n" % (file_name, purpose)
+        + ("" if ed is None else "      <S100XC:editionNumber>%d</S100XC:editionNumber>\n" % ed)
+        + ("" if upd is None else "      <S100XC:updateNumber>%d</S100XC:updateNumber>\n" % upd)
+        + "      <S100XC:productSpecification>\n"
         "        <S100XC:productIdentifier>S-101</S100XC:productIdentifier>\n"
         "        <S100XC:version>2.0.0</S100XC:version>\n"
         "      </S100XC:productSpecification>\n"
-        "    </S100XC:S100_DatasetDiscoveryMetadata>\n" % (file_name, purpose, ed, upd))
+        "    </S100XC:S100_DatasetDiscoveryMetadata>\n")
 
 
 # docs/cancel-reissue-contract.md fixtures are pinned in their own [[cancel_fixture]] table:
@@ -451,7 +478,10 @@ CANCEL_DIRS = ("nodot", "cancel", "cancel_bad", "cancel_wrong_name", "cancel_ooo
 
 
 def manifest_table(rel):
-    return "cancel_fixture" if rel.split("/")[0] in CANCEL_DIRS else "update_fixture"
+    top = rel.split("/")[0]
+    if top == "edition":  # docs/edition-hardening-contract.md rev 1
+        return "edition_fixture"
+    return "cancel_fixture" if top in CANCEL_DIRS else "update_fixture"
 
 
 def manifest_block(files):
