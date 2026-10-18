@@ -1,15 +1,23 @@
-# Text collision (viewer layout) — rev 2 · Open
+# Text collision (viewer layout) — rev1 · Active / Open
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S101-TEXT-COLLISION`** (**Active / Open**). CTest: **`viewer_text_collision`** — **MUST NOT SKIP** (Planner freeze); Linux + Windows.
+Case id: **`IHO-S101-TEXT-COLLISION`** (**Active / Open**). CTest: **`viewer_text_collision`**.
 
-**Status: Active / Open (2026-10-18)** — Planner freeze applied. Eng tip base: **`origin/main` @ `9977a34`**. Implementation already on tip (`50ab9ba` viewer layout + CLI/oracle; `ba9aa10` PointLabel follow-on). **Not greenfield** — Eng verify / polish only; Tester dual-green then Close. Do **not** edit PC Lua / `catalogues/`.
+**Status: Active / Open (2026-10-18)** — Planner freeze + **O1(b→a)**. Eng tip base: **`origin/main` @ `9977a34`**. Stack Arch docs onto **`5fa4b98`**. Implementation already on tip (`50ab9ba` viewer layout + CLI/oracle; `ba9aa10` PointLabel follow-on — **not this slice**). **Not greenfield** — Eng verify / polish only; optional oracle `--class Text` (not blocking Close); Tester dual-green then Close. Do **not** edit PC Lua / `catalogues/`. No algorithm rewrite.
 
-**Planner freeze (MUST):** fixture `101AA00DS0008.000` Day 1280×800; default collision ON; `--no-text-collision` OFF; oracle `pairs_off >= pairs_on` **and** `pairs_off > 0`; CTest **MUST NOT SKIP**; Linux+Win; **unpaired `Kind::Text` only**; no PC Lua. Point-companion → `IHO-S101-POINT-LABEL-COLLISION` / `docs/point-symbol-text-collision-contract.md` (separate).
+**Planner freeze (MUST):** fixture `101AA00DS0008.000` Day 1280×800; default collision ON; `--no-text-collision` OFF; oracle `pairs_off >= pairs_on` **and** `pairs_off > 0`; **Ubuntu CI: `viewer_text_collision` MUST NOT SKIP, Passed**; **unpaired `Kind::Text` only**; no PC Lua. Point-companion → `IHO-S101-POINT-LABEL-COLLISION` / `docs/point-symbol-text-collision-contract.md` (separate tip / separate Closed).
 
-**Eng notes:** contract + CTest name above; cell path **`testdata/s101/101AA00DS0008.000`** (existence-only; not under `testdata/fixtures/catalogues`). Golden/palette paths already pass `--no-text-collision`. Optional tip: count oracle with `--class Text` so pairs are unpaired-Text only (PointLabel has its own CTest).
+**O1 (closed as b→a):** Try **(b) first** — Win CI narrowly run **only** `viewer_text_collision` (Eng `ci.yml` tip: keep `ctest -E "viewer_"` for the rest of the viewer family; Qt offscreen hang policy unchanged for golden/snapshot/etc.). If hang/timeout → fall back to **(a)**: Ubuntu bind + contract Notes document Win CI `viewer_*` exclude (same family as golden/snapshot). **Forbidden:** platform SKIP inside the test itself; local Win run optional. Do **not** choose pure (a)-only without trying (b); whole-viewer Win headless Qt remains a separate future slice.
 
-**O1 (ask Planner if blocking Close):** Windows CI currently runs `ctest -E "viewer_"` (Qt offscreen hang). Planner freeze says Linux+Win MUST NOT SKIP. Resolve: (a) accept Linux CI as bind + document Win exclude, or (b) Eng/CI tip to run `viewer_text_collision` on Win without hang. Do not silently reopen freeze.
+**Close criteria (honest dual-green):**
+- Ubuntu: `viewer_text_collision` MUST NOT SKIP, Passed
+- Windows: (b) success → that test Passed on Win; (a) fallback → full matrix green is enough (Notes record `viewer_*` exclude)
+- Docs → Closed + CI Notes when done; if (b) needs Eng `ci.yml` narrow-open
+- After Close next: **`IHO-S101-POINT-LABEL-COLLISION`**
+
+**Eng notes:** contract + CTest name above; cell path **`testdata/s101/101AA00DS0008.000`** (existence-only; not under `testdata/fixtures/catalogues`). Golden/palette/snapshot paths already pass `--no-text-collision`. Optional tip: count oracle with `--class Text` so pairs are unpaired-Text only (POINT-LABEL has its own CTest — **next slice**). Shared `--no-text-collision` already covers PointLabel on tip; PointLabel oracle / `viewer_point_label_collision` / glyph-survival counts **do not** belong to this Closed.
+
+**Notes (Win CI):** Existing policy in `.github/workflows/ci.yml`: Windows `ctest -E "viewer_"` (Qt offscreen/show+grab hang). O1 tries a narrow exception for this one CTest first; on hang, document exclude like golden/snapshot and bind Close on Ubuntu Passed + Win matrix green.
 
 ## Scope
 
