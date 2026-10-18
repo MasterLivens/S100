@@ -3,6 +3,7 @@
 #include "s100/dataset.hpp"
 #include "s100/exchange_set.hpp"
 #include "s100/session.hpp"
+#include "s100/security/types.hpp"
 #include "support/dataset_digest.hpp"
 #include "support/sha256.hpp"
 #include "support/test_data_roots.hpp"
@@ -158,7 +159,7 @@ SeriesResult via_series(const fs::path& catalog) {
   const auto series = s100::group_cell_series(cat);
   ECHECK(series.size() == 1);
   SeriesResult r;
-  r.ok = s100::open_cell_series(series.front(), r.ds, &err, &r.rep);
+  r.ok = s100::open_cell_series(series.front(), r.ds, &err, &r.rep, s100::security::VerifyPolicy::Off);
   r.digest = dataset_digest(r.ds);
   return r;
 }
@@ -310,7 +311,8 @@ void run() {
     }
     s100::ChartSession session;
     s100::LoadError err{s100::LoadErrorKind::Invalid, {}};
-    ECHECK(session.open_exchange_set(upd_dir() / "edition" / "nocat" / "CATALOG.XML", &err));
+    ECHECK(session.open_exchange_set(upd_dir() / "edition" / "nocat" / "CATALOG.XML", &err,
+                                 s100::security::VerifyPolicy::Off));
     const auto key = s100::exchange_member_key(s100::ProductId::S101, kCell);
     ECHECK(session.load_member(key, &err));
     const s100::Dataset* m = session.find(key);
@@ -388,7 +390,7 @@ void run() {
     {
       s100::ChartSession session;
       ECHECK(session.open_exchange_set(upd_dir() / "edition" / "base_bad_cat" / "CATALOG.XML",
-                                       &err));
+                                       &err, s100::security::VerifyPolicy::Off));
       const bool ok = session.load_member(key, &err);
       const auto rep = session.last_update_report(key);
       std::cout << "  load_member -> " << ok << " find=" << (session.find(key) ? "member" : "null")
@@ -399,7 +401,7 @@ void run() {
     {  // a member already in the map for that key stays untouched
       s100::ChartSession session;
       ECHECK(session.open_exchange_set(upd_dir() / "edition" / "base_bad_cat" / "CATALOG.XML",
-                                       &err));
+                                       &err, s100::security::VerifyPolicy::Off));
       ECHECK(session.insert(root, kCell) == key);
       ECHECK(!session.load_member(key, &err));
       ECHECK(session.find(key) && dataset_digest(*session.find(key)) == root_digest);

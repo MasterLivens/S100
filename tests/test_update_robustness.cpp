@@ -2,6 +2,7 @@
 // CTest: exchange_update_robustness. MUST NOT SKIP: a missing fixture is a FAIL.
 #include "s100/exchange_set.hpp"
 #include "s100/session.hpp"
+#include "s100/security/types.hpp"
 #include "support/dataset_digest.hpp"
 #include "support/sha256.hpp"
 
@@ -266,7 +267,7 @@ void test_exchange_update_robustness() {
     UCHECK(fs::equivalent(series[0].updates[0], seq(1)));
     s100::Dataset out;
     s100::UpdateReport rep;
-    const bool ok = s100::open_cell_series(series[0], out, &err, &rep);
+    const bool ok = s100::open_cell_series(series[0], out, &err, &rep, s100::security::VerifyPolicy::Off);
     std::cout << "  catalog/CATALOG.XML -> applied=" << rep.applied << " code=" << name(rep.code)
               << " | " << rep.message << "\n";
     UCHECK(!ok);
@@ -281,7 +282,8 @@ void test_exchange_update_robustness() {
   // Oracle 11 (rev 1.3, MUST): ChartSession keeps the last good state on a rejected update.
   {
     s100::ChartSession session;
-    UCHECK(session.open_exchange_set(upd_dir() / "session" / "CATALOG.XML", &err));
+    UCHECK(session.open_exchange_set(upd_dir() / "session" / "CATALOG.XML", &err,
+                                   s100::security::VerifyPolicy::Off));
     const auto key = s100::exchange_member_key(s100::ProductId::S101, "101AA00DS0003");
     const auto keys = session.member_keys();
     UCHECK(keys.size() == 1 && keys.front() == key);
@@ -311,7 +313,7 @@ void test_exchange_update_robustness() {
     // Success path also stores a report (code None).
     s100::ChartSession ok_session;
     UCHECK(ok_session.open_exchange_set(fs::path(S100_SOURCE_DIR) / "testdata/exchange_set/CATALOG.XML",
-                                        &err));
+                                        &err, s100::security::VerifyPolicy::Off));
     const auto ok_key = ok_session.member_keys().front();
     UCHECK(ok_session.load_member(ok_key, &err));
     UCHECK(ok_session.last_update_report(ok_key).code == UpdateRejectCode::None);

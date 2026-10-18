@@ -386,6 +386,7 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
                   << " plane=" << li.display_plane << " cat=" << li.display_category;
       std::cout << "\n";
     }
+  std::cout << "status=UNVERIFIED\n";  // standalone open_dataset (Part 15 D7)
   const bool has_payload =
       st.feature_count > 0 || (ds.nav_warnings && !ds.nav_warnings->warnings.empty()) ||
       ds.coverage.has_value() || ds.water_level.has_value() || ds.current.has_value();
@@ -398,9 +399,27 @@ static int run_exchange_set(const std::filesystem::path& path, const std::filesy
   s100::ChartSession session;
   s100::LoadError err;
   const auto t0 = std::chrono::steady_clock::now();
-  if (!session.open_exchange_set(path, &err)) {
+  if (!session.open_exchange_set(path, &err, s100::security::VerifyPolicy::Enforce)) {
     std::cerr << "catalogue failed: " << err.message << "\n";
     return 1;
+  }
+  {
+    const auto& vr = session.last_verification();
+    std::cout << "verification sse=" << vr.sse << " status=";
+    switch (vr.status) {
+      case s100::security::AuthStatus::Ok: std::cout << "Ok"; break;
+      case s100::security::AuthStatus::Unverified: std::cout << "UNVERIFIED"; break;
+      case s100::security::AuthStatus::RejectedExchange: std::cout << "RejectedExchange"; break;
+      case s100::security::AuthStatus::SkippedResource: std::cout << "SkippedResource"; break;
+    }
+    std::cout << " installed=" << vr.installed.size() << " skipped=" << vr.skipped.size()
+              << " official=";
+    switch (vr.official) {
+      case s100::security::OfficialClass::Official: std::cout << "official"; break;
+      case s100::security::OfficialClass::NonOfficial: std::cout << "non-official"; break;
+      case s100::security::OfficialClass::Unknown: std::cout << "unknown"; break;
+    }
+    std::cout << "\n";
   }
   std::cout << "exchange-set " << session.catalogue().identifier
             << " datasets=" << session.catalogue().datasets.size()

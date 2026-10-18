@@ -3,6 +3,7 @@
 #include "s100/exchange_set.hpp"
 #include "s100/iso8211.hpp"
 #include "s100/session.hpp"
+#include "s100/security/types.hpp"
 #include "support/dataset_digest.hpp"
 #include "support/sha256.hpp"
 
@@ -315,7 +316,7 @@ void run() {
     CCHECK(series.size() == 1);
     s100::Dataset out;
     s100::UpdateReport rep;
-    CCHECK(s100::open_cell_series(series[0], out, &err, &rep));
+    CCHECK(s100::open_cell_series(series[0], out, &err, &rep, s100::security::VerifyPolicy::Off));
     s100::Dataset standalone;
     CCHECK(s100::open_dataset(cell("newed", "000"), standalone, &err));
     std::cout << "  newed -> ED.UPD " << out.edition_number << "." << out.update_number
@@ -359,18 +360,19 @@ void run() {
   {
     std::cout << "oracle 8 (session re-issue replaces):\n";
     s100::ChartSession session;
-    CCHECK(session.open_exchange_set(sr / "A" / "CATALOG.XML", &err));
+    CCHECK(session.open_exchange_set(sr / "A" / "CATALOG.XML", &err, s100::security::VerifyPolicy::Off));
     CCHECK(session.load_member(key, &err));
     CCHECK(session.find(key) && session.find(key)->update_number == 2);
     const auto d_a = dataset_digest(*session.find(key));
-    CCHECK(session.open_exchange_set(sr / "B" / "CATALOG.XML", &err));
+    CCHECK(session.open_exchange_set(sr / "B" / "CATALOG.XML", &err, s100::security::VerifyPolicy::Off));
     CCHECK(session.load_member(key, &err));
     const s100::Dataset* m = session.find(key);
     CCHECK(m != nullptr);
     s100::ExchangeCatalogue cat;
     CCHECK(s100::parse_exchange_catalogue(sr / "B" / "CATALOG.XML", cat, &err));
     s100::Dataset fresh;
-    CCHECK(s100::open_cell_series(s100::group_cell_series(cat).front(), fresh, &err));
+    CCHECK(s100::open_cell_series(s100::group_cell_series(cat).front(), fresh, &err, nullptr,
+                              s100::security::VerifyPolicy::Off));
     std::cout << "  A -> UPD 2; B -> UPD " << m->update_number << " skipped="
               << session.last_update_report(key).skipped << " digest==fresh B: "
               << (dataset_digest(*m) == dataset_digest(fresh)) << "\n";
@@ -382,7 +384,7 @@ void run() {
   {
     std::cout << "oracle 9 (session cancel, then fresh edition):\n";
     s100::ChartSession session;
-    CCHECK(session.open_exchange_set(sr / "X" / "CATALOG.XML", &err));
+    CCHECK(session.open_exchange_set(sr / "X" / "CATALOG.XML", &err, s100::security::VerifyPolicy::Off));
     CCHECK(session.series().front().updates.size() == 2);
     session.load_member(key, &err);
     const s100::Dataset* m = session.find(key);
@@ -392,7 +394,7 @@ void run() {
               << " report.cancelled=" << rep.cancelled << " notice=\"" << rep.notice << "\"\n";
     CCHECK(m != nullptr && m->cancelled && m->features.empty());
     CCHECK(rep.cancelled);
-    CCHECK(session.open_exchange_set(sr / "C" / "CATALOG.XML", &err));
+    CCHECK(session.open_exchange_set(sr / "C" / "CATALOG.XML", &err, s100::security::VerifyPolicy::Off));
     CCHECK(session.load_member(key, &err));
     m = session.find(key);
     std::cout << "  C -> cancelled=" << m->cancelled << " ED.UPD " << m->edition_number << "."

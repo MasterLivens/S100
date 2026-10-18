@@ -18,7 +18,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake qt6-base-dev qt6-svg-dev \
-            libgl1-mesa-dev python3-pil fonts-dejavu-core libhdf5-dev
+            libgl1-mesa-dev python3-pil fonts-dejavu-core libhdf5-dev libssl-dev
       - name: Install Qt (Windows)
         if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@v4
@@ -58,6 +58,32 @@ jobs:
           $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           Write-Host "HDF5_ROOT=$prefix"
           Write-Host "HDF5 bin on PATH: $bin"
+      - name: OpenSSL runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # windows-latest ships Shining Light OpenSSL under "C:\Program Files\OpenSSL".
+          # Missing libcrypto-3-x64.dll hangs ~120s on a missing-DLL dialog — fail fast.
+          $roots = @(
+            "C:\Program Files\OpenSSL",
+            "C:\Program Files\OpenSSL-Win64",
+            $env:OPENSSL_ROOT_DIR
+          ) | Where-Object { $_ -and (Test-Path $_) }
+          $found = $null
+          foreach ($r in $roots) {
+            $dll = Join-Path $r "bin\libcrypto-3-x64.dll"
+            if (Test-Path $dll) { $found = $dll; $bin = Join-Path $r "bin"; break }
+          }
+          if (-not $found) {
+            Get-ChildItem "C:\Program Files" -Filter "OpenSSL*" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
+            throw "libcrypto-3-x64.dll not found under OpenSSL install (fail-fast; do not hang on missing-DLL dialog)"
+          }
+          $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          if ($roots.Count -gt 0) {
+            "OPENSSL_ROOT_DIR=$($roots[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
+          Write-Host "OpenSSL DLL on PATH: $found"
+          where.exe libcrypto-3-x64.dll
       - name: Configure (Linux)
         if: runner.os == 'Linux'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

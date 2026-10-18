@@ -20,6 +20,22 @@ else()
   include_directories(${HDF5_INCLUDE_DIRS})
 endif()
 
+# IHO-S164-SIG — S-100 Part 15 signature verification (docs/part15-signature-contract.md).
+find_package(OpenSSL 3.0 REQUIRED COMPONENTS Crypto)
+add_library(s100_security
+  src/security/sse_map.cpp
+  src/security/trust_store.cpp
+  src/security/openssl_certs.cpp
+  src/security/iho_root_embed.cpp
+  src/security/verify.cpp
+)
+target_include_directories(s100_security PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(s100_security PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/security)
+target_link_libraries(s100_security PUBLIC OpenSSL::Crypto PRIVATE s100_pugixml)
+target_compile_definitions(s100_security PRIVATE
+  OPENSSL_API_COMPAT=30000
+  OPENSSL_NO_DEPRECATED)
+
 add_library(s100_core
   src/core/iso8211.cpp
   src/core/layer.cpp
@@ -43,7 +59,7 @@ add_library(s100_core
   src/core/session.cpp
 )
 target_include_directories(s100_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(s100_core PRIVATE s100_pugixml s100_lua ${S100_HDF5_LIBS})  # Qt-free (contract rule 4)
+target_link_libraries(s100_core PUBLIC s100_security PRIVATE s100_pugixml s100_lua ${S100_HDF5_LIBS})  # Qt-free (contract rule 4)
 if(DEFINED HDF5_DEFINITIONS)
   target_compile_definitions(s100_core PRIVATE ${HDF5_DEFINITIONS})
 endif()
@@ -90,6 +106,7 @@ add_executable(s100_tests
   tests/test_update_robustness.cpp
   tests/test_cancel_reissue.cpp
   tests/test_edition_hardening.cpp
+  tests/test_exchange_signature.cpp
   tests/support/dataset_digest.cpp
   tests/support/sha256.cpp
 )
@@ -117,7 +134,12 @@ add_test(NAME exchange_update_robustness COMMAND s100_tests exchange_update_robu
 add_test(NAME exchange_cancel_reissue COMMAND s100_tests exchange_cancel_reissue)
 # IHO-S164-EDITION-HARDEN (docs/edition-hardening-contract.md rev 1) — MUST NOT SKIP, no guard.
 add_test(NAME exchange_edition_hardening COMMAND s100_tests exchange_edition_hardening)
+# IHO-S164-SIG (docs/part15-signature-contract.md) — MUST NOT SKIP, Linux + Windows.
+add_test(NAME exchange_signature COMMAND s100_tests exchange_signature)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME signature_fixtures_reproducible
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/check_signature_fixtures.py
+          ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/signature_fixtures_repro)
 add_test(NAME update_fixtures_reproducible
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/check_update_fixtures.py
           ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR}/update_fixtures_repro)
@@ -197,5 +219,5 @@ if(S100_BUILD_VIEWER)
   endif()
 endif()
 
-install(TARGETS s100_core s100_cli RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+install(TARGETS s100_core s100_security s100_cli RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 install(DIRECTORY include/s100 DESTINATION include)

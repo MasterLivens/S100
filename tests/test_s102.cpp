@@ -5,6 +5,7 @@
 #include "s100/portrayal_catalogue.hpp"
 #include "s100/portrayal_engine.hpp"
 #include "s100/session.hpp"
+#include "s100/security/types.hpp"
 #include "support/test_data_roots.hpp"
 
 #include <algorithm>
@@ -210,7 +211,7 @@ void test_s102_session_overlay() {
   if (!s100test::chs_exercised("s102.series")) return;
   const fs::path chs = s100test::chs_s100_root();
   s100::ChartSession chs_session;
-  CHECK(chs_session.open_exchange_set(chs, &err));
+  CHECK(chs_session.open_exchange_set(chs, &err, s100::security::VerifyPolicy::Off));
   bool saw101 = false, saw102 = false;
   for (const auto& k : chs_session.member_keys()) {
     if (k.rfind("S-101:", 0) == 0) saw101 = true;

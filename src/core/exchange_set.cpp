@@ -1,9 +1,11 @@
 #include "s100/exchange_set.hpp"
+#include "s100/security/verify.hpp"
 #include "s101_update_internal.hpp"
 
 #include <pugixml.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -334,8 +336,51 @@ std::vector<std::filesystem::path> discover_update_files(const std::filesystem::
 }
 
 bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError* err,
-                      UpdateReport* report) {
+                      UpdateReport* report, security::VerifyPolicy policy) {
   if (report) *report = UpdateReport{};
+  if (policy == security::VerifyPolicy::Enforce) {
+    // Locate CATALOG.XML near the series base and verify the exchange set.
+    namespace fs = std::filesystem;
+    fs::path probe = series.base.parent_path();
+    fs::path catalog;
+    for (int i = 0; i < 6 && !probe.empty(); ++i) {
+      if (fs::exists(probe / "CATALOG.XML")) {
+        catalog = probe / "CATALOG.XML";
+        break;
+      }
+      if (probe == probe.parent_path()) break;
+      probe = probe.parent_path();
+    }
+    if (catalog.empty()) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message = "SSE 134: CATALOG.SIGN / CATALOG.XML not found for Enforce open_cell_series";
+      }
+      return false;
+    }
+    security::VerifyOptions opts;
+    opts.verify_time = std::chrono::system_clock::now();
+    const auto vr = security::verify_exchange_set(catalog, security::TrustStore::builtin_iho_52(), opts);
+    if (vr.status == security::AuthStatus::RejectedExchange) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message = "SSE " + std::to_string(vr.sse) + ": " + vr.message;
+      }
+      return false;
+    }
+    for (const auto& sk : vr.skipped) {
+      std::error_code ec1, ec2;
+      const auto a = fs::weakly_canonical(sk, ec1);
+      const auto b = fs::weakly_canonical(series.base, ec2);
+      if ((!ec1 && !ec2 && a == b) || sk.lexically_normal() == series.base.lexically_normal()) {
+        if (err) {
+          err->kind = LoadErrorKind::Invalid;
+          err->message = "resource skipped by Part 15 verification: " + series.base.string();
+        }
+        return false;
+      }
+    }
+  }
   // Coverage / non-S-101 products: single-file open_dataset (no ISO 8211 update chain).
   if (series.product != ProductId::S101 && series.product != ProductId::Unknown) {
     if (!series.updates.empty()) {

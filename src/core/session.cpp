@@ -1,9 +1,56 @@
 #include "s100/session.hpp"
 
-namespace s100 {
+#include <chrono>
 
-bool ChartSession::open_exchange_set(const std::filesystem::path& path, LoadError* err) {
+namespace s100 {
+namespace {
+
+bool same_path(const std::filesystem::path& a, const std::filesystem::path& b) {
+  std::error_code ec1, ec2;
+  const auto ca = std::filesystem::weakly_canonical(a, ec1);
+  const auto cb = std::filesystem::weakly_canonical(b, ec2);
+  if (!ec1 && !ec2) return ca == cb;
+  return a.lexically_normal() == b.lexically_normal();
+}
+
+}  // namespace
+
+bool ChartSession::path_is_skipped(const std::filesystem::path& p) const {
+  for (const auto& s : last_verification_.skipped)
+    if (same_path(s, p)) return true;
+  return false;
+}
+
+bool ChartSession::open_exchange_set(const std::filesystem::path& path, LoadError* err,
+                                     security::VerifyPolicy policy) {
+  verify_policy_ = policy;
+  last_verification_ = security::VerificationReport{};
+  if (policy == security::VerifyPolicy::Off) {
+    last_verification_.status = security::AuthStatus::Unverified;
+    clear();
+    if (!parse_exchange_catalogue(path, catalogue_, err)) return false;
+    series_ = group_cell_series(catalogue_);
+    return true;
+  }
+
+  // Enforce: verify-before-mutate (contract strong guarantee #1).
+  security::VerifyOptions opts = verify_options_;
+  if (opts.verify_time == std::chrono::system_clock::time_point{}) {
+    // Inject wall clock at the session boundary (outside src/security).
+    opts.verify_time = std::chrono::system_clock::now();
+  }
+  const auto report = security::verify_exchange_set(path, trust_, opts);
+  if (report.status == security::AuthStatus::RejectedExchange) {
+    last_verification_ = report;
+    if (err) {
+      err->kind = LoadErrorKind::Invalid;
+      err->message = "SSE " + std::to_string(report.sse) + ": " + report.message;
+    }
+    return false;  // session unchanged
+  }
   clear();
+  last_verification_ = report;
+  verify_policy_ = policy;
   if (!parse_exchange_catalogue(path, catalogue_, err)) return false;
   series_ = group_cell_series(catalogue_);
   return true;
@@ -32,9 +79,20 @@ bool ChartSession::load_member(const std::string& key, LoadError* err) {
     return false;
   }
   const std::string member = exchange_member_key(found->product, found->cell_name);
+
+  if (verify_policy_ == security::VerifyPolicy::Enforce) {
+    if (path_is_skipped(found->base)) {
+      if (err) {
+        err->kind = LoadErrorKind::Invalid;
+        err->message = "resource skipped by Part 15 verification: " + found->base.string();
+      }
+      return false;
+    }
+  }
+
   Dataset ds;
   UpdateReport report;
-  const bool ok = open_cell_series(*found, ds, err, &report);
+  const bool ok = open_cell_series(*found, ds, err, &report, security::VerifyPolicy::Off);
   update_reports_[member] = report;
   if (ok) {
     datasets_[member] = std::move(ds);

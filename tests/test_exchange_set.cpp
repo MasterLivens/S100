@@ -1,5 +1,6 @@
 #include "s100/exchange_set.hpp"
 #include "s100/session.hpp"
+#include "s100/security/types.hpp"
 #include "support/test_data_roots.hpp"
 
 #include <cstdlib>
@@ -42,7 +43,7 @@ void test_exchange_set_synthetic_and_chs() {
   CHECK(series.size() >= 2);
 
   s100::ChartSession session;
-  CHECK(session.open_exchange_set(synthetic, &err));
+  CHECK(session.open_exchange_set(synthetic, &err, s100::security::VerifyPolicy::Off));
   const auto keys = session.member_keys();
   CHECK(keys.size() == series.size());
   // Shared session key = product + dataset identity (no bare stem).
@@ -90,7 +91,7 @@ void test_exchange_set_synthetic_and_chs() {
   s100::Dataset base_only, with_updates;
   CHECK(s100::open_dataset(with_upd->base, base_only, &err));
   CHECK(base_only.update_number == 0);
-  CHECK(s100::open_cell_series(*with_upd, with_updates, &err));
+  CHECK(s100::open_cell_series(*with_upd, with_updates, &err, nullptr, s100::security::VerifyPolicy::Off));
   CHECK(with_updates.stats().feature_count != base_only.stats().feature_count);
   CHECK(with_updates.bounds().valid);
   CHECK(with_updates.edition_number == base_only.edition_number);
@@ -107,7 +108,7 @@ void test_exchange_set_synthetic_and_chs() {
   }
 
   s100::ChartSession chs_session;
-  CHECK(chs_session.open_exchange_set(chs, &err));
+  CHECK(chs_session.open_exchange_set(chs, &err, s100::security::VerifyPolicy::Off));
   const auto mem_key = s100::exchange_member_key(with_upd->product, with_upd->cell_name);
   CHECK(chs_session.load_member(mem_key, &err));
   CHECK(chs_session.find(mem_key)->stats().feature_count ==

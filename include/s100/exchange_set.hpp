@@ -1,5 +1,6 @@
 #pragma once
 #include "s100/dataset.hpp"
+#include "s100/security/types.hpp"
 #include "s100/product.hpp"
 #include "s100/types.hpp"
 #include <filesystem>
@@ -106,7 +107,8 @@ bool open_dataset_with_updates(const std::filesystem::path& base,
                                const std::vector<std::filesystem::path>& updates, Dataset& out,
                                LoadError* err = nullptr, UpdateReport* report = nullptr);
 bool open_cell_series(const ExchangeCellSeries& series, Dataset& out, LoadError* err = nullptr,
-                      UpdateReport* report = nullptr);
+                      UpdateReport* report = nullptr,
+                      security::VerifyPolicy policy = security::VerifyPolicy::Enforce);
 
 /** FAUI/IUIN element merge (docs/association-contract.md). instruction 0 on all → replace. */
 bool apply_association_updates(std::vector<AssociationRef>& existing,
