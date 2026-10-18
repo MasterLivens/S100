@@ -40,6 +40,26 @@ std::string PortrayalCatalogue::top_level_rule() const {
   return {};
 }
 
+std::filesystem::path PortrayalCatalogue::symbol_path(const std::string& ref, std::string* err) const {
+  if (ref.empty()) {
+    if (err) *err = "symbol: empty symbol_ref";
+    return {};
+  }
+  std::string file = ref + ".svg";
+  for (const auto& s : symbols)
+    if (s.id == ref && !s.file_name.empty()) {
+      file = s.file_name;
+      break;
+    }
+  const std::filesystem::path p = root / "Symbols" / file;
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(p, ec)) {
+    if (err) *err = "symbol '" + ref + "' missing: " + p.string();
+    return {};
+  }
+  return p;
+}
+
 const PcContextParameter* PortrayalCatalogue::find_context_parameter(const std::string& id) const {
   for (const auto& p : context_parameters)
     if (p.id == id) return &p;

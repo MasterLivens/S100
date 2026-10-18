@@ -447,6 +447,7 @@ struct SymbolCache {
   std::unordered_map<std::string, QImage> tile_by_key;
   // Negative cache: missing / invalid files — do not retry every paint.
   std::unordered_map<std::string, bool> missing;
+  std::size_t errors{0};  // missing / invalid symbol files reported (once per ref)
 
   void reset(const ColorPalette* pal, fs::path dir) {
     palette = pal;
@@ -463,12 +464,17 @@ struct SymbolCache {
     const fs::path path = symbols_dir / (ref + ".svg");
     QFile f(QString::fromStdString(path.string()));
     if (!f.open(QIODevice::ReadOnly)) {
+      // Missing symbol is an error, not a silent drop (docs/bridge-render-contract.md hook 4).
+      qWarning("error: symbol '%s' missing: %s", ref.c_str(), path.string().c_str());
+      ++errors;
       missing[ref] = true;
       return nullptr;
     }
     const QByteArray remapped = remap_symbol_svg(f.readAll(), *palette);
     auto renderer = std::make_unique<QSvgRenderer>();
     if (!renderer->load(remapped) || !renderer->isValid()) {
+      qWarning("error: symbol '%s' invalid SVG: %s", ref.c_str(), path.string().c_str());
+      ++errors;
       missing[ref] = true;
       return nullptr;
     }

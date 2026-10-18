@@ -1,4 +1,4 @@
-# Bridge / composite feature rendering — FASC slice (rev 2 · association-contract rev 3)
+# Bridge / composite feature rendering — FASC slice (rev 2.1 · association-contract rev 3)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-S101-BRIDGE-RENDER`** (**Active**). CTest: **`fasc_bridge_render`** — **MUST NOT SKIP**; registered with no platform guard, must run on **Linux and Windows** CI.
@@ -51,21 +51,24 @@ Cell-wide portray: `features=113 emitted=113 lua_errors=0 features_without_instr
 
 Load the fixture with pinned S-101 FC+PC, default context (`RadarOverlay=false`). **No exact DI counts are pinned** (they change when official Lua is upgraded); only “> 0” and set relations.
 
+Demoting check 3 to WARN is allowed **only** with `s100_cli` output attached proving 0006 lacks that parent link.
+
 **Bridge graph G** (computed in the test from data, then printed to the log as TSV `bridge_id\tchild_id\tchild_type\tassociation\trole`): for each feature with `feature_type == "Bridge"`, resolve every FASC `rcid` to a feature via `record_id`; skip dangling. `B` = bridge ids in G, `C` = all resolved child ids.
 
 | # | Check | Sev |
 |---|-------|-----|
 | 1 | Fixture exists and loads; feature counts equal the fixture table (10 / 6 / 4 / 6) | MUST |
 | 2 | `lua_errors == 0` for the whole cell | MUST |
-| 3 | `|B| ≥ 1` and `|C| ≥ 1`; every child type ∈ {`SpanFixed`,`SpanOpening`,`PylonBridgeSupport`} | MUST |
+| 3 | `|B| ≥ 1` and `|C| ≥ 1`; **every** `SpanFixed`/`SpanOpening`/`PylonBridgeSupport` has a `Bridge` FASC parent (FASC on either side: listed in a Bridge's FASC, or its own FASC targets a Bridge), confirmed by the Host query; every child type ∈ {`SpanFixed`,`SpanOpening`,`PylonBridgeSupport`} | MUST |
 | 4 | For each bridge in B, the C++ backing of `HostFeatureGetAssociatedFeatureIDs(bridge, association, "")` returns exactly that bridge's children in G (set compare, per association code) | MUST |
-| 5 | Every `Bridge`/`SpanFixed`/`SpanOpening` feature has DI count > 0; every non-Null DI of these types has `viewing_group == "12210"` and `drawing_priority == 24` | MUST |
+| 5 | Every `Bridge`/`SpanFixed`/`SpanOpening`/`PylonBridgeSupport` feature has DI count > 0; every non-Null DI of these types has `viewing_group == "12210"` and `drawing_priority == 24` | MUST |
 | 6 | Every `Bridge` with Empty geometry has only `Kind::Null` DIs | MUST |
 | 7 | **ON** (`hidden_groups = {}`): every id in B has ≥ 1 DI and every id in C has ≥ 1 non-Null DI — bridge and children come out **together** | MUST |
 | 8 | **OFF** (`hidden_groups = {"12210"}`): no DI remains for any id in B ∪ C — filtered **together**; and the multiset of feature ids of DIs whose `viewing_group != "12210"` is identical to ON (nothing else affected) | MUST |
-| 9 | Every `SpanFixed` with Curve/Surface geometry has ≥ 1 `Kind::Line` DI with a line style colour `CHGRD` | MUST |
+| 9 | Non-vacuous: ≥ 1 `SpanFixed` with Curve/Surface geometry exists; every such one has ≥ 1 `Kind::Line` DI with a line style colour `CHGRD` | MUST |
 | 10 | Any DI with `symbol_ref == "BRIDGE01"` → file exists under PC `Symbols/` | MUST |
-| 11 | Re-portray with `RadarOverlay=true`: the 12210 DIs of B ∪ C that were `UnderRadar` become `OverRadar` (PylonBridgeSupport priority‑18 surface branch stays UnderRadar per official rule) | MUST |
+| 11 | Non-vacuous: B ∪ C has ≥ 1 non-Null DI. Re-portray with `RadarOverlay=true`: total DI count of B ∪ C unchanged, and the 12210 DIs of B ∪ C that were `UnderRadar` become `OverRadar` (PylonBridgeSupport priority‑18 surface branch stays UnderRadar per official rule) | MUST |
+| 12a | Test log prints actual DI count per feature type (pinned as MUST in a later rev) | MUST (print) |
 | 12 | ≥ 1 `BRIDGE01` on this fixture | WARN (depends on `openingBridge` data) |
 | 13 | Viewer snapshot shows bridge lines | WARN |
 

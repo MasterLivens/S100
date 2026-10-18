@@ -48,6 +48,10 @@ struct PortrayalCatalogue {
   /** First display mode (PC order: DisplayBase, StandardDisplay, OtherInformation) whose
    *  viewing group layers contain `viewing_group`; empty if none. */
   std::string display_mode_of(const std::string& viewing_group) const;
+  /** PointInstruction symbol_ref -> <root>/Symbols/<file> (PC symbol item file name, else
+   *  <ref>.svg). A missing file is an error (docs/bridge-render-contract.md hook 4): returns an
+   *  empty path and sets *err; never a silent drop. */
+  std::filesystem::path symbol_path(const std::string& symbol_ref, std::string* err = nullptr) const;
 };
 
 /** Load from a PC directory or its portrayal_catalogue.xml. */
