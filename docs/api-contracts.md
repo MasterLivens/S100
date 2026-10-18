@@ -165,6 +165,13 @@ Details: `docs/s124-contract.md`.
 - `apply_s101_update` strong guarantee; series stops at first rejection with last good state.
 - CTest `exchange_update_robustness` MUST NOT SKIP (Linux + Windows).
 
+
+## Cancel / re-issue / new edition (S-101)
+
+- Details: `docs/cancel-reissue-contract.md` (`IHO-S164-CANCEL-REISSUE`).
+- Additive: `UpdateRejectCode::DatasetCancelled`, `NewerEditionPending`; `UpdateReport::skipped/cancelled/superseded/notice`; `Dataset::cancelled`; DSED bare integer accepted.
+- CTest `exchange_cancel_reissue` MUST NOT SKIP (Linux + Windows).
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.

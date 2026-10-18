@@ -100,7 +100,7 @@ The repo has **no** `.001` files, so the positive control is synthetic too. Fixt
 
 ## Non-goals
 
-**`IHO-S164-CANCEL-REISSUE` is not in this slice** (next slice, own contract): cancellation (DSID ED 0), re-issue (base UPD n > 0, skip ≤ n), new edition replacing a series, `Dataset::cancelled`, `UpdateReport::skipped/cancelled`, `DatasetCancelled` code. The enum/report are additive so that slice extends them without breaking this one.
+**`IHO-S164-CANCEL-REISSUE` is not in this slice** (now `docs/cancel-reissue-contract.md`): cancellation (DSID ED 0), re-issue (base UPD n > 0, skip ≤ n), new edition replacing a series, `Dataset::cancelled`, `UpdateReport::skipped/cancelled`, `DatasetCancelled` code. The enum/report are additive so that slice extends them without breaking this one.
 
 Also out: 
 Signatures / CRL (`IHO-S164-SIG`, Track B), S-164 power-up, permits, S-102+ updates, cross-cell consistency.
