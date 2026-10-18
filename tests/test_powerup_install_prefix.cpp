@@ -51,11 +51,16 @@ void test_powerup_install_prefix() {
   SCHECK(find_item(r, "PU-5") != nullptr);
   SCHECK(find_item(r, "PU-5")->message.find("smoke_na_install_tree") != std::string::npos);
 
-  // Shared DEFAULT path resolve under same root.
+  // Shared DEFAULT path resolve under same root (separator-agnostic).
   const auto fc = s100::catalogue_path("catalogues/S-101/S-101_FC_2.0.0.xml");
   SCHECK(fs::is_regular_file(fc));
-  SCHECK(fc.string().find("share/s100") != std::string::npos ||
-         fc.string().find(env) != std::string::npos);
+  std::error_code ec;
+  const fs::path rel =
+      fs::relative(fs::weakly_canonical(fc), fs::weakly_canonical(env), ec);
+  SCHECK(!ec);
+  SCHECK(!rel.empty());
+  SCHECK(*rel.begin() != "..");
+  SCHECK(rel == fs::path("catalogues") / "S-101" / "S-101_FC_2.0.0.xml");
 
   std::cout << "powerup_install_prefix ok\n";
 }
