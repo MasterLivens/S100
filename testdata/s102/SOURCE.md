@@ -5,10 +5,43 @@
 | File | Role |
 |------|------|
 | `synthetic_multigrid_4326.h5` | **Gittracked.** Two small EPSG:4326 regular grids with disjoint envelopes for `IHO-S102-DEEPEN-MULTIGRID` / CTest `s102_deepen_multigrid`. Built with h5py: `BathymetryCoverage.01` (lon/lat≈0–0.4, depth=5) and `.02` (≈10–10.4, depth=50). See `docs/s102-deepen-contract.md`. |
+| `synthetic_uncertainty_4326.h5` | **Gittracked.** Fixture **A** for `IHO-S102-UNCERTAINTY` / CTest `s102_uncertainty`. EPSG:4326, single `BathymetryCoverage.01`, compound `depth`+`uncertainty`. Envelope lon/lat≈20–20.4 (disjoint from deepen). Regenerate: `scripts/gen_s102_uncertainty_synthetic.py`. |
+| `synthetic_uncertainty_depth_only_4326.h5` | **Gittracked.** Fixture **B** (PS §10 depth-only omit). Compound **depth only**; Group_F **no** uncertainty row; `minimumUncertainty==maximumUncertainty==0.75` (not fill). Loader does **not** broadcast → samples report `has_uncertainty==false`. |
 
-## Local / gitignored (`*.h5` except the synthetic above)
+### Fixture A oracles (`synthetic_uncertainty_4326.h5`)
 
-Binaries matching `testdata/s102/*.h5` stay gitignored except the `!` exception above. Fetch NOAA/CHS locally for loader / sample / UTM tests.
+| Point | Lon | Lat | depth | uncertainty | flags |
+|-------|-----|-----|-------|-------------|-------|
+| **A** | 20.0 | 20.0 | **12.5** | **2.5** | `has_depth` + `has_uncertainty` |
+| **B** | 20.1 | 20.0 | **12.5** | fill `1e6` | `has_depth` && !`has_uncertainty` |
+
+Grid: 5×5, origin (20,20), spacing 0.1°. All other cells: depth=12.5, unc=2.5.
+
+### Fixture B oracles (`synthetic_uncertainty_depth_only_4326.h5`)
+
+| Point | Lon | Lat | depth | uncertainty |
+|-------|-----|-----|-------|-------------|
+| sample | 30.0 | 30.0 | **8.0** | none (`has_uncertainty==false`) |
+
+Envelope lon/lat≈30–30.4. `minimumUncertainty==maximumUncertainty==0.75` documented; Eng elected **no** in-memory broadcast.
+
+### Uncertainty CoverageFill band table (vendor extension, VG `13031`)
+
+Symbolic colour tokens only (no hard-coded RGB). Day→Dusk: tokens stable; RGB remaps via PC `colorProfile.xml`.
+
+| Band label | metres (2-sigma) | token |
+|------------|------------------|-------|
+| UncLow | &lt; 1 | `CHGRN` |
+| UncModest | [1, 5) | `ADINF` |
+| UncModerate | [5, 20) | `CHYLW` |
+| UncHigh | [20, 50) | `CHCOR` |
+| UncVeryHigh | ≥ 50 | `CHRED` |
+
+Depth CoverageFill remains official PC path: `coverage_attribute=="depth"`, VG **`13030`**.
+
+## Local / gitignored (`*.h5` except the synthetics above)
+
+Binaries matching `testdata/s102/*.h5` stay gitignored except the `!` exceptions above. Fetch NOAA/CHS locally for loader / sample / UTM / uncertainty real-sample tests.
 
 ### NOAA public PDS (ed 3.0.0)
 
@@ -19,7 +52,7 @@ Binaries matching `testdata/s102/*.h5` stay gitignored except the `!` exception 
 | Product | INT.IHO.S-102.3.0.0 (horizontal CRS EPSG:32609 UTM 9N; geographic bounds on root attrs) |
 | Fetched | 2026-10-11 |
 | Size | ~895 KiB |
-| Notes | Small public sample. Grid axes are projected metres; `sample_wgs84` converts UTM 326xx/327xx internally (see `docs/s102-contract.md`). Prefer CHS WGS84 cell when present. |
+| Notes | Small public sample. Grid axes are projected metres; `sample_wgs84` converts UTM 326xx/327xx internally (see `docs/s102-contract.md`). Prefer CHS WGS84 cell when present. **Uncertainty:** per-cell metres present (e.g. cell `(700,700)` → unc **40.34**); also has QoBC U32 (out of slice — `IHO-S102-QBC-META`). |
 
 ```
 curl -L -o testdata/s102/102US004AK5HQ262267.h5 \
@@ -33,3 +66,4 @@ When present (gitignored `testdata/chs/`):
 `testdata/chs/COMBINED/S100_ROOT/S-102/DATASET_FILES/CA00/102CA0064682N07116W/16/102CA0064682N07116W.h5`
 
 - Spec `INT.IHO.S-102.3.0.0`, horizontal CRS EPSG:4326, ~635 KiB, fill depth `1e+06`.
+- Uncertainty channel present but typically all-fill; positive `has_uncertainty` oracle is NOAA-only in this slice.

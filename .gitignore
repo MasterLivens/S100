@@ -9,6 +9,8 @@ aqtinstall.log
 testdata/s102/*.h5
 # Synthetic multi-grid fixture for CI (S-102 deepen) — must be tracked
 !testdata/s102/synthetic_multigrid_4326.h5
+!testdata/s102/synthetic_uncertainty_4326.h5
+!testdata/s102/synthetic_uncertainty_depth_only_4326.h5
 
 # EncDotNet soft-oracle outputs + CLI payload (see tools/encdotnet-s100/SOURCE.md)
 /Testing/encdotnet-oracle/

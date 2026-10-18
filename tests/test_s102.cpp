@@ -5,6 +5,7 @@
 #include "s100/portrayal_catalogue.hpp"
 #include "s100/portrayal_engine.hpp"
 #include "s100/session.hpp"
+#include "s100/viewing_group_filter.hpp"
 #include "s100/security/types.hpp"
 #include "support/test_data_roots.hpp"
 
@@ -155,9 +156,14 @@ void test_s102_open_bounds_sample_portray() {
   bool saw_fill = false;
   for (const auto& d : di) {
     if (d.kind == s100::DrawingInstruction::Kind::Coverage && d.command == "CoverageFill") {
-      CHECK(d.coverage_attribute == "depth");
+      CHECK(d.coverage_attribute == "depth" || d.coverage_attribute == "uncertainty");
       CHECK(!d.coverage_state.empty());
-      saw_fill = true;
+      if (d.coverage_attribute == "depth") {
+        CHECK(d.viewing_group == "13030");
+        saw_fill = true;
+      } else {
+        CHECK(d.viewing_group == "13031");
+      }
     }
   }
   CHECK(saw_fill);
@@ -330,16 +336,21 @@ void test_s102_deepen_multigrid() {
   CHECK(s100::portray(*ds.coverage, fc, pc, ctx, di, &perr, &st));
   CHECK(st.lua_errors == 0);
   std::vector<const s100::DrawingInstruction*> fills;
+  std::vector<const s100::DrawingInstruction*> depth_fills;
   for (const auto& d : di) {
-    if (d.kind == s100::DrawingInstruction::Kind::Coverage && d.command == "CoverageFill")
+    if (d.kind == s100::DrawingInstruction::Kind::Coverage && d.command == "CoverageFill") {
       fills.push_back(&d);
+      if (d.coverage_attribute == "depth") depth_fills.push_back(&d);
+    }
   }
-  CHECK(fills.size() >= 2);
-  CHECK(fills[0]->feature_id != fills[1]->feature_id);
-  CHECK(fills[0]->coverage_attribute == "depth");
-  CHECK(fills[1]->coverage_attribute == "depth");
+  CHECK(depth_fills.size() >= 2);
+  CHECK(depth_fills[0]->feature_id != depth_fills[1]->feature_id);
+  CHECK(depth_fills[0]->coverage_attribute == "depth");
+  CHECK(depth_fills[1]->coverage_attribute == "depth");
   std::cout << "S-102 deepen CoverageFill n=" << fills.size()
-            << " feature_ids=" << fills[0]->feature_id << "," << fills[1]->feature_id << "\n";
+            << " depth=" << depth_fills.size()
+            << " feature_ids=" << depth_fills[0]->feature_id << "," << depth_fills[1]->feature_id
+            << "\n";
 
   // #4 FourShades=false: SafetyContour change moves DEPVS/DEPDW LookupEntry boundaries.
   CHECK(ctx.set(pc, "FourShades", "false"));
@@ -429,10 +440,226 @@ void test_s102_deepen_multigrid() {
   std::cout << "S-102 deepen multigrid OK (IHO-S102-DEEPEN-MULTIGRID)\n";
 }
 
+
+/** IHO-S102-UNCERTAINTY / CTest s102_uncertainty — MUST #1, #1b, #2–7. */
+void test_s102_uncertainty() {
+  const fs::path src = S100_SOURCE_DIR;
+  const fs::path fixture_a = src / "testdata/s102/synthetic_uncertainty_4326.h5";
+  const fs::path fixture_b = src / "testdata/s102/synthetic_uncertainty_depth_only_4326.h5";
+  CHECK(fs::exists(fixture_a));
+  CHECK(fs::exists(fixture_b));
+
+  // --- #1 Fixture A dual-channel sample ---
+  {
+    s100::LoadError err;
+    s100::Dataset ds;
+    CHECK(s100::open_dataset(fixture_a, ds, &err));
+    CHECK(ds.product == s100::ProductId::S102);
+    CHECK(ds.coverage.has_value());
+    CHECK(ds.coverage->grids.size() >= 1);
+    CHECK(ds.coverage->grid().horizontal_crs == 4326);
+
+    s100::CoverageSample pa, pb;
+    CHECK(ds.coverage->sample_wgs84(20.0, 20.0, pa));
+    CHECK(pa.has_depth);
+    CHECK(std::fabs(pa.depth - 12.5f) < 1e-3f);
+    CHECK(pa.has_uncertainty);
+    CHECK(std::fabs(pa.uncertainty - 2.5f) < 1e-3f);
+
+    CHECK(ds.coverage->sample_wgs84(20.1, 20.0, pb));
+    CHECK(pb.has_depth);
+    CHECK(std::fabs(pb.depth - 12.5f) < 1e-3f);
+    CHECK(!pb.has_uncertainty);
+    std::cout << "S-102 unc A PointA depth=" << pa.depth << " unc=" << pa.uncertainty
+              << " PointB has_unc=" << pb.has_uncertainty << "\n";
+
+    // --- #2 Portray: depth VG 13030 + uncertainty VG 13031 ---
+    s100::FeatureCatalogue fc;
+    s100::PortrayalCatalogue pc;
+    std::string perr;
+    CHECK(s100::load_feature_catalogue(src / "catalogues/S-102/S-102_FC_3.0.0.xml", fc, &perr));
+    CHECK(s100::load_portrayal_catalogue(src / "catalogues/S-102/PC_3.0.0", pc, &perr));
+    auto ctx = s100::PortrayalContext::defaults(pc);
+    s100::DrawingInstructions di;
+    s100::PortrayalStats st;
+    CHECK(s100::portray(*ds.coverage, fc, pc, ctx, di, &perr, &st));
+    CHECK(st.lua_errors == 0);
+    int n_depth = 0, n_unc = 0;
+    for (const auto& d : di) {
+      if (d.kind != s100::DrawingInstruction::Kind::Coverage || d.command != "CoverageFill") continue;
+      if (d.coverage_attribute == "depth") {
+        CHECK(d.viewing_group == "13030");
+        ++n_depth;
+        // Symbolic tokens only (no hard-coded RGB in coverage_state).
+        for (const auto& el : d.coverage_state) {
+          if (el.rfind("CoverageColor:", 0) == 0) {
+            CHECK(el.find('#') == std::string::npos);
+          }
+        }
+      } else if (d.coverage_attribute == "uncertainty") {
+        CHECK(d.viewing_group == "13031");
+        CHECK(d.drawing_priority == 3);
+        CHECK(d.display_plane == "UnderRadar");
+        ++n_unc;
+        for (const auto& el : d.coverage_state) {
+          if (el.rfind("CoverageColor:", 0) == 0) {
+            CHECK(el.find('#') == std::string::npos);
+            // Band tokens from vendor table.
+            CHECK(el.find("CHGRN") != std::string::npos || el.find("ADINF") != std::string::npos ||
+                  el.find("CHYLW") != std::string::npos || el.find("CHCOR") != std::string::npos ||
+                  el.find("CHRED") != std::string::npos);
+          }
+        }
+      }
+    }
+    CHECK(n_depth >= 1);
+    CHECK(n_unc >= 1);
+    std::cout << "S-102 unc portray depth=" << n_depth << " unc=" << n_unc << "\n";
+
+    // Snapshot sample before toggle (U1 / #3: no side effects).
+    s100::CoverageSample before;
+    CHECK(ds.coverage->sample_wgs84(20.0, 20.0, before));
+
+    // --- #3 Hide VG 13031 → unc DIs gone; depth 13030 remains; sample unchanged ---
+    s100::DrawingInstructions filtered = di;
+    s100::filter_instructions_by_viewing_group(filtered, {"13031"});
+    int fd = 0, fu = 0;
+    for (const auto& d : filtered) {
+      if (d.kind != s100::DrawingInstruction::Kind::Coverage || d.command != "CoverageFill") continue;
+      if (d.coverage_attribute == "depth") {
+        CHECK(d.viewing_group == "13030");
+        ++fd;
+      } else if (d.coverage_attribute == "uncertainty") {
+        ++fu;
+      }
+    }
+    CHECK(fd >= 1);
+    CHECK(fu == 0);
+    s100::CoverageSample after_hide;
+    CHECK(ds.coverage->sample_wgs84(20.0, 20.0, after_hide));
+    CHECK(after_hide.has_depth == before.has_depth);
+    CHECK(after_hide.has_uncertainty == before.has_uncertainty);
+    CHECK(std::fabs(after_hide.depth - before.depth) < 1e-6f);
+    CHECK(std::fabs(after_hide.uncertainty - before.uncertainty) < 1e-6f);
+
+    // --- #4 Show 13031 again ---
+    s100::DrawingInstructions shown = di;
+    s100::filter_instructions_by_viewing_group(shown, {});
+    int sd = 0, su = 0;
+    for (const auto& d : shown) {
+      if (d.kind != s100::DrawingInstruction::Kind::Coverage || d.command != "CoverageFill") continue;
+      if (d.coverage_attribute == "depth") ++sd;
+      else if (d.coverage_attribute == "uncertainty") {
+        CHECK(d.viewing_group == "13031");
+        ++su;
+      }
+    }
+    CHECK(sd >= 1);
+    CHECK(su >= 1);
+    std::cout << "S-102 unc VG toggle hide/show ok\n";
+  }
+
+  // --- #1b Fixture B depth-only compound ---
+  {
+    s100::LoadError err;
+    s100::Dataset ds;
+    CHECK(s100::open_dataset(fixture_b, ds, &err));
+    CHECK(ds.coverage.has_value());
+    CHECK(ds.coverage->grids.size() >= 1);
+    CHECK(ds.coverage->grid().uncertainty.empty());  // no channel loaded
+    s100::CoverageSample sm;
+    CHECK(ds.coverage->sample_wgs84(30.0, 30.0, sm));
+    CHECK(sm.has_depth);
+    CHECK(std::fabs(sm.depth - 8.0f) < 1e-3f);
+    CHECK(!sm.has_uncertainty);
+
+    s100::FeatureCatalogue fc;
+    s100::PortrayalCatalogue pc;
+    std::string perr;
+    CHECK(s100::load_feature_catalogue(src / "catalogues/S-102/S-102_FC_3.0.0.xml", fc, &perr));
+    CHECK(s100::load_portrayal_catalogue(src / "catalogues/S-102/PC_3.0.0", pc, &perr));
+    auto ctx = s100::PortrayalContext::defaults(pc);
+    s100::DrawingInstructions di;
+    s100::PortrayalStats st;
+    CHECK(s100::portray(*ds.coverage, fc, pc, ctx, di, &perr, &st));
+    int n_unc = 0, n_depth = 0;
+    for (const auto& d : di) {
+      if (d.kind != s100::DrawingInstruction::Kind::Coverage || d.command != "CoverageFill") continue;
+      if (d.coverage_attribute == "uncertainty") ++n_unc;
+      if (d.coverage_attribute == "depth") ++n_depth;
+    }
+    CHECK(n_depth >= 1);
+    CHECK(n_unc == 0);  // no uncertainty CoverageFill for depth-only
+    std::cout << "S-102 unc B depth-only load+sample+no-unc-DI ok\n";
+  }
+
+  // --- #6 Real NOAA/CHS path (unc metres only; QoBC not asserted) ---
+  {
+    const fs::path noaa = src / "testdata/s102/102US004AK5HQ262267.h5";
+    fs::path cell;
+    bool prefer_noaa = false;
+    if (fs::exists(noaa)) {
+      cell = noaa;
+      prefer_noaa = true;
+    } else if (s100test::chs_exercised("s102.uncertainty")) {
+      cell = s100test::chs_s100_root() / "S-102" / "DATASET_FILES" / "CA00" /
+             "102CA0064682N07116W" / "16" / "102CA0064682N07116W.h5";
+    }
+    if (cell.empty()) {
+      std::cout << "S-102 unc real sample: not exercised (no NOAA/CHS under TEST-DATA-ROOTS)\n";
+    } else {
+      s100::LoadError err;
+      s100::Dataset ds;
+      CHECK(s100::open_dataset(cell, ds, &err));
+      CHECK(ds.coverage.has_value());
+      CHECK(ds.coverage->grids.size() >= 1);
+      // Dual-channel sample shape always.
+      s100::CoverageSample sm;
+      bool any_depth = false;
+      bool any_unc = false;
+      const auto& g = ds.coverage->grid();
+      for (std::size_t r = 0; r < g.nrows; r += std::max<std::size_t>(1, g.nrows / 64)) {
+        for (std::size_t c = 0; c < g.ncols; c += std::max<std::size_t>(1, g.ncols / 64)) {
+          if (!g.sample_cell(r, c, sm)) continue;
+          any_depth = true;
+          if (sm.has_uncertainty) any_unc = true;
+        }
+      }
+      CHECK(any_depth);
+      if (prefer_noaa) {
+        // NOAA has real per-cell unc (e.g. cell 700,700 → 40.34).
+        CHECK(g.sample_cell(700, 700, sm));
+        CHECK(sm.has_depth);
+        CHECK(sm.has_uncertainty);
+        CHECK(std::fabs(sm.uncertainty - 40.34f) < 0.01f);
+        std::cout << "S-102 unc NOAA cell(700,700) depth=" << sm.depth
+                  << " unc=" << sm.uncertainty << "\n";
+      } else {
+        // CHS cell today is all-fill unc — positive has_uncertainty only when present.
+        std::cout << "S-102 unc CHS path loaded any_unc=" << any_unc << " (all-fill ok)\n";
+      }
+    }
+  }
+
+  // --- #7 prior deepen still green is covered by separate CTest; smoke synthetic still loads ---
+  {
+    const fs::path synth = src / "testdata/s102/synthetic_multigrid_4326.h5";
+    CHECK(fs::exists(synth));
+    s100::LoadError err;
+    s100::Dataset ds;
+    CHECK(s100::open_dataset(synth, ds, &err));
+    CHECK(ds.coverage.has_value());
+    CHECK(ds.coverage->grids.size() >= 2);
+  }
+
+  std::cout << "S-102 uncertainty OK (IHO-S102-UNCERTAINTY)\n";
+}
+
 void run_s102_tests() {
   test_s102_fc_and_pc_pair();
   test_s102_open_bounds_sample_portray();
   test_s102_utm_sample_wgs84();
   test_s102_session_overlay();
   test_s102_deepen_multigrid();
+  test_s102_uncertainty();
 }

@@ -1084,11 +1084,20 @@ class MapWidget : public QWidget {
         const std::size_t col =
             static_cast<std::size_t>((static_cast<double>(x) + 0.5) * grid.ncols / out_w);
         s100::CoverageSample sm;
-        if (!grid.sample_cell(row, col, sm) || !sm.has_depth) continue;
+        if (!grid.sample_cell(row, col, sm)) continue;
+        const bool unc_layer = (di.coverage_attribute == "uncertainty");
+        float value = 0;
+        if (unc_layer) {
+          if (!sm.has_uncertainty) continue;
+          value = sm.uncertainty;
+        } else {
+          if (!sm.has_depth) continue;
+          value = sm.depth;
+        }
         const std::string* token = nullptr;
         double tr = 0;
         for (const auto& b : bands) {
-          if (b.matches(sm.depth)) {
+          if (b.matches(value)) {
             token = &b.token;
             tr = b.transparency;
             break;
@@ -1328,7 +1337,8 @@ class MapWidget : public QWidget {
   std::unordered_map<std::string, AreaFillDef> area_fill_cache_;
   SymbolCache symbol_cache_;
   s100::LayerVisibility visibility_;  // session state, not in Dataset
-  std::set<std::string> hidden_viewing_groups_;  // session state; empty = all groups on
+  // S-102 uncertainty vendor VG 13031 may be hidden by default (docs/s102-uncertainty-contract.md U3).
+  std::set<std::string> hidden_viewing_groups_{{"13031"}};
   double west_{-0.05}, south_{-0.05}, east_{0.05}, north_{0.05};
   std::function<void(const QString&)> status_cb_;
   TimelineStepFn timeline_step_;

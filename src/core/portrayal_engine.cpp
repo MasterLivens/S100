@@ -410,11 +410,54 @@ bool portray(const Dataset& ds, const FeatureCatalogue& fc, const PortrayalCatal
   return true;
 }
 
+namespace {
+
+/** Vendor-extension uncertainty CoverageFill (VG 13031) — docs/s102-uncertainty-contract.md U3/U4.
+ *  Symbolic colour tokens only; Day→Dusk remaps via PC colourProfile. */
+void append_uncertainty_coverage_fills(const CoverageDataset& cov, DrawingInstructions& out) {
+  auto push_band = [](DrawingInstruction& di, const std::string& token, const std::string& label,
+                      const std::string& lo, const std::string& hi, const char* interval) {
+    di.coverage_state.push_back("CoverageColor:" + token + ",0.35");
+    di.coverage_state.push_back("LookupEntry:" + label + "," + lo + "," + hi + "," + interval);
+  };
+
+  for (std::size_t i = 0; i < cov.grids.size(); ++i) {
+    const CoverageGrid& g = cov.grids[i];
+    // Depth-only compound → uncertainty empty → no DI (U3).
+    if (g.uncertainty.empty() || g.uncertainty.size() != g.depth.size()) continue;
+
+    DrawingInstruction di;
+    di.feature_id = (i < cov.features.size()) ? cov.features[i].id
+                                              : static_cast<std::uint64_t>(i + 1);
+    di.kind = DrawingInstruction::Kind::Coverage;
+    di.command = "CoverageFill";
+    di.coverage_attribute = "uncertainty";
+    di.viewing_group = "13031";  // project-private vendor extension (not PS/PC)
+    di.viewing_groups = {"13031"};
+    di.drawing_priority = 3;
+    di.display_plane = "UnderRadar";
+
+    // Fixed band table (metres, 2-sigma): CHGRN / ADINF / CHYLW / CHCOR / CHRED.
+    push_band(di, "CHGRN", "UncLow", "", "1", "ltSemiInterval");
+    push_band(di, "ADINF", "UncModest", "1", "5", "geLtInterval");
+    push_band(di, "CHYLW", "UncModerate", "5", "20", "geLtInterval");
+    push_band(di, "CHCOR", "UncHigh", "20", "50", "geLtInterval");
+    push_band(di, "CHRED", "UncVeryHigh", "50", "", "geSemiInterval");
+
+    out.push_back(std::move(di));
+  }
+}
+
+}  // namespace
+
 bool portray(const CoverageDataset& cov, const FeatureCatalogue& fc, const PortrayalCatalogue& pc,
              const PortrayalContext& ctx, DrawingInstructions& out, std::string* err,
              PortrayalStats* stats) {
   S102HostAdapter host(cov, fc);
-  return PortrayalEngine(pc).run(host, ctx, out, stats, err);
+  if (!PortrayalEngine(pc).run(host, ctx, out, stats, err)) return false;
+  // Depth CoverageFill from official PC (VG 13030); uncertainty is host-emitted (S-104 pattern).
+  append_uncertainty_coverage_fills(cov, out);
+  return true;
 }
 
 // ------------------------------------------------------------------ layers

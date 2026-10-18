@@ -147,27 +147,75 @@ bool load_instance_grid(hid_t file, hid_t inst, CoverageGrid& grid, LoadError* e
     grid.ncols = static_cast<std::size_t>(dims[1]);
   }
 
-  hid_t mem_type = H5Tcreate(H5T_COMPOUND, sizeof(DepthPair));
-  H5Tinsert(mem_type, "depth", HOFFSET(DepthPair, depth), H5T_NATIVE_FLOAT);
-  H5Tinsert(mem_type, "uncertainty", HOFFSET(DepthPair, uncertainty), H5T_NATIVE_FLOAT);
-
-  const std::size_t n = grid.nrows * grid.ncols;
-  std::vector<DepthPair> buf(n);
-  const herr_t rd = H5Dread(ds, mem_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data());
-  H5Tclose(mem_type);
-  H5Sclose(space);
-  H5Dclose(ds);
-  if (rd < 0) {
-    set_err(err, LoadErrorKind::Parse, "S-102 H5Dread(values) failed");
+  // Detect compound members: PS §10 allows depth-only (uncertainty column + Group_F omitted).
+  hid_t file_type = H5Dget_type(ds);
+  if (file_type < 0) {
+    H5Sclose(space);
+    H5Dclose(ds);
+    set_err(err, LoadErrorKind::Parse, "S-102 values dataset has no datatype");
+    return false;
+  }
+  bool has_depth_member = false;
+  bool has_unc_member = false;
+  if (H5Tget_class(file_type) == H5T_COMPOUND) {
+    const int nmembers = H5Tget_nmembers(file_type);
+    for (unsigned i = 0; i < static_cast<unsigned>(nmembers); ++i) {
+      char* mn = H5Tget_member_name(file_type, i);
+      if (!mn) continue;
+      if (std::strcmp(mn, "depth") == 0) has_depth_member = true;
+      if (std::strcmp(mn, "uncertainty") == 0) has_unc_member = true;
+      H5free_memory(mn);
+    }
+  }
+  H5Tclose(file_type);
+  if (!has_depth_member) {
+    H5Sclose(space);
+    H5Dclose(ds);
+    set_err(err, LoadErrorKind::Parse, "S-102 values compound missing depth member");
     return false;
   }
 
+  const std::size_t n = grid.nrows * grid.ncols;
   read_fill_from_group_f(file, &grid.fill_depth, &grid.fill_uncertainty);
   grid.depth.resize(n);
-  grid.uncertainty.resize(n);
-  for (std::size_t i = 0; i < n; ++i) {
-    grid.depth[i] = buf[i].depth;
-    grid.uncertainty[i] = buf[i].uncertainty;
+
+  if (has_unc_member) {
+    hid_t mem_type = H5Tcreate(H5T_COMPOUND, sizeof(DepthPair));
+    H5Tinsert(mem_type, "depth", HOFFSET(DepthPair, depth), H5T_NATIVE_FLOAT);
+    H5Tinsert(mem_type, "uncertainty", HOFFSET(DepthPair, uncertainty), H5T_NATIVE_FLOAT);
+    std::vector<DepthPair> buf(n);
+    const herr_t rd = H5Dread(ds, mem_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data());
+    H5Tclose(mem_type);
+    H5Sclose(space);
+    H5Dclose(ds);
+    if (rd < 0) {
+      set_err(err, LoadErrorKind::Parse, "S-102 H5Dread(values) failed");
+      return false;
+    }
+    grid.uncertainty.resize(n);
+    for (std::size_t i = 0; i < n; ++i) {
+      grid.depth[i] = buf[i].depth;
+      grid.uncertainty[i] = buf[i].uncertainty;
+    }
+  } else {
+    // Depth-only compound: no uncertainty channel in memory (has_uncertainty stays false).
+    // Optional min==max broadcast (U2b) is not elected — leave uncertainty empty.
+    struct DepthOnly {
+      float depth;
+    };
+    hid_t mem_type = H5Tcreate(H5T_COMPOUND, sizeof(DepthOnly));
+    H5Tinsert(mem_type, "depth", HOFFSET(DepthOnly, depth), H5T_NATIVE_FLOAT);
+    std::vector<DepthOnly> buf(n);
+    const herr_t rd = H5Dread(ds, mem_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data());
+    H5Tclose(mem_type);
+    H5Sclose(space);
+    H5Dclose(ds);
+    if (rd < 0) {
+      set_err(err, LoadErrorKind::Parse, "S-102 H5Dread(values depth-only) failed");
+      return false;
+    }
+    grid.uncertainty.clear();
+    for (std::size_t i = 0; i < n; ++i) grid.depth[i] = buf[i].depth;
   }
   return true;
 }
