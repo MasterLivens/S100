@@ -7,7 +7,7 @@ Case id: **`IHO-S164-SIG-PRODUCER`** (**Active**). CTest: **`exchange_signature_
 
 Primary sources: `/workspace/research/part15/BRIEF.md` (S-98 §9.1.1 CN MRN quote), `docs/part15-signature-contract.md` (**D8** → this case), S-100 Part 17 discovery (`producerCode`), existing `s100_security` (`OfficialClass`, cert ST/CN, `sse_map`, `verify_exchange_set`). Power-up contract explicitly deferred producer-code here (`docs/powerup-self-check-contract.md`).
 
-**rev1 changes (from draft 2ed3a63):** freeze CN producer segment ↔ CATALOG `producerCode` match; O out; ST unchanged; missing `producerCode` → N/A-pass; mismatch → per-dataset skip + reason `producer_code_mismatch` (primary) + project-map SSE **109** (secondary; not App. B literal; not 126); AGGREGATOR → Backlog; Open cleared (AGGREGATOR Backlog only).
+**rev1 changes (from draft 2ed3a63):** freeze CN producer segment ↔ CATALOG `producerCode` match; O out; ST unchanged; missing `producerCode` → N/A-pass; mismatch → per-dataset skip + reason `producer_code_mismatch` (primary) + project-map SSE **109** (secondary; not App. B literal; not 126); AGGREGATOR ST → **exempt** this slice (PRIMAR); aggregator↔member HO matching → Backlog; fileName fallback **OFF**; compare exact upper (no zero-strip); segment 4 never compared.
 
 ---
 
@@ -25,7 +25,7 @@ This is the frozen next SIG slice after **`IHO-S164-POWERUP`**.
 |----|-------|---------------------|-------|
 | **PC-C1** | CN MRN ↔ producer | S-98 Ed 2.0.0 §**9.1.1**: CN = `urn:mrn:iho:<producer>:<id>` (e.g. `urn:mrn:iho:aa00:01810`, `urn:mrn:iho:GB00:00540`); for digitally signed datasets, those elements in **at least one** authenticating certificate **must match** those in the **dataset and its CATALOG.XML entry** | BRIEF §1.4; “at least one” cited for DATA_PRODUCER 1:1 this slice |
 | **PC-C2** | Catalogue producer field | Part 17 `S100_DatasetDiscoveryMetadata.producerCode` (0..1, official IHO GI Producer Code / S-62 family; also S-101 metadata) | **Normative dataset-side anchor.** `producingAgency` / org **name** do **not** participate |
-| **PC-C3** | Filename-embedded code | e.g. `101AA00DS0008.000` → `AA00` | **Synthetic fixture construction only** — not a normative check when CATALOG/dataset metadata is present |
+| **PC-C3** | Filename-embedded code | e.g. `101AA00DS0008.000` → `AA00` | **OFF as a check this slice** (old `signatures/positive` is `101AA00…` vs CN `99ZZ` by design). May appear in construction notes only; never overrides / substitutes `producerCode` |
 | **PC-C4** | Official vs non-official | Existing SIG **D8 / A9**: ST → `OfficialClass`; malformed / non-conforming CN → NonOfficial path (9.1.1) | **Unchanged.** Producer-code mismatch is an Enforce **skip**, **not** a demotion to NonOfficial and **not** a new SSE for malformed CN |
 | **PC-C5** | Failure UX / ops | S-98 §**20.4.3 c** + SIG Enforce: skipped content must not apply; log every rejection | Align per-file skip effects already in SIG |
 
@@ -35,25 +35,30 @@ This is the frozen next SIG slice after **`IHO-S164-POWERUP`**.
 
 ### 3.1 Certificate side
 
-1. Read X.509 subject **CN** (already on the verify path alongside ST).
-2. Parse IHO MRN: case-insensitive prefix `urn:mrn:iho:` then **`<producer>:<id>`**.
-3. **Producer segment** = MRN segment 3: **alpha + integer together** as one token (examples: `aa00`, `GB00`, `99ZZ`). Compare after **normalize case: upper** (so `aa00` ↔ `AA00`).
-4. **O** (Organisation) does **not** participate in the match.
-5. **ST** continues to drive `OfficialClass` only (SIG A9). ST does not substitute for producer-code match.
-6. **Malformed / non-conforming CN** → existing **NonOfficial** path (S-98 9.1.1 / SIG A9). **Do not** invent a new SSE from this slice for malformed CN.
-7. S-98 “at least one of the authenticating certificates”: for this slice’s **DATA_PRODUCER 1:1** fixtures, the leaf data-server cert used for `EVP_DigestVerify` on that resource supplies the CN. (AGGREGATOR vs member HO → Backlog, §9.)
+1. Read X.509 subject **CN** only (already on the verify path alongside ST). **O / certificate id / MRN segment 4** never compared to `producerCode`.
+2. Parse IHO MRN: case-insensitive prefix `urn:mrn:iho:` (or `urn:mrn:iho:org:` if present) then take the **producer token** (segment after `iho:` / `iho:org:` — the whole third namespace segment, e.g. `aa00` in `urn:mrn:iho:aa00:01810`).
+3. **Producer segment** = that token as one piece (alpha + integer together: `aa00`, `GB00`, `99ZZ`). **Segment 4** (`01810` / `90001`) is the certificate instance id — **MUST NOT** be compared to `producerCode`.
+4. **O** (Organisation) does **not** participate.
+5. **ST** continues to drive `OfficialClass` only (SIG A9). Additionally: if ST ∈ `{DATA_AGGREGATOR}` → **exempt** producer-code match this slice (chain + OfficialClass only) — avoids PRIMAR `00PM` signing member HO false-kills. Fixtures remain **DATA_PRODUCER 1:1** only; matching aggregator CN vs member HO is **Backlog**.
+6. **Malformed / non-conforming CN** → existing **NonOfficial** / skip-that-set path (S-98 9.1.1 / SIG A9); **separate** from missing-`producerCode` N/A-pass. **Do not** invent a new SSE from this slice for malformed CN.
+7. S-98 “at least one of the authenticating certificates”: for this slice’s **DATA_PRODUCER 1:1** fixtures, the leaf data-server cert used for `EVP_DigestVerify` on that resource supplies the CN.
 
 ### 3.2 Dataset / CATALOG side (normative)
 
 - **MUST** use discovery metadata **`S100_DatasetDiscoveryMetadata.producerCode`** on the resource’s CATALOG.XML entry (Part 17 / S-101 metadata; IHO GI Producer Code).
 - Normalize that string **upper** before compare.
-- Filename-embedded producer alpha (e.g. `101AA00…` → `AA00`) may appear in **fixture construction notes** only. It is **not** the normative check when metadata is present, and must not override a present `producerCode`.
+- Filename-embedded producer alpha (e.g. `101AA00…` → `AA00`) may appear in **fixture construction notes** only. **fileName CCCC fallback as a check is OFF** this slice (would redden old `signatures/positive`). Must not override / substitute `producerCode`.
 
 ### 3.3 Equality rule
 
 At least one authenticating cert’s CN **producer segment** (upper) **MUST equal** that dataset’s **and** its CATALOG.XML entry **`producerCode`** (upper).
 
-### 3.4 When `producerCode` is absent (Open 2 — Architect)
+- Compare: **upper**, then **exact string equality**.
+- **MUST NOT** strip leading zeros (`AA00` ≠ `AA0`).
+- **MUST NOT** treat `00AA` ≡ `AA00` this slice.
+- **FC / PC** out of scope (SA direct / SSE 129 already exist). Datasets only (+ support later / Open).
+
+### 3.4 When `producerCode` is absent (frozen)
 
 | Situation | Producer-code check | Enforce install (crypto Ok) |
 |-----------|---------------------|-----------------------------|
@@ -113,11 +118,12 @@ Do **not** overload `IssuerNotSa` (**126**) — chain-to-SA and producer-identit
 | Item | Requirement |
 |------|-------------|
 | CTest | **`exchange_signature_producer`** — **MUST NOT SKIP**; Linux + Windows |
-| Synthetic fixtures | Under e.g. `testdata/s101/signatures/producer/` (or sibling); generator may extend `tools/gen_signature_fixtures.py`; signed bytes **`-text`** in `.gitattributes` (SIG A4) |
-| Scope this slice | **DATA_PRODUCER 1:1** only (cert CN producer ↔ that cell’s CATALOG `producerCode`) |
-| Positive | CN producer **`99ZZ`** = CATALOG `producerCode` **`99ZZ`** → Ok + install (extend existing or new fixture) |
+| Synthetic fixtures | New trees e.g. `testdata/s101/signatures/producer_match/` + `producer_mismatch/`; must set `producerCode` and **re-sign**; generator may extend `tools/gen_signature_fixtures.py`; signed bytes **`-text`** in `.gitattributes` (SIG A4) |
+| Scope this slice | **DATA_PRODUCER 1:1** only; **DATA_AGGREGATOR** certs **exempt** from this check |
+| Positive | CN producer **`99ZZ`** = CATALOG `producerCode` **`99ZZ`** → Ok + install |
 | Negative | CATALOG `producerCode` **`00AA`**, cert still **`99ZZ`** → that cell **skipped** (`producer_code_mismatch` / SSE 109); other members unaffected |
-| Filename in fixtures | May embed producer alpha for construction convenience; normative assert is still CATALOG `producerCode` |
+| Old `signatures/positive/` | **Exempt** (N/A-pass / no producerCode) — do not assert producer match there |
+| Filename in fixtures | Construction convenience only; **no** fileName fallback check |
 | Closed SIG Ok | **`exchange_signature`** Ok cases stay green (N/A-pass when no `producerCode`); **no** assertion edits on that positive path |
 | Keys | TEST-ONLY substring in private-key filenames (SIG A4) |
 | Dual platform | No `#ifdef` skip; OpenSSL pin unchanged (A6) |
@@ -126,7 +132,7 @@ Do **not** overload `IssuerNotSa` (**126**) — chain-to-SA and producer-identit
 
 ## 8. Tester gates (rev1 checklist)
 
-1. **Check list** — cert leaf CN **producer segment** (MRN segment 3, upper) vs CATALOG **`producerCode`** (upper). N/A-pass when `producerCode` absent.
+1. **Check list** — cert leaf CN **producer segment** (MRN segment 3 only, upper; **not** segment 4) vs CATALOG **`producerCode`** (upper, exact; no zero-strip). N/A-pass when `producerCode` absent. ST=`DATA_AGGREGATOR` → exempt.
 2. **After failure** — under Enforce, mismatched resource is **skipped** with reason `producer_code_mismatch` and project-map SSE **109**; **not** silently installed; other members continue.
 3. **Hook** — producer-code runs on existing SIG / catalogue load path (`verify_exchange_set` → `open_exchange_set` Enforce); **no** parallel stack.
 4. **Named CTest** — `exchange_signature_producer` **MUST NOT SKIP** on Linux + Windows.
@@ -139,7 +145,8 @@ Do **not** overload `IssuerNotSa` (**126**) — chain-to-SA and producer-identit
 | Item | Status |
 |------|--------|
 | Project-map SSE **109** for `producer_code_mismatch` | **Closed** — Planner+Tester aligned (project mapping, not App. B literal; **not** 126). Reason `producer_code_mismatch` primary; CTest asserts reason first, 109 secondary |
-| **DATA_AGGREGATOR** (CN aggregator vs member HO producer) | **Backlog** — cite S-98 9.1.1 “at least one”; this slice fixtures are DATA_PRODUCER 1:1 only |
+| **DATA_AGGREGATOR** ST → exempt producer match | **Closed this slice** (chain + OfficialClass only; avoids PRIMAR false-kill) |
+| Aggregator CN ↔ member HO producer matching | **Backlog** — cite S-98 9.1.1 “at least one”; fixtures stay DATA_PRODUCER 1:1 |
 | Field set / missing-`producerCode` / O / ST / Enforce skip | **Closed** (this rev1) |
 
 ---
@@ -151,7 +158,7 @@ Do **not** overload `IssuerNotSa` (**126**) — chain-to-SA and producer-identit
 - UI / display styling for official vs non-official.
 - S-128 multi-producer packs.
 - Permits / encryption / S-63.
-- AGGREGATOR vs member HO matching (Backlog).
+- Aggregator CN ↔ member HO producer matching (Backlog). ST=`DATA_AGGREGATOR` exempt is in-scope MUST.
 - Changing Ok assertions on `exchange_signature` positive path.
 - Inventing a new S-98 SSE number for producer mismatch.
 
@@ -169,6 +176,6 @@ Do **not** overload `IssuerNotSa` (**126**) — chain-to-SA and producer-identit
 
 ## 12. Engineer / Tester
 
-**Engineer:** implement §3–§7 MUST; synthetic positive `99ZZ`/`99ZZ` + negative CATALOG `00AA` vs cert `99ZZ`; new CTest `exchange_signature_producer`; do not touch closed Ok assertions; leave AGGREGATOR for Backlog.
+**Engineer:** implement §3–§7 MUST; `producer_match` / `producer_mismatch` trees with `producerCode` + re-sign; CTest `exchange_signature_producer`; ST=`DATA_AGGREGATOR` exempt; do not touch closed Ok / old `positive/`; leave aggregator↔member matching for Backlog.
 
 **Tester:** gate on §8; assert reason `producer_code_mismatch` first, SSE 109 secondary.
