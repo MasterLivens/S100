@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<S100SE:StandaloneDigitalSignature xmlns:S100SE="http://www.iho.int/s100/se/5.2">
+  <S100SE:filename>CATALOG.XML</S100SE:filename>
+  <S100SE:certificates>
+    <S100SE:schemeAdministrator id="TESTSA"/>
+    <S100SE:certificate id="urn:mrn:iho:00AG:90001" issuer="TESTSA">MIICKDCCAa2gAwIBAgIBATAKBggqhkjOPQQDAzBeMQswCQYDVQQGEwJNQzEdMBsGA1UECAwUU0NIRU1FX0FETUlOSVNUUkFUT1IxDzANBgNVBAoMBlRlc3RTQTEfMB0GA1UEAwwWdXJuOm1ybjppaG86OTlaWjowMTgxMDAeFw0yNTAxMDEwMDAwMDBaFw0zMDAxMDEwMDAwMDBaMFsxCzAJBgNVBAYTAk5PMRgwFgYDVQQIDA9EQVRBX0FHR1JFR0FUT1IxETAPBgNVBAoMCFRlc3RSRU5DMR8wHQYDVQQDDBZ1cm46bXJuOmlobzowMEFHOjkwMDAxMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAELL6R0EWDOHeudr4VhkfG8KCZ7f8nRSVGKE3gUL/1wCy9OZkXcxi6kFskxgKavmqPGm5NH6I7BwO13fhELrgIQyodA+uJ3yJ8ytlNFfK2JNsnGISb/3yzLQOHgBGeYxyjo0IwQDAdBgNVHQ4EFgQU+tWhLQ+KNGp3t0tHHWamAiJtY0swHwYDVR0jBBgwFoAUZaOWPLhcjr/BnXL31yhD6aBLCDgwCgYIKoZIzj0EAwMDaQAwZgIxAN58qfykW3uVwaUjGS4C+d8ST13n1wKo0YFOgNCWXaQee8+tNiPfeub489y2BmBZjAIxANbBD6jgsE1w1jGOXkupelzESbsEf6kfPpu87KKAC66im+kcU4zTjh0fphTpmUx5ew==</S100SE:certificate>
+  </S100SE:certificates>
+  <S100SE:digitalSignature id="catalog" certificateRef="urn:mrn:iho:00AG:90001">MGYCMQC0PqawjaVLYxV7+F9s5+K/xgHLD3py4Bgb4mEZtM+MhiQ2Kg+6kjytea89C3J3TbQCMQC5vqo4A5u1yt8swDc6eIatz3vRXXoCy21nxtIjlrtmBwMLvghxaoqCBfewmwZwJZ4=</S100SE:digitalSignature>
+</S100SE:StandaloneDigitalSignature>

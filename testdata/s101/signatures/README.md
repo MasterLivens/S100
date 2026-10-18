@@ -6,4 +6,4 @@ Fixed verify_time: `2026-01-15T00:00:00Z`.
 Producer trees: `producer_match` (producerCode=99ZZ) / `producer_mismatch` (producerCode=00AA vs CN 99ZZ) / `producer_cn_unparseable` (producerCode=99ZZ, CN not an IHO MRN → skip, no 109).
 Old `positive/` has no producerCode (N/A-pass).
 
-CN-SHAPE trees: `cn_shape_ok` (org: MRN → Official) / `cn_shape_bad` (bad CN → NonOfficial, still installs).
+CN-SHAPE trees: `cn_shape_ok` (org: MRN → Official) / `cn_shape_bad` (bad CN → NonOfficial, still installs). AGGREGATOR: `aggregator_exempt` (ST=DATA_AGGREGATOR, CN 00AG, producerCode=99MB ≠ CN → Enforce still installs).

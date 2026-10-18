@@ -404,6 +404,40 @@ def build_cn_shape_bad(out_root: Path, keys: dict):
     return case_dir
 
 
+
+def build_aggregator_exempt(out_root: Path, keys: dict):
+    """IHO-S164-SIG-AGGREGATOR positive: ST=DATA_AGGREGATOR, CN seg3=00AG,
+    producerCode=99MB (member ≠ CN) → Enforce still installs (permanent exempt).
+    """
+    case = "aggregator_exempt"
+    case_dir = out_root / case
+    if case_dir.exists():
+        shutil.rmtree(case_dir)
+    cells = copy_cells(case_dir)
+    ds_key, sa_crt, sa_key = keys["ds_key"], keys["sa_crt"], keys["sa_key"]
+    agg_cn = "urn:mrn:iho:00AG:90001"
+    agg_id = "urn:mrn:iho:00AG:90001"
+    agg_crt = out_root / "keys" / "test_ds_aggregator.crt"
+    gen_signed_cert(ds_key, sa_crt, sa_key, agg_crt,
+                    f"/C=NO/ST=DATA_AGGREGATOR/O=TestRENC/CN={agg_cn}")
+
+    cell_sigs = []
+    for c in cells:
+        b64 = sign_file(ds_key, c)
+        rel = f"file:/cells/{c.name}"
+        cell_sigs.append((rel, sig_on_data(b64, agg_id, c.stem), "ECDSA-384-SHA2",
+                           CELL_EDITION.get(c.name, 1), "99MB"))
+    certs = f'    <S100SE:schemeAdministrator id="{SA_ID}"/>\n' + cert_xml(agg_crt, agg_id, SA_ID)
+    cxml = catalog_xml(cell_sigs, certs)
+    cat_path = case_dir / "CATALOG.XML"
+    write_text(cat_path, cxml)
+    cat_sig = sign_file(ds_key, cat_path)
+    write_text(case_dir / "CATALOG.SIGN",
+               standalone_sign("CATALOG.XML", certs, cat_sig, agg_id))
+    return case_dir
+
+
+
 def mutate_copy(src_case: Path, dst_name: str, out_root: Path, mutator):
     dst = out_root / dst_name
     if dst.exists():
@@ -416,11 +450,14 @@ def mutate_copy(src_case: Path, dst_name: str, out_root: Path, mutator):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=REPO / "testdata/s101/signatures")
+    ap.add_argument("--only", type=str, default="",
+                    help="Comma-separated case names to (re)build only, e.g. aggregator_exempt")
     args = ap.parse_args()
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
     keys_dir = out / "keys"
     keys_dir.mkdir(parents=True, exist_ok=True)
+    only = {s.strip() for s in args.only.split(",") if s.strip()}
 
     sa_key = keys_dir / "test_sa_TEST-ONLY.pem"
     ds_key = keys_dir / "test_ds_TEST-ONLY.pem"
@@ -430,8 +467,7 @@ def main():
     ds_expired = keys_dir / "test_ds_expired.crt"
     rogue_crt = keys_dir / "rogue_sa.crt"
 
-    # Regenerate keys only if missing (keep stable keys across regen for less churn);
-    # always regenerate certs with fixed dates.
+    # Regenerate keys only if missing (keep stable keys across regen for less churn).
     if not sa_key.exists():
         gen_ec_key(sa_key)
     if not ds_key.exists():
@@ -439,6 +475,48 @@ def main():
     if not rogue_key.exists():
         gen_ec_key(rogue_key)
 
+    selective = bool(only) and only <= {"aggregator_exempt"}
+    if selective:
+        # Keep existing shared certs byte-identical; only mint aggregator leaf if needed.
+        if not sa_crt.exists() or not ds_crt.exists():
+            raise SystemExit("--only aggregator_exempt needs existing keys/*.crt (run full gen once)")
+        keys = {"ds_key": ds_key, "ds_crt": ds_crt, "sa_crt": sa_crt, "sa_key": sa_key,
+                "ds_expired": ds_expired, "rogue_key": rogue_key, "rogue_crt": rogue_crt}
+        build_aggregator_exempt(out, keys)
+        # Append new unsigned paths to manifest (do not rewrite old hashes).
+        man = out / "unsigned_manifest.sha256"
+        existing = set(man.read_text().splitlines()) if man.exists() else set()
+        extra = []
+        for p in sorted((out / "aggregator_exempt").rglob("*")):
+            if not p.is_file():
+                continue
+            rel = p.relative_to(out).as_posix()
+            if p.suffix == ".000" or p.name.endswith(".crt"):
+                h = hashlib.sha256(p.read_bytes()).hexdigest()
+                line = f"{h}  {rel}"
+                if line not in existing and not any(x.endswith(f"  {rel}") for x in existing):
+                    extra.append(line)
+        # Also the shared aggregator key cert under keys/
+        agg = out / "keys" / "test_ds_aggregator.crt"
+        if agg.exists():
+            rel = agg.relative_to(out).as_posix()
+            h = hashlib.sha256(agg.read_bytes()).hexdigest()
+            line = f"{h}  {rel}"
+            if not any(x.endswith(f"  {rel}") for x in existing):
+                extra.append(line)
+        if extra:
+            lines = sorted(existing | set(extra))
+            write_text(man, "\n".join(lines) + "\n")
+        # README note (append once)
+        readme = out / "README.md"
+        if readme.exists() and "aggregator_exempt" not in readme.read_text():
+            write_text(readme, readme.read_text().rstrip() +
+                       " AGGREGATOR: `aggregator_exempt` (ST=DATA_AGGREGATOR, CN 00AG, "
+                       "producerCode=99MB ≠ CN → Enforce still installs).\n")
+        print(f"wrote selective fixtures under {out}: {sorted(only)}")
+        return
+
+    # Full regen: always regenerate certs with fixed dates.
     gen_self_signed(sa_key, sa_crt, f"/C=MC/ST=SCHEME_ADMINISTRATOR/O=TestSA/CN={SA_CN}")
     gen_signed_cert(ds_key, sa_crt, sa_key, ds_crt,
                     f"/C=MC/ST=DATA_PRODUCER/O=TestDS/CN={DS_CN}")
@@ -459,6 +537,9 @@ def main():
     # IHO-S164-SIG-CN-SHAPE: OfficialClass from CN MRN shape (no producerCode)
     build_cn_shape_ok(out, keys)
     build_cn_shape_bad(out, keys)
+
+    # IHO-S164-SIG-AGGREGATOR: permanent exempt positive
+    build_aggregator_exempt(out, keys)
 
     # 2a missing CATALOG.SIGN
     mutate_copy(positive, "missing_sign", out, lambda d: (d / "CATALOG.SIGN").unlink())
@@ -637,7 +718,9 @@ def main():
                "`producer_cn_unparseable` (producerCode=99ZZ, CN not an IHO MRN → skip, no 109). "
                "Old `positive/` has no producerCode (N/A-pass). "
                "CN-SHAPE trees: `cn_shape_ok` (org: MRN → Official) / "
-               "`cn_shape_bad` (bad CN → NonOfficial, still installs).\n")
+               "`cn_shape_bad` (bad CN → NonOfficial, still installs). "
+               "AGGREGATOR: `aggregator_exempt` (ST=DATA_AGGREGATOR, CN 00AG, "
+               "producerCode=99MB ≠ CN → Enforce still installs).\n")
 
     # Manifest of unsigned paths for reproducibility check (payload cells under positive)
     lines = []

@@ -15,6 +15,7 @@
 #include <cctype>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -721,24 +722,38 @@ VerificationReport verify_exchange_set(const std::filesystem::path& exchange_roo
       return;
     }
 
-    // IHO-S164-SIG-PRODUCER: after crypto Ok, match CN producer seg3 vs CATALOG producerCode.
+    // IHO-S164-SIG-PRODUCER / IHO-S164-SIG-AGGREGATOR: after crypto Ok, producerCode gate.
     // Datasets only; FC/PC out of scope; support deferred. Missing producerCode → N/A-pass.
-    // ST=DATA_AGGREGATOR → exempt this slice.
+    // ST=DATA_AGGREGATOR → permanent exempt (docs/part15-aggregator-producer-contract.md);
+    // optional WARN aggregator_producer_code_divergent when producerCode present ≠ CN seg3
+    // (no skip, no SSE 109). DATA_PRODUCER path unchanged.
+    std::string ok_message = "ok";
     if (check_producer_code) {
       X509* leaf = cit->second.cert.get();
       const std::string st = cert_st(leaf);
-      if (st != "DATA_AGGREGATOR") {
-        // producerCode is optional (0..1); CharacterString wrapper or bare text
-        std::string declared;
-        if (auto pc = child_local(meta, "producerCode")) {
-          declared = text_of(pc);
-          if (declared.empty()) declared = pc.text().as_string();
-          // trim surrounding whitespace only (do NOT strip leading zeros inside the code)
-          while (!declared.empty() && std::isspace(static_cast<unsigned char>(declared.front())))
-            declared.erase(declared.begin());
-          while (!declared.empty() && std::isspace(static_cast<unsigned char>(declared.back())))
-            declared.pop_back();
+      // producerCode is optional (0..1); CharacterString wrapper or bare text
+      std::string declared;
+      if (auto pc = child_local(meta, "producerCode")) {
+        declared = text_of(pc);
+        if (declared.empty()) declared = pc.text().as_string();
+        // trim surrounding whitespace only (do NOT strip leading zeros inside the code)
+        while (!declared.empty() && std::isspace(static_cast<unsigned char>(declared.front())))
+          declared.erase(declared.begin());
+        while (!declared.empty() && std::isspace(static_cast<unsigned char>(declared.back())))
+          declared.pop_back();
+      }
+      if (st == "DATA_AGGREGATOR") {
+        if (!declared.empty()) {
+          const std::string seg = cn_producer_segment(cert_cn(leaf));
+          if (!seg.empty() && to_upper_ascii(seg) != to_upper_ascii(declared)) {
+            // Permanent exempt: still install. MUST-log preferred; no skip / no 109.
+            ok_message = "ok; aggregator_producer_code_divergent";
+            std::cerr << "WARN aggregator_producer_code_divergent path=" << path
+                      << " cn_seg3=" << seg << " producerCode=" << declared << "\n";
+          }
         }
+        // absent producerCode → N/A-pass (CHS COMBINED reality)
+      } else {
         if (!declared.empty()) {
           const std::string seg = cn_producer_segment(cert_cn(leaf));
           if (!seg.empty()) {
@@ -771,7 +786,7 @@ VerificationReport verify_exchange_set(const std::filesystem::path& exchange_roo
 
     auto fv = make_file(path, SigRejectCode::None, oc);
     fv.status = AuthStatus::Ok;
-    fv.message = "ok";
+    fv.message = ok_message;
     report.files.push_back(fv);
     report.installed.push_back(path);
   };
