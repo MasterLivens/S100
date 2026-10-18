@@ -60,9 +60,9 @@ Demoting check 3 to WARN is allowed **only** with `s100_cli` output attached pro
 | 1 | Fixture exists and loads; feature counts equal the fixture table (10 / 6 / 4 / 6) | MUST |
 | 2 | `lua_errors == 0` for the whole cell | MUST |
 | 3 | `|B| ≥ 1` and `|C| ≥ 1`. FASC lives on the Bridge side only (`BridgeAggregation` / role `theComponent`; reverse lookup role `theCollection` must give the same graph). **Every** `SpanFixed`/`SpanOpening` has exactly a `Bridge` parent; every `PylonBridgeSupport` that has a FASC link has a `Bridge` parent — Host query confirms | MUST |
-| 3w | `PylonBridgeSupport` with no FASC at all in 0006 (ids 33, 43, 47, 69 at `1ac028f`, evidence `s100_cli --fasc`) — logged, not failed; they still obey checks 5/11 | WARN |
+| 3w | Orphan `PylonBridgeSupport` (no FASC on either side, evidence `s100_cli --fasc`): the orphan set must **equal exactly** `{33, 43, 47, 69}` — an extra orphan, or a parented pylon (45, 46) losing its parent, is **FAIL**. Being orphan itself is reported as WARN; orphans still obey checks 5/11 | MUST (set) / WARN (orphan) |
 | 4 | For each bridge in B, the C++ backing of `HostFeatureGetAssociatedFeatureIDs(bridge, association, "")` returns exactly that bridge's children in G (set compare, per association code) | MUST |
-| 5 | Every `Bridge`/`SpanFixed`/`SpanOpening`/`PylonBridgeSupport` feature has DI count > 0. Every non-Null DI of these types has `12210` in `viewing_groups`. Non-Text DIs: `viewing_group == "12210"`. Text DIs: `viewing_group ∈ {"11","21"}` (official `PortrayalModel.lua` text VG prefix). `drawing_priority == 24`, except `PylonBridgeSupport` Surface DIs `== 18` (official rule) | MUST |
+| 5 | Every `Bridge`/`SpanFixed`/`SpanOpening`/`PylonBridgeSupport` feature has DI count > 0. Every non-Null DI of these types has `12210` in `viewing_groups`. `drawing_priority == 24`, except `PylonBridgeSupport` Surface DIs `== 18` and plane `UnderRadar` in both RadarOverlay states (official `PylonBridgeSupport.lua:20`) | MUST |
 | 6 | Every `Bridge` with Empty geometry has only `Kind::Null` DIs | MUST |
 | 7 | **ON** (`hidden_groups = {}`): every id in B has ≥ 1 DI and every id in C has ≥ 1 non-Null DI — bridge and children come out **together** | MUST |
 | 8 | **OFF** (`hidden_groups = {"12210"}`, matched against any entry of `viewing_groups`): no DI remains for any id in B ∪ C — filtered **together**; and the multiset of feature ids of DIs without `12210` in `viewing_groups` is identical to ON (nothing else affected) | MUST |
@@ -80,3 +80,4 @@ Hand-drawn bridge glyphs; editing official Lua; cross-dataset associations; S-98
 ## Notes
 
 - `bridge_render` may stay registered as an alias; CI gating and the case-id row use `fasc_bridge_render`.
+- Rulings by SoftwareTester 2026-10-18 on `1ac028f`: orphan pylons WARN with pinned set; text DIs only need `12210` in `viewing_groups`; pylon surface prio 18 / UnderRadar.
