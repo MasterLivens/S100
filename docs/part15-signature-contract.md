@@ -1,4 +1,4 @@
-# Part 15 data protection · signature verification (rev 1.1)
+# Part 15 data protection · signature verification (rev 1.2)
 
 Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
 Case id: **`IHO-S164-SIG`** (**Active**). CTest: **`exchange_signature`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
@@ -6,6 +6,8 @@ Case id: **`IHO-S164-SIG`** (**Active**). CTest: **`exchange_signature`** — **
 Primary source: `/workspace/research/part15/BRIEF.md` (Planner) and `/workspace/research/part15/verify/{verify_chs,verify_generic}.py`. Spec texts: S-100 Ed 5.2.1 Part 15 / Part 17, S-98 Ed 2.0.0 §9.1.1 / §20.4.3 c / App. B, S-164 Ed 1.0.0 §2.5–2.7 (+ 2.0.1 draft names). Docs only in this slice; **no engine / fixture / CMake / CI change in the Architect commit**.
 
 **rev1.1 changes:** (1) Planner overrule of A5 — library C++ default is **`VerifyPolicy::Enforce`**, not `Off`. Reason: signature verification is a security boundary; a new import call site that forgets to pass a policy must refuse unsigned data, not silently accept it. Existing 34 tests pass `Off` explicitly (one-time, intentional and visible). Product CLI hardcodes `Enforce`; viewer has no `open_exchange_set` yet (oracle 7). `Off` unreachable from the product (grep). Standalone `open_dataset` stays `UNVERIFIED`. Do not re-sign or modify old fixture bytes. (2) Tester — oracle **3a** pins exact SSE **126** when the trust store is non-empty `builtin_iho_52()` (105 only for empty trust / oracle 2f). (3) Tester — oracle **7** / viewer: CLI Enforce ≥ 1; viewer may be 0 until an exchange-set open exists, then each must pass Enforce. OPENSSL_API_COMPAT, check order, other oracles, SSE mapping unchanged from rev1.
+
+**rev1.2 changes:** CI learnings made durable. (1) Fixture generator `openssl` CLI MUST work on OpenSSL **3.0.13** (CI Ubuntu): do not use flags only available in 3.4+ such as `openssl req -not_before`/`-not_after`; use 3.0-compatible forms (e.g. `openssl ca -startdate`/`-enddate`). Same spirit as `OPENSSL_API_COMPAT=30000` for C++. (2) All **signed** fixture files under `testdata/s101/signatures/**` (including `CATALOG.XML`, `CATALOG.SIGN`, datasets, `.sig`) MUST be listed in `.gitattributes` as `-text` (binary checkout). Verification is over on-disk raw bytes; CRLF conversion breaks signatures (Windows CI failure mode).
 
 Strong guarantees (same family as update-robustness):
 1. A **rejected exchange set** (SSE 134 / 105 / … at catalogue level) leaves the caller’s `ChartSession` **bit-for-bit unchanged** (no members inserted, catalogue/series maps cleared only if `open_exchange_set` had already mutated — prefer verify-before-mutate: fail before writing session state).
@@ -147,6 +149,8 @@ ECDSA signing is randomized. RFC 6979 deterministic ECDSA needs OpenSSL ≥ 3.2,
 
 > **Generated signatures verify** under the test trust store, **and** all **unsigned** parts of each fixture tree (payload files, unsigned XML text nodes that the generator does not rewrite, scripts, manifests) are **byte-identical** across two generator runs.
 
+Signed fixture trees under `testdata/s101/signatures/**` MUST remain byte-identical after Git checkout (see A4 `.gitattributes` `-text`); otherwise A2 / D3 verification fails on Windows.
+
 `update_fixtures_reproducible` / `tests/check_update_fixtures.py` stay **untouched**. New check lives under the `exchange_signature` CTest (or a sibling `signature_fixtures_reproducible` invoked from it).
 
 ### A3 Local optional real cases (WARN, never SKIP)
@@ -161,6 +165,8 @@ ECDSA signing is randomized. RFC 6979 deterministic ECDSA needs OpenSSL ≥ 3.2,
 - Self-generated **test SA**, data-server cert, and **TEST-ONLY** private keys, committed; every private-key filename contains the substring `TEST-ONLY` (e.g. `testdata/s101/signatures/keys/test_sa_TEST-ONLY.pem`).
 - Generator: `tools/gen_signature_fixtures.py`.
 - **Crypto dependency decision:** the Planner’s verify scripts use **openssl CLI + Python stdlib** only. CI images already have OpenSSL on both platforms; they do **not** ship `cryptography`. **Commit the generated fixtures + TEST-ONLY keys**; the generator uses `subprocess` + `openssl` (Part 15 §15-8.5 command patterns) and Python 3 stdlib — **no pip crypto package**. CI runs the generator twice into temp dirs and asserts A2 (unsigned bytes identical + signatures verify). Offline / local regenerates the same way.
+- **OpenSSL CLI pin (generator):** `tools/gen_signature_fixtures.py` MUST invoke only OpenSSL **3.0**-compatible CLI flags so regeneration succeeds on CI Ubuntu OpenSSL **3.0.13**. Do **not** use 3.4+-only options such as `openssl req -not_before` / `-not_after`; prefer 3.0 forms (e.g. `openssl ca -startdate` / `-enddate`). Same spirit as `OPENSSL_API_COMPAT=30000` for C++ (A6).
+- **Binary checkout for signed fixtures:** all **signed** files under `testdata/s101/signatures/**` (including `CATALOG.XML`, `CATALOG.SIGN`, datasets, `.sig`, and any other signed payload) MUST be listed in `.gitattributes` as `-text` so Git checks them out as raw bytes on every platform. Verification hashes on-disk bytes (D3); CRLF conversion is a Windows CI failure mode.
 - Layout (Engineer): `testdata/s101/signatures/` with one subtree per negative/positive case (below).
 - Negative variants (one per SSE / condition above), plus: tampered data byte, tampered `CATALOG.XML`, missing `CATALOG.SIGN`, wrong algorithm string, self-signed cert in set, expired cert at the injected time, FC/PC not SA-signed, signature belonging to a different file, bad Base64/DER.
 
