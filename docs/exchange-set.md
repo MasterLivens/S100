@@ -49,7 +49,7 @@ class ChartSession {
 
 1. **One `ChartSession` for all products.** S-101 and S-102 (and later S-104/111/124) share the same session. Member key = `ProductId` + dataset identity (prefer catalogue file identifier / DSID; fall back to relative path). No parallel coverage map.
 2. **FASC/INAS element-level merge (FAUI/IUIN)** — see `docs/association-contract.md` (**full**).
-3. **Update sequencing** uses DSID edition/update numbers (and catalogue metadata when present), not extension order alone. Out-of-order or mismatched ED/UPD → `LoadError`, do not partially apply.
+3. **Update sequencing** uses DSID edition/update numbers (and catalogue metadata when present), not extension order alone. Out-of-order or mismatched ED/UPD → `LoadError`, do not partially apply. Enforced + tested by `docs/update-robustness-contract.md`.
 4. **`open_dataset(.001)` rejected.** Return `LoadErrorKind::Invalid` with a clear message pointing at `open_dataset_with_updates`. Base `.000` (and non-update product paths) unchanged.
 
 

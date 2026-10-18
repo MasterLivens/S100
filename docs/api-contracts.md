@@ -157,6 +157,14 @@ Details: `docs/s124-contract.md`.
 - CTest `fasc_bridge_render` MUST NOT SKIP (Linux + Windows).
 - New pure API: `filter_instructions_by_viewing_group(DrawingInstructions&, const std::set<std::string>& hidden_groups)` in `include/s100/viewing_group_filter.hpp`.
 
+
+## Update robustness (S-101)
+
+- Details: `docs/update-robustness-contract.md` (`IHO-S164-UPD-SEQ`, `IHO-S164-UPD-CORRUPT`, `IHO-S164-CANCEL-REISSUE`).
+- Additive: `UpdateRejectCode`, `UpdateReport`, optional out-params on `apply_s101_update` / `open_dataset_with_updates` / `open_cell_series`; `Dataset::cancelled`.
+- `apply_s101_update` strong guarantee; series stops at first rejection with last good state.
+- CTest `exchange_update_robustness` MUST NOT SKIP (Linux + Windows).
+
 ## Stability
 
 Breaking these hooks needs Architect + Tester ack in the room before merge.
