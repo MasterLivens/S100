@@ -393,7 +393,7 @@ void bridge_render() {
   BR_CHECK(spanfixed_geom >= 1);  // non-vacuous
   std::cout << "row9 SpanFixed with curve/surface=" << spanfixed_geom << " all have CHGRD _simple_ Line\n";
 
-  // ---- 10. BRIDGE01 -> PC Symbols file via core symbol_path (missing = error); 12 WARN count
+  // ---- 10. BRIDGE01 -> PC Symbols file via core symbol_path (missing = error); 12 MUST count
   std::size_t bridge01 = 0;
   for (const auto& d : under) {
     if (d.symbol_ref != "BRIDGE01") continue;
@@ -410,8 +410,9 @@ void bridge_render() {
     BR_CHECK(!serr.empty());
   }
   std::cout << "row10 BRIDGE01 DIs=" << bridge01 << " all resolve to PC Symbols/BRIDGE01.svg\n";
-  if (bridge01 == 0) std::cout << "WARN row12: no BRIDGE01 symbol on 0006\n";
-  else std::cout << "row12 BRIDGE01 count=" << bridge01 << "\n";
+  // ---- 12. BRIDGE01 count MUST ≥1 (BRIEF Open #3 / contract close tip)
+  BR_CHECK(bridge01 >= 1);
+  std::cout << "row12 BRIDGE01 count=" << bridge01 << "\n";
 
   // ---- hook 5/6: VG filter -> SCAMIN filter -> sort; bridge DIs paint above lower-priority fills.
   {
