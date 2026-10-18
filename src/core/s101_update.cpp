@@ -373,7 +373,7 @@ bool apply_association_updates(std::vector<AssociationRef>& existing,
   return true;
 }
 
-bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, LoadError* err) {
+static bool apply_s101_update_in_place(Dataset& ds, const std::filesystem::path& update_path, LoadError* err) {
   DatasetIdentification upd_id;
   if (!read_s101_dsid(update_path, upd_id, err)) return false;
   // Sequence must match Dataset DSID: same edition, update == current + 1.
@@ -553,6 +553,16 @@ bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, Lo
   ds.edition_number = upd_id.edition_number;
   ds.update_number = upd_id.update_number;
   if (!upd_id.dataset_name.empty()) ds.dataset_name = upd_id.dataset_name;
+  return true;
+}
+
+// Strong guarantee (update-robustness contract): apply on a copy, swap only on success,
+// so a rejected update leaves `ds` unchanged.
+bool apply_s101_update(Dataset& ds, const std::filesystem::path& update_path, LoadError* err) {
+  Dataset work = ds;
+  if (!apply_s101_update_in_place(work, update_path, err)) return false;
+  using std::swap;
+  swap(ds, work);
   return true;
 }
 
