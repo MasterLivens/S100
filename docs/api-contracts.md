@@ -206,6 +206,15 @@ Details: `docs/s124-contract.md`.
 - CN unparseable + `producerCode` present → Enforce **skip** that file; **no** `producer_code_mismatch` / **no** 109 (109 = parse-Ok mismatch only). NonOfficial via A9 may coexist.
 - CTest `exchange_signature_producer` MUST NOT SKIP (Linux + Windows).
 
+
+## Part 15 CN MRN shape → OfficialClass (SIG follow-on)
+
+- Details: `docs/part15-cn-shape-contract.md` (`IHO-S164-SIG-CN-SHAPE`) — **rev1** (Planner grammar/order frozen).
+- After ST: conforming CN (whole-string `urn:mrn:iho:<prod>:<id>` **or** `urn:mrn:iho:org:<prod>:<id>`, case-insensitive; `<prod>`=`[A-Za-z0-9]{2,8}`, `<id>`=`[0-9]{1,8}`) + ST ∈ `{DATA_PRODUCER,DATA_AGGREGATOR,SCHEME_ADMINISTRATOR}` → `OfficialClass::Official`; else NonOfficial (non-conforming CN demotes even when ST official). Order: ST first, then CN shape. Accept `org:` yes.
+- Per-file OfficialClass from leaf data-server cert; exchange-level from SA cert — levels independent.
+- **MUST NOT** open a new Enforce skip; PRODUCER skip rules unchanged. Reuse PRODUCER CN parser (`cn_producer_segment` family). No UI styling.
+- CTest `exchange_signature_cn_shape` MUST NOT SKIP (Linux + Windows).
+
 ## Power-up / start-up self-check (Track B)
 
 - Details: `docs/powerup-self-check-contract.md` (`IHO-S164-POWERUP`) — **rev1** (Planner checklist frozen).

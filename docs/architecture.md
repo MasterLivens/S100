@@ -41,7 +41,7 @@ Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: S
 | `iso8211` | binary cell decode + spatial | **next (Eng)** |
 | `catalogue` / `portrayal` | FC/PC XML + Lua | P1 |
 | `exchange_set` | CATALOG.XML, .001… updates | **done (P1)** |
-| `security` | Part 15 verify (`s100_security`); OpenSSL 3; exchange-set Enforce path; producer-code match follow-on | **Active (`IHO-S164-SIG`)** + **`IHO-S164-SIG-PRODUCER`** (rev1) |
+| `security` | Part 15 verify (`s100_security`); OpenSSL 3; exchange-set Enforce path; CN-shape OfficialClass + producer-code follow-ons | **Active (`IHO-S164-SIG`)** + **`IHO-S164-SIG-CN-SHAPE`** (rev1) + **`IHO-S164-SIG-PRODUCER`** (rev1) |
 | `coverage` | grid `bounds` / `sample_wgs84` (EPSG:4326) | S-102 first slice |
 | `viewer` | Qt map, toggles, status pick | P0 shell |
 
