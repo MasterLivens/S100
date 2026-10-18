@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<S100XC:S100_ExchangeCatalogue xmlns:S100XC="http://www.iho.int/s100/xc/5.2"
+  xmlns:S100SE="http://www.iho.int/s100/se/5.2"
+  xmlns:gco="http://standards.iso.org/iso/19115/-3/gco/1.0">
+  <S100XC:identifier>
+    <S100XC:identifier>s100-chart signature fixtures</S100XC:identifier>
+    <S100XC:dateTime>2026-01-15T00:00:00Z</S100XC:dateTime>
+  </S100XC:identifier>
+  <S100XC:certificates>
+    <S100SE:schemeAdministrator id="TESTSA"/>
+    <S100SE:certificate id="DS-CN-BAD" issuer="TESTSA">MIICHDCCAaGgAwIBAgIBATAKBggqhkjOPQQDAzBeMQswCQYDVQQGEwJNQzEdMBsGA1UECAwUU0NIRU1FX0FETUlOSVNUUkFUT1IxDzANBgNVBAoMBlRlc3RTQTEfMB0GA1UEAwwWdXJuOm1ybjppaG86OTlaWjowMTgxMDAeFw0yNTAxMDEwMDAwMDBaFw0zMDAxMDEwMDAwMDBaME8xCzAJBgNVBAYTAk1DMRYwFAYDVQQIDA1EQVRBX1BST0RVQ0VSMQ8wDQYDVQQKDAZUZXN0RFMxFzAVBgNVBAMMDm5vdC1hbi1paG8tbXJuMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAELL6R0EWDOHeudr4VhkfG8KCZ7f8nRSVGKE3gUL/1wCy9OZkXcxi6kFskxgKavmqPGm5NH6I7BwO13fhELrgIQyodA+uJ3yJ8ytlNFfK2JNsnGISb/3yzLQOHgBGeYxyjo0IwQDAdBgNVHQ4EFgQU+tWhLQ+KNGp3t0tHHWamAiJtY0swHwYDVR0jBBgwFoAUZaOWPLhcjr/BnXL31yhD6aBLCDgwCgYIKoZIzj0EAwMDaQAwZgIxAMbeHk14hiydAGnb7Fam28jxH6C36EBZ6Z6o2a/zvq+7YN+CUAExGAP+OmQ7y+DacgIxANHbbh1jMuof6bVLi0afIVRA/MZxYvmm10z1/QMZMNcTh61AKUnS8G4QBVuLKmbb+A==</S100SE:certificate>
+  </S100XC:certificates>
+  <S100XC:datasetDiscoveryMetadata>
+    <S100XC:S100_DatasetDiscoveryMetadata>
+      <S100XC:fileName>file:/cells/101AA00DS0008.000</S100XC:fileName>
+      <S100XC:purpose>newEdition</S100XC:purpose>
+      <S100XC:editionNumber>8</S100XC:editionNumber>
+      <S100XC:updateNumber>0</S100XC:updateNumber>
+      <S100XC:productSpecification>
+        <S100XC:name>S-101</S100XC:name>
+        <S100XC:version>2.0.0</S100XC:version>
+        <S100XC:productIdentifier>S-101</S100XC:productIdentifier>
+      </S100XC:productSpecification>
+      <S100XC:digitalSignatureReference>ECDSA-384-SHA2</S100XC:digitalSignatureReference>
+      <S100XC:digitalSignatureValue>
+        <S100SE:S100_SE_SignatureOnData dataStatus="unencrypted" id="101AA00DS0008" certificateRef="DS-CN-BAD">MGQCMHH69FwL9UnQ7abe3fS8viNyQtSA8NMhx+llTsSgOIEaAp/jJRpsg2w3o6hNXkWuuwIwbRl9QtVHZvpYaqu/RlrQdIq5bd3ZicyUMJ1gXdH4beOt6IuGdTujDFQHRW1QX/hd</S100SE:S100_SE_SignatureOnData>
+      </S100XC:digitalSignatureValue>
+    </S100XC:S100_DatasetDiscoveryMetadata>
+    <S100XC:S100_DatasetDiscoveryMetadata>
+      <S100XC:fileName>file:/cells/101AA00DS0003.000</S100XC:fileName>
+      <S100XC:purpose>newEdition</S100XC:purpose>
+      <S100XC:editionNumber>9</S100XC:editionNumber>
+      <S100XC:updateNumber>0</S100XC:updateNumber>
+      <S100XC:productSpecification>
+        <S100XC:name>S-101</S100XC:name>
+        <S100XC:version>2.0.0</S100XC:version>
+        <S100XC:productIdentifier>S-101</S100XC:productIdentifier>
+      </S100XC:productSpecification>
+      <S100XC:digitalSignatureReference>ECDSA-384-SHA2</S100XC:digitalSignatureReference>
+      <S100XC:digitalSignatureValue>
+        <S100SE:S100_SE_SignatureOnData dataStatus="unencrypted" id="101AA00DS0003" certificateRef="DS-CN-BAD">MGQCMGIeNCu7TAA9FoGq8fyDPAsGF4ZKXteRiGYtHMlPshDuEf3d6XNScpx2ufPDXRK1+gIwKETFSYfKetxL3Z6KzjAiwPu37e4JR17NS0CXhLDqJStsUliYiHaFNieh094jHYFA</S100SE:S100_SE_SignatureOnData>
+      </S100XC:digitalSignatureValue>
+    </S100XC:S100_DatasetDiscoveryMetadata>
+  </S100XC:datasetDiscoveryMetadata>
+</S100XC:S100_ExchangeCatalogue>

@@ -171,8 +171,28 @@ std::string to_upper_ascii(std::string s) {
   return s;
 }
 
-/** IHO MRN producer token = namespace segment 3 only (after urn:mrn:iho: or urn:mrn:iho:org:).
- *  Segment 4 (cert instance id) is never returned. Empty if CN is not a conforming MRN. */
+/** IHO-S164-SIG-CN-SHAPE / PRODUCER shared MRN grammar (case-insensitive prefix):
+ *  urn:mrn:iho:<prod>:<id>  or  urn:mrn:iho:org:<prod>:<id>
+ *  prod = [A-Za-z0-9]{2,8}, id = [0-9]{1,8}. Empty producer → non-conforming. */
+bool cn_prod_token_ok(const std::string& token) {
+  if (token.size() < 2 || token.size() > 8) return false;
+  for (unsigned char c : token) {
+    if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')))
+      return false;
+  }
+  return true;
+}
+
+bool cn_id_token_ok(const std::string& token) {
+  if (token.empty() || token.size() > 8) return false;
+  for (unsigned char c : token) {
+    if (!(c >= '0' && c <= '9')) return false;
+  }
+  return true;
+}
+
+/** Parse conforming CN; returns producer segment (seg3) or empty if non-conforming.
+ *  Segment 4 (cert instance id) is never returned. Single grammar for PRODUCER + CN-SHAPE. */
 std::string cn_producer_segment(const std::string& cn) {
   if (cn.empty()) return {};
   std::string lower = cn;
@@ -189,15 +209,29 @@ std::string cn_producer_segment(const std::string& cn) {
   } else {
     return {};
   }
-  // rest is "<producer>:<id>" or just "<producer>"; take first colon-separated token only
+  // Must be exactly "<prod>:<id>" (one colon); no bare producer without id.
   const auto colon = rest.find(':');
-  std::string token = (colon == std::string::npos) ? rest : rest.substr(0, colon);
-  // reject empty or nested leftovers that look like bare "org" without org: prefix handling
-  if (token.empty()) return {};
-  return token;
+  if (colon == std::string::npos) return {};
+  if (rest.find(':', colon + 1) != std::string::npos) return {};  // too many segments
+  const std::string prod = rest.substr(0, colon);
+  const std::string id = rest.substr(colon + 1);
+  if (!cn_prod_token_ok(prod) || !cn_id_token_ok(id)) return {};
+  return prod;
+}
+
+bool cn_mrn_shape_ok(const std::string& cn) { return !cn_producer_segment(cn).empty(); }
+
+/** ST first, then CN MRN shape (IHO-S164-SIG-CN-SHAPE). Empty ST → Unknown. */
+OfficialClass classify_official(const std::string& st, const std::string& cn) {
+  if (st.empty()) return OfficialClass::Unknown;
+  const bool st_official =
+      (st == "DATA_PRODUCER" || st == "DATA_AGGREGATOR" || st == "SCHEME_ADMINISTRATOR");
+  if (!st_official) return OfficialClass::NonOfficial;
+  return cn_mrn_shape_ok(cn) ? OfficialClass::Official : OfficialClass::NonOfficial;
 }
 
 OfficialClass classify_st(const std::string& st) {
+  // Backward-compatible ST-only helper (no CN). Prefer classify_official on verify path.
   if (st == "DATA_PRODUCER" || st == "DATA_AGGREGATOR" || st == "SCHEME_ADMINISTRATOR")
     return OfficialClass::Official;
   if (st.empty()) return OfficialClass::Unknown;
@@ -366,7 +400,7 @@ SigRejectCode authenticate_cert(const std::string& cert_id,
   const int kMax = 8;
   bool reached_sa = false;
   X509* leaf = it->second.cert.get();
-  if (leaf_official) *leaf_official = classify_st(cert_st(leaf));
+  if (leaf_official) *leaf_official = classify_official(cert_st(leaf), cert_cn(leaf));
 
   while (depth < kMax) {
     auto cit = catalog_certs.find(cur_id);

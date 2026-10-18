@@ -340,6 +340,70 @@ def build_producer_cn_unparseable(out_root: Path, keys: dict):
     return case_dir
 
 
+
+def build_cn_shape_ok(out_root: Path, keys: dict):
+    """IHO-S164-SIG-CN-SHAPE positive: form 2 CN urn:mrn:iho:org:<prod>:<id>, no producerCode.
+    Crypto Ok → Official + install.
+    """
+    case = "cn_shape_ok"
+    case_dir = out_root / case
+    if case_dir.exists():
+        shutil.rmtree(case_dir)
+    cells = copy_cells(case_dir)
+    ds_key, sa_crt, sa_key = keys["ds_key"], keys["sa_crt"], keys["sa_key"]
+    ok_cn = "urn:mrn:iho:org:99ZZ:90001"
+    ok_id = "DS-CN-ORG"
+    ok_crt = out_root / "keys" / "test_ds_cn_org.crt"
+    gen_signed_cert(ds_key, sa_crt, sa_key, ok_crt,
+                    f"/C=MC/ST=DATA_PRODUCER/O=TestDS/CN={ok_cn}")
+
+    cell_sigs = []
+    for c in cells:
+        b64 = sign_file(ds_key, c)
+        rel = f"file:/cells/{c.name}"
+        cell_sigs.append((rel, sig_on_data(b64, ok_id, c.stem), "ECDSA-384-SHA2",
+                           CELL_EDITION.get(c.name, 1)))
+    certs = f'    <S100SE:schemeAdministrator id="{SA_ID}"/>\n' + cert_xml(ok_crt, ok_id, SA_ID)
+    cxml = catalog_xml(cell_sigs, certs)
+    cat_path = case_dir / "CATALOG.XML"
+    write_text(cat_path, cxml)
+    cat_sig = sign_file(ds_key, cat_path)
+    write_text(case_dir / "CATALOG.SIGN",
+               standalone_sign("CATALOG.XML", certs, cat_sig, ok_id))
+    return case_dir
+
+
+def build_cn_shape_bad(out_root: Path, keys: dict):
+    """IHO-S164-SIG-CN-SHAPE negative: bad CN, crypto Ok, no producerCode → NonOfficial + install.
+    """
+    case = "cn_shape_bad"
+    case_dir = out_root / case
+    if case_dir.exists():
+        shutil.rmtree(case_dir)
+    cells = copy_cells(case_dir)
+    ds_key, sa_crt, sa_key = keys["ds_key"], keys["sa_crt"], keys["sa_key"]
+    bad_cn = "not-an-iho-mrn"
+    bad_id = "DS-CN-BAD"
+    bad_crt = out_root / "keys" / "test_ds_cn_shape_bad.crt"
+    gen_signed_cert(ds_key, sa_crt, sa_key, bad_crt,
+                    f"/C=MC/ST=DATA_PRODUCER/O=TestDS/CN={bad_cn}")
+
+    cell_sigs = []
+    for c in cells:
+        b64 = sign_file(ds_key, c)
+        rel = f"file:/cells/{c.name}"
+        cell_sigs.append((rel, sig_on_data(b64, bad_id, c.stem), "ECDSA-384-SHA2",
+                           CELL_EDITION.get(c.name, 1)))
+    certs = f'    <S100SE:schemeAdministrator id="{SA_ID}"/>\n' + cert_xml(bad_crt, bad_id, SA_ID)
+    cxml = catalog_xml(cell_sigs, certs)
+    cat_path = case_dir / "CATALOG.XML"
+    write_text(cat_path, cxml)
+    cat_sig = sign_file(ds_key, cat_path)
+    write_text(case_dir / "CATALOG.SIGN",
+               standalone_sign("CATALOG.XML", certs, cat_sig, bad_id))
+    return case_dir
+
+
 def mutate_copy(src_case: Path, dst_name: str, out_root: Path, mutator):
     dst = out_root / dst_name
     if dst.exists():
@@ -391,6 +455,10 @@ def main():
     build_producer_case(out, keys, "producer_match", "99ZZ")
     build_producer_case(out, keys, "producer_mismatch", "00AA")
     build_producer_cn_unparseable(out, keys)
+
+    # IHO-S164-SIG-CN-SHAPE: OfficialClass from CN MRN shape (no producerCode)
+    build_cn_shape_ok(out, keys)
+    build_cn_shape_bad(out, keys)
 
     # 2a missing CATALOG.SIGN
     mutate_copy(positive, "missing_sign", out, lambda d: (d / "CATALOG.SIGN").unlink())
@@ -567,7 +635,9 @@ def main():
                "Producer trees: `producer_match` (producerCode=99ZZ) / "
                "`producer_mismatch` (producerCode=00AA vs CN 99ZZ) / "
                "`producer_cn_unparseable` (producerCode=99ZZ, CN not an IHO MRN → skip, no 109). "
-               "Old `positive/` has no producerCode (N/A-pass).\n")
+               "Old `positive/` has no producerCode (N/A-pass). "
+               "CN-SHAPE trees: `cn_shape_ok` (org: MRN → Official) / "
+               "`cn_shape_bad` (bad CN → NonOfficial, still installs).\n")
 
     # Manifest of unsigned paths for reproducibility check (payload cells under positive)
     lines = []
