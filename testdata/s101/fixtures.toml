@@ -86,4 +86,12 @@ sha256 = "5fa42a8dc655706be020f5e33d955fe2d66204dcdc05e8f70355ce6f903c431c"
 path = "updates/seq/101AA00DS0003.003"
 sha256 = "31a0a15201dbb69386077ff78d0d09e4b8488006e9cffca29d583e23a4cb1038"
 
+[[update_fixture]]
+path = "updates/session/101AA00DS0003.002"
+sha256 = "2149ba096ea1dec894e7122a5ac95242ffde0052ca3f00271e4c46e75f133a01"
+
+[[update_fixture]]
+path = "updates/session/CATALOG.XML"
+sha256 = "268b78f0b17b92edb941ed46ed5f4624ceecb4b108909ea520e5e0a8695d00e9"
+
 # END update fixtures

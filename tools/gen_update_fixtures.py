@@ -260,6 +260,11 @@ def generate(out_dir):
 
     files["catalog/CATALOG.XML"] = catalog_xml()
 
+    # Session oracle 11 (rev 1.3): exchange set base + seq/.001 (valid) + a .002 whose DSID is
+    # in sequence (9.2) but deletes a non-existent FRID -> MissingTarget at the 2nd update.
+    files["session/%s.002" % CELL] = update(9, 2, [delete_record(missing_rcid)])
+    files["session/CATALOG.XML"] = session_catalog_xml()
+
     meta = {
         "new_rcid": new_rcid, "patched_value": patched_value, "delete_rcid": delete_rcid,
         "missing_rcid": missing_rcid, "late_modify": late_modify, "late_delete": late_delete,
@@ -299,6 +304,42 @@ def catalog_xml():
         + "  </S100XC:datasetDiscoveryMetadata>\n"
         "</S100XC:S100_ExchangeCatalogue>\n")
     return xml.encode("ascii")
+
+
+def session_catalog_xml():
+    return _catalog([("file:/../../%s" % BASE_REL, 9, 0, "newDataset"),
+                     ("file:/../seq/%s.001" % CELL, 9, 1, "update"),
+                     ("file:/%s.002" % CELL, 9, 2, "update")],
+                    "update-robustness session last-good-state fixture")
+
+
+def _catalog(rows, ident):
+    body = "".join(_meta(*r) for r in rows)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<S100XC:S100_ExchangeCatalogue xmlns:S100XC="http://www.iho.int/s100/xc/5.2">\n'
+        "  <S100XC:identifier>\n"
+        "    <S100XC:identifier>%s</S100XC:identifier>\n"
+        "    <S100XC:dateTime>2026-10-18T00:00:00</S100XC:dateTime>\n"
+        "  </S100XC:identifier>\n"
+        "  <S100XC:datasetDiscoveryMetadata>\n" % ident
+        + body
+        + "  </S100XC:datasetDiscoveryMetadata>\n"
+        "</S100XC:S100_ExchangeCatalogue>\n").encode("ascii")
+
+
+def _meta(file_name, ed, upd, purpose):
+    return (
+        "    <S100XC:S100_DatasetDiscoveryMetadata>\n"
+        "      <S100XC:fileName>%s</S100XC:fileName>\n"
+        "      <S100XC:purpose>%s</S100XC:purpose>\n"
+        "      <S100XC:editionNumber>%d</S100XC:editionNumber>\n"
+        "      <S100XC:updateNumber>%d</S100XC:updateNumber>\n"
+        "      <S100XC:productSpecification>\n"
+        "        <S100XC:productIdentifier>S-101</S100XC:productIdentifier>\n"
+        "        <S100XC:version>2.0.0</S100XC:version>\n"
+        "      </S100XC:productSpecification>\n"
+        "    </S100XC:S100_DatasetDiscoveryMetadata>\n" % (file_name, purpose, ed, upd))
 
 
 def manifest_block(files):

@@ -1,6 +1,7 @@
 // IHO-S164-UPD-SEQ / IHO-S164-UPD-CORRUPT — docs/update-robustness-contract.md rev 1.2.
 // CTest: exchange_update_robustness. MUST NOT SKIP: a missing fixture is a FAIL.
 #include "s100/exchange_set.hpp"
+#include "s100/session.hpp"
 #include "support/dataset_digest.hpp"
 #include "support/sha256.hpp"
 
@@ -84,7 +85,8 @@ void check_fixture_set() {
       "updates/notupd/101AA00DS0003.000", "updates/corrupt/trunc.001",
       "updates/corrupt/leader.001",      "updates/corrupt/ruin9.001",
       "updates/corrupt/missing.001",     "updates/corrupt/late_fail.001",
-      "updates/catalog/CATALOG.XML"};
+      "updates/catalog/CATALOG.XML",     "updates/session/CATALOG.XML",
+      "updates/session/101AA00DS0003.002"};
   const auto m = manifest();
   UCHECK(m.size() == expected.size());
   for (const auto& rel : expected) {
@@ -227,11 +229,11 @@ void test_exchange_update_robustness() {
                       UpdateRejectCode::EditionMismatch, "8.1");
   expect_apply_reject(base, upd_dir() / "notupd" / "101AA00DS0003.000",
                       UpdateRejectCode::NotUpdateFile, "9.0");
-  // trunc.001 is cut inside the DDR, so its DSID is not on disk: message says it is unreadable.
+  // Oracle 6 (rev 1.3): DSID unreadable (Truncated, BadStructure) -> "?.?".
   expect_apply_reject(base, upd_dir() / "corrupt" / "trunc.001", UpdateRejectCode::Truncated,
                       "ED.UPD ?.?");
   expect_apply_reject(base, upd_dir() / "corrupt" / "leader.001", UpdateRejectCode::BadStructure,
-                      "9.1");
+                      "ED.UPD ?.?");
   expect_apply_reject(base, upd_dir() / "corrupt" / "ruin9.001", UpdateRejectCode::BadInstruction,
                       "9.1");
   expect_apply_reject(base, upd_dir() / "corrupt" / "missing.001", UpdateRejectCode::MissingTarget,
@@ -274,6 +276,48 @@ void test_exchange_update_robustness() {
     UCHECK(rep.message.find("9.1") != std::string::npos);
     UCHECK(s100test::dataset_digest(out) == base_digest);  // last good state = base
     ++g_seen[UpdateRejectCode::CatalogueMismatch];
+  }
+
+  // Oracle 11 (rev 1.3, MUST): ChartSession keeps the last good state on a rejected update.
+  {
+    s100::ChartSession session;
+    UCHECK(session.open_exchange_set(upd_dir() / "session" / "CATALOG.XML", &err));
+    const auto key = s100::exchange_member_key(s100::ProductId::S101, "101AA00DS0003");
+    const auto keys = session.member_keys();
+    UCHECK(keys.size() == 1 && keys.front() == key);
+    UCHECK(session.series().front().updates.size() == 2);
+    s100::LoadError lerr{s100::LoadErrorKind::Invalid, {}};
+    const bool ok = session.load_member(key, &lerr);
+    const auto rep = session.last_update_report(key);
+    const s100::Dataset* member = session.find(key);
+    std::cout << "oracle 11 session: load_member=" << ok << " find=" << (member ? "member" : "null")
+              << " UPD=" << (member ? member->update_number : -1) << " applied=" << rep.applied
+              << " rejected=" << rep.rejected.filename().string() << " code=" << name(rep.code)
+              << " | " << rep.message << "\n";
+    UCHECK(!ok);
+    UCHECK(member != nullptr);
+    UCHECK(member->update_number == 1);
+    UCHECK(rep.code == UpdateRejectCode::MissingTarget);
+    UCHECK(rep.applied == 1);
+    UCHECK(rep.rejected.filename() == "101AA00DS0003.002");
+    UCHECK(rep.message.find("101AA00DS0003.002") != std::string::npos);
+    UCHECK(rep.message.find("9.2") != std::string::npos);
+    UCHECK(session.last_update_report("101AA00DS0003").code == UpdateRejectCode::MissingTarget);
+    // Last good state == base + .001, bit-for-bit.
+    UCHECK(s100test::dataset_digest(*member) == s100test::dataset_digest(upd1));
+    UCHECK(by_rcid(*member, kInsertedRcid) != nullptr);
+    ++g_seen[UpdateRejectCode::MissingTarget];
+
+    // Success path also stores a report (code None).
+    s100::ChartSession ok_session;
+    UCHECK(ok_session.open_exchange_set(fs::path(S100_SOURCE_DIR) / "testdata/exchange_set/CATALOG.XML",
+                                        &err));
+    const auto ok_key = ok_session.member_keys().front();
+    UCHECK(ok_session.load_member(ok_key, &err));
+    UCHECK(ok_session.last_update_report(ok_key).code == UpdateRejectCode::None);
+    UCHECK(ok_session.last_update_report(ok_key).rejected.empty());
+    std::cout << "oracle 11 success path: " << ok_key << " code="
+              << name(ok_session.last_update_report(ok_key).code) << "\n";
   }
 
   // Every enum value except None has >= 1 fixture.

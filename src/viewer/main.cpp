@@ -1525,7 +1525,31 @@ int main(int argc, char** argv) {
   } else if (!cell.isEmpty()) {
     s100::Dataset ds;
     s100::LoadError err;
-    if (s100::open_dataset(cell.toStdString(), ds, &err)) {
+    // docs/update-robustness-contract.md (viewer, thin): a base .000 with sibling updates goes
+    // through the core update path; on a rejected update the core leaves base + applied prefix
+    // in ds, which is drawn with a status-bar warning. The viewer never decides sequencing.
+    QString update_warning;
+    auto open_cell = [&]() -> bool {
+      const std::filesystem::path p = cell.toStdString();
+      if (p.extension() == ".000") {
+        const auto updates = s100::discover_update_files(p);
+        if (!updates.empty()) {
+          s100::UpdateReport rep;
+          if (s100::open_dataset_with_updates(p, updates, ds, &err, &rep)) return true;
+          if (rep.code == s100::UpdateRejectCode::None || rep.rejected == p) return false;
+          update_warning = QString("WARNING: update rejected (%1, code=%2) — showing last good "
+                                   "state %3.%4 (applied=%5) — ")
+                               .arg(QString::fromStdString(rep.rejected.filename().string()))
+                               .arg(QString::fromLatin1(s100::update_reject_code_name(rep.code)))
+                               .arg(ds.edition_number)
+                               .arg(ds.update_number)
+                               .arg(rep.applied);
+          return true;
+        }
+      }
+      return s100::open_dataset(p, ds, &err);
+    };
+    if (open_cell()) {
       s100::DrawingInstructions instructions;
       s100::PortrayalStats ps;
       QString msg;
@@ -1864,7 +1888,7 @@ int main(int argc, char** argv) {
       apply_layer_csv(layers_on, true);
       apply_layer_csv(layers_off, false);
       refresh_list();
-      win.statusBar()->showMessage(msg);
+      win.statusBar()->showMessage(update_warning + msg);
     } else {
       win.statusBar()->showMessage(QString::fromStdString(err.message));
     }

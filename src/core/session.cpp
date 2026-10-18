@@ -31,10 +31,34 @@ bool ChartSession::load_member(const std::string& key, LoadError* err) {
     }
     return false;
   }
+  const std::string member = exchange_member_key(found->product, found->cell_name);
   Dataset ds;
-  if (!open_cell_series(*found, ds, err)) return false;
-  datasets_[exchange_member_key(found->product, found->cell_name)] = std::move(ds);
-  return true;
+  UpdateReport report;
+  const bool ok = open_cell_series(*found, ds, err, &report);
+  update_reports_[member] = report;
+  if (ok) {
+    datasets_[member] = std::move(ds);
+    return true;
+  }
+  // Rejected update: open_cell_series left base + applied prefix in ds (contract Behaviour #2).
+  // Keep it as the member so it stays displayable. A base failure has no good state (ds was
+  // never filled: empty path), so nothing is inserted.
+  const bool have_good_state = report.code != UpdateRejectCode::None && !ds.path.empty() &&
+                               report.rejected != found->base;
+  if (have_good_state) datasets_[member] = std::move(ds);
+  return false;
+}
+
+UpdateReport ChartSession::last_update_report(const std::string& key) const {
+  auto it = update_reports_.find(key);
+  if (it != update_reports_.end()) return it->second;
+  for (const auto& s : series_) {
+    if (s.cell_name == key) {
+      auto it2 = update_reports_.find(exchange_member_key(s.product, s.cell_name));
+      if (it2 != update_reports_.end()) return it2->second;
+    }
+  }
+  return UpdateReport{};
 }
 
 std::size_t ChartSession::load_all_members(LoadError* first_err) {
@@ -101,6 +125,7 @@ void ChartSession::clear() {
   catalogue_ = ExchangeCatalogue{};
   series_.clear();
   datasets_.clear();
+  update_reports_.clear();
 }
 
 }  // namespace s100

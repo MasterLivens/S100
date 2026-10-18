@@ -525,40 +525,6 @@ Scan scan_structure(const std::vector<std::uint8_t>& b, std::string& why) {
   return Scan::Ok;
 }
 
-/** Best-effort DSID for messages on files that failed the structural scan: walk complete
- *  records, resyncing on the next readable data leader. Never used for decisions. */
-bool sniff_dsid(const std::vector<std::uint8_t>& b, DatasetIdentification& out) {
-  std::size_t off = 0;
-  while (off + 24 <= b.size()) {
-    Leader8211 L;
-    if (!parse_leader_8211(b.data() + off, b.size() - off, L) || L.rec_len > b.size() - off ||
-        L.base_addr < 25 || L.base_addr > L.rec_len) {
-      ++off;  // resync
-      continue;
-    }
-    const std::uint8_t* rec = b.data() + off;
-    const std::size_t esz = static_cast<std::size_t>(L.tag_sz + L.len_sz + L.pos_sz);
-    for (std::size_t i = 24; i + esz <= L.base_addr; i += esz) {
-      if (rec[i] == 0x1e) break;
-      const std::uint8_t* len_p = rec + i + L.tag_sz;
-      const std::uint8_t* pos_p = len_p + L.len_sz;
-      if (static_cast<std::size_t>(L.tag_sz) != 4 || std::memcmp(rec + i, "DSID", 4) != 0) continue;
-      if (!all_digits(len_p, static_cast<std::size_t>(L.len_sz)) ||
-          !all_digits(pos_p, static_cast<std::size_t>(L.pos_sz)))
-        break;
-      const std::size_t flen = digits_value(len_p, static_cast<std::size_t>(L.len_sz));
-      const std::size_t fpos = digits_value(pos_p, static_cast<std::size_t>(L.pos_sz));
-      if (L.base_addr + fpos + flen > L.rec_len) break;
-      std::vector<std::uint8_t> data(rec + L.base_addr + fpos, rec + L.base_addr + fpos + flen);
-      if (!data.empty() && data.back() == 0x1e) data.pop_back();
-      out = parse_s101_dsid(data);
-      if (out.ok) return true;
-    }
-    off += L.rec_len;
-  }
-  return false;
-}
-
 std::string ed_upd(int ed, int upd) { return std::to_string(ed) + "." + std::to_string(upd); }
 
 bool instruction_ok(std::uint8_t v) { return v <= 3; }
@@ -636,8 +602,7 @@ bool apply_in_place(Dataset& ds, const std::filesystem::path& update_path,
   const Scan t = scan_truncation(bytes, why);
   const Scan st = t == Scan::Ok ? scan_structure(bytes, why) : t;
   if (st != Scan::Ok) {
-    DatasetIdentification sniffed;
-    if (sniff_dsid(bytes, sniffed)) reject.file_ed_upd = ed_upd(sniffed.edition_number, sniffed.update_number);
+    // Oracle 6 (rev 1.3): DSID is not read from a file that fails the scan -> "?.?".
     return reject(st == Scan::Truncated ? UpdateRejectCode::Truncated : UpdateRejectCode::BadStructure,
                   LoadErrorKind::Parse, why);
   }

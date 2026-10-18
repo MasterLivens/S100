@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<S100XC:S100_ExchangeCatalogue xmlns:S100XC="http://www.iho.int/s100/xc/5.2">
+  <S100XC:identifier>
+    <S100XC:identifier>update-robustness session last-good-state fixture</S100XC:identifier>
+    <S100XC:dateTime>2026-10-18T00:00:00</S100XC:dateTime>
+  </S100XC:identifier>
+  <S100XC:datasetDiscoveryMetadata>
+    <S100XC:S100_DatasetDiscoveryMetadata>
+      <S100XC:fileName>file:/../../101AA00DS0003.000</S100XC:fileName>
+      <S100XC:purpose>newDataset</S100XC:purpose>
+      <S100XC:editionNumber>9</S100XC:editionNumber>
+      <S100XC:updateNumber>0</S100XC:updateNumber>
+      <S100XC:productSpecification>
+        <S100XC:productIdentifier>S-101</S100XC:productIdentifier>
+        <S100XC:version>2.0.0</S100XC:version>
+      </S100XC:productSpecification>
+    </S100XC:S100_DatasetDiscoveryMetadata>
+    <S100XC:S100_DatasetDiscoveryMetadata>
+      <S100XC:fileName>file:/../seq/101AA00DS0003.001</S100XC:fileName>
+      <S100XC:purpose>update</S100XC:purpose>
+      <S100XC:editionNumber>9</S100XC:editionNumber>
+      <S100XC:updateNumber>1</S100XC:updateNumber>
+      <S100XC:productSpecification>
+        <S100XC:productIdentifier>S-101</S100XC:productIdentifier>
+        <S100XC:version>2.0.0</S100XC:version>
+      </S100XC:productSpecification>
+    </S100XC:S100_DatasetDiscoveryMetadata>
+    <S100XC:S100_DatasetDiscoveryMetadata>
+      <S100XC:fileName>file:/101AA00DS0003.002</S100XC:fileName>
+      <S100XC:purpose>update</S100XC:purpose>
+      <S100XC:editionNumber>9</S100XC:editionNumber>
+      <S100XC:updateNumber>2</S100XC:updateNumber>
+      <S100XC:productSpecification>
+        <S100XC:productIdentifier>S-101</S100XC:productIdentifier>
+        <S100XC:version>2.0.0</S100XC:version>
+      </S100XC:productSpecification>
+    </S100XC:S100_DatasetDiscoveryMetadata>
+  </S100XC:datasetDiscoveryMetadata>
+</S100XC:S100_ExchangeCatalogue>
