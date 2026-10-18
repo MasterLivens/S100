@@ -21,6 +21,28 @@ from pathlib import Path
 UNSIGNED_SUFFIXES = {".000", ".md", ".xml"}  # payload / docs; not .crt/.SIGN/.XML catalog
 
 
+def _mkstemp_path(suffix: str) -> Path:
+    """mkstemp + close fd immediately (Windows locks open handles)."""
+    fd, name = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    return Path(name)
+
+
+def _unlink_temp(path: Path) -> None:
+    for _ in range(5):
+        try:
+            path.unlink(missing_ok=True)
+            return
+        except PermissionError:
+            import time
+            time.sleep(0.05)
+    try:
+        path.unlink(missing_ok=True)
+    except PermissionError:
+        pass
+
+
+
 def sha_unsigned(root: Path) -> dict:
     out = {}
     for dirpath, _, files in os.walk(root):
@@ -43,7 +65,7 @@ def pem_body(pem: str) -> str:
 def verify_positive(case: Path, sa_crt: Path) -> None:
     ds_pem = case.parent / "keys" / "test_ds.crt"
     # Extract pubkey from DS cert
-    pub = Path(tempfile.mkstemp(suffix=".pem")[1])
+    pub = _mkstemp_path(".pem")
     try:
         subprocess.check_call(
             ["openssl", "x509", "-in", str(ds_pem), "-pubkey", "-noout", "-out", str(pub)]
@@ -55,7 +77,7 @@ def verify_positive(case: Path, sa_crt: Path) -> None:
         )
         assert m, "no catalog signature"
         sig = base64.b64decode("".join(m.group(1).split()))
-        sigf = Path(tempfile.mkstemp(suffix=".sig")[1])
+        sigf = _mkstemp_path(".sig")
         try:
             sigf.write_bytes(sig)
             r = subprocess.run(
@@ -75,7 +97,7 @@ def verify_positive(case: Path, sa_crt: Path) -> None:
             if "Verified OK" not in (r.stdout + r.stderr):
                 raise SystemExit(f"CATALOG.XML signature failed: {r.stdout}{r.stderr}")
         finally:
-            sigf.unlink(missing_ok=True)
+            _unlink_temp(sigf)
         # cells
         x = (case / "CATALOG.XML").read_text()
         for blk in re.findall(
@@ -91,7 +113,7 @@ def verify_positive(case: Path, sa_crt: Path) -> None:
                 re.S,
             ).group(1)
             sig = base64.b64decode("".join(vv.split()))
-            sigf = Path(tempfile.mkstemp(suffix=".sig")[1])
+            sigf = _mkstemp_path(".sig")
             try:
                 sigf.write_bytes(sig)
                 path = case / fn
@@ -112,9 +134,9 @@ def verify_positive(case: Path, sa_crt: Path) -> None:
                 if "Verified OK" not in (r.stdout + r.stderr):
                     raise SystemExit(f"{fn} signature failed: {r.stdout}{r.stderr}")
             finally:
-                sigf.unlink(missing_ok=True)
+                _unlink_temp(sigf)
     finally:
-        pub.unlink(missing_ok=True)
+        _unlink_temp(pub)
     # SA chain
     r = subprocess.run(
         ["openssl", "verify", "-CAfile", str(sa_crt), str(ds_pem)],

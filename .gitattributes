@@ -2,3 +2,4 @@
 catalogues/** -text
 third_party/** -text
 testdata/s101/updates/** -text
+testdata/s101/signatures/** -text

@@ -57,7 +57,8 @@ void oracle_positive() {
   std::cout << "oracle 1 positive:\n";
   const auto root = sig_root() / "positive";
   const auto r = verify_exchange_set(root, test_trust(), fixed_opts());
-  std::cout << "  status=" << static_cast<int>(r.status) << " installed=" << r.installed.size()
+  std::cout << "  status=" << static_cast<int>(r.status) << " sse=" << r.sse
+            << " msg=" << r.message << " installed=" << r.installed.size()
             << " skipped=" << r.skipped.size() << "\n";
   SCHECK(r.status == AuthStatus::Ok);
   SCHECK(r.code == SigRejectCode::None);

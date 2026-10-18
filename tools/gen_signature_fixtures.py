@@ -69,13 +69,32 @@ def pem_body(pem: str) -> str:
     return "".join(lines)
 
 
+def _unlink_temp(path: Path) -> None:
+    """Best-effort unlink; Windows may briefly lock after openssl exits."""
+    for _ in range(5):
+        try:
+            path.unlink(missing_ok=True)
+            return
+        except PermissionError:
+            import time
+            time.sleep(0.05)
+    try:
+        path.unlink(missing_ok=True)
+    except PermissionError:
+        pass
+
+
 def sign_file(key_pem: Path, data_path: Path) -> str:
-    sig = Path(tempfile.mkstemp(suffix=".sig")[1])
+    # Close the mkstemp fd before openssl uses the path — on Windows an open
+    # handle locks the file so openssl/unlink fail with WinError 32.
+    fd, name = tempfile.mkstemp(suffix=".sig")
+    os.close(fd)
+    sig = Path(name)
     try:
         run(["openssl", "dgst", "-sha384", "-sign", str(key_pem), "-out", str(sig), str(data_path)])
         return base64.b64encode(sig.read_bytes()).decode("ascii")
     finally:
-        sig.unlink(missing_ok=True)
+        _unlink_temp(sig)
 
 
 def gen_ec_key(path: Path):
