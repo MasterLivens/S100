@@ -26,7 +26,9 @@ SRC_CELLS = [
     REPO / "testdata/s101/101AA00DS0003.000",
 ]
 VERIFY_TIME = "2026-01-15T00:00:00Z"
-# Fixed cert validity windows (OpenSSL -not_before/-not_after)
+# Fixed cert validity windows. OpenSSL 3.0.x (Ubuntu CI) rejects
+# `req`/`x509` `-not_before`/`-not_after` (added later); use `openssl ca`
+# `-startdate`/`-enddate` which exist on 1.0+/3.0/3.5.
 NB = "250101000000Z"       # 2025-01-01
 NA = "300101000000Z"       # 2030-01-01
 NA_EXPIRED = "251201000000Z"  # 2025-12-01 (before verify_time)
@@ -80,30 +82,75 @@ def gen_ec_key(path: Path):
     run(["openssl", "ecparam", "-name", "secp384r1", "-genkey", "-noout", "-out", str(path)])
 
 
+def _write_ca_config(td: Path, extensions: str | None) -> Path:
+    """Minimal openssl.cnf for `openssl ca` (OpenSSL 3.0-compatible dates)."""
+    (td / "index.txt").write_text("")
+    (td / "serial").write_text("01\n")
+    (td / "newcerts").mkdir()
+    ext_line = ""
+    ext_section = ""
+    if extensions:
+        ext_line = "x509_extensions = cert_ext\n"
+        ext_section = f"\n[cert_ext]\n{extensions}\n"
+    # Forward slashes: openssl.cnf treats backslash as line continuation.
+    def p(x: Path) -> str:
+        return x.resolve().as_posix()
+
+    cnf = td / "ca.cnf"
+    cnf.write_text(
+        "[ca]\n"
+        "default_ca = CA_default\n"
+        "\n"
+        "[CA_default]\n"
+        f"database = {p(td / 'index.txt')}\n"
+        f"serial = {p(td / 'serial')}\n"
+        f"new_certs_dir = {p(td / 'newcerts')}\n"
+        "default_md = sha384\n"
+        "policy = policy_any\n"
+        "unique_subject = no\n"
+        f"{ext_line}"
+        "\n"
+        "[policy_any]\n"
+        "countryName = optional\n"
+        "stateOrProvinceName = optional\n"
+        "organizationName = optional\n"
+        "commonName = supplied\n"
+        f"{ext_section}"
+    )
+    return cnf
+
+
 def gen_self_signed(key: Path, out_crt: Path, subj: str, not_after: str = NA, sha: str = "sha384"):
-    run([
-        "openssl", "req", "-new", "-x509", "-key", str(key), "-out", str(out_crt),
-        "-subj", subj, f"-{sha}",
-        "-not_before", NB, "-not_after", not_after,
-    ])
+    # `openssl ca -selfsign -startdate/-enddate` works on OpenSSL 3.0 and 3.5.
+    # (`req`/`x509` `-not_before`/`-not_after` are rejected on Ubuntu 3.0.13.)
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        cnf = _write_ca_config(td_path, "basicConstraints = critical,CA:TRUE\n")
+        csr = td_path / "req.csr"
+        run(["openssl", "req", "-new", "-key", str(key), "-out", str(csr), "-subj", subj])
+        run([
+            "openssl", "ca", "-batch", "-notext", "-config", str(cnf),
+            "-in", str(csr), "-out", str(out_crt),
+            "-keyfile", str(key), "-selfsign",
+            "-startdate", NB, "-enddate", not_after,
+            "-md", sha,
+        ])
 
 
 def gen_signed_cert(key: Path, ca_crt: Path, ca_key: Path, out_crt: Path, subj: str,
                     not_after: str = NA, sha: str = "sha384"):
-    csr = Path(tempfile.mkstemp(suffix=".csr")[1])
-    try:
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        cnf = _write_ca_config(td_path, None)
+        csr = td_path / "req.csr"
         run(["openssl", "req", "-new", "-key", str(key), "-out", str(csr), "-subj", subj])
         run([
-            "openssl", "x509", "-req", "-in", str(csr), "-CA", str(ca_crt), "-CAkey", str(ca_key),
-            "-CAcreateserial", "-out", str(out_crt), f"-{sha}",
-            "-not_before", NB, "-not_after", not_after,
+            "openssl", "ca", "-batch", "-notext", "-config", str(cnf),
+            "-in", str(csr), "-out", str(out_crt),
+            "-cert", str(ca_crt), "-keyfile", str(ca_key),
+            "-startdate", NB, "-enddate", not_after,
+            "-md", sha,
         ])
-    finally:
-        csr.unlink(missing_ok=True)
-        ser = Path(str(ca_crt) + ".srl")
-        # serial next to out or ca
-        for p in ca_crt.parent.glob("*.srl"):
-            p.unlink(missing_ok=True)
 
 
 def catalog_xml(cells: list[tuple], certificates_xml: str,

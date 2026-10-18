@@ -64,24 +64,35 @@ jobs:
         run: |
           # windows-latest ships Shining Light OpenSSL under "C:\Program Files\OpenSSL".
           # Missing libcrypto-3-x64.dll hangs ~120s on a missing-DLL dialog — fail fast.
+          # Wrap Where-Object in @(): a single match is a scalar string, and $roots[0]
+          # on a string is the first character ("C") — which broke OPENSSL_ROOT_DIR.
           $roots = @(
-            "C:\Program Files\OpenSSL",
-            "C:\Program Files\OpenSSL-Win64",
-            $env:OPENSSL_ROOT_DIR
-          ) | Where-Object { $_ -and (Test-Path $_) }
+            @(
+              "C:\Program Files\OpenSSL",
+              "C:\Program Files\OpenSSL-Win64",
+              $env:OPENSSL_ROOT_DIR
+            ) | Where-Object { $_ -and (Test-Path $_) }
+          )
           $found = $null
+          $opensslRoot = $null
           foreach ($r in $roots) {
             $dll = Join-Path $r "bin\libcrypto-3-x64.dll"
-            if (Test-Path $dll) { $found = $dll; $bin = Join-Path $r "bin"; break }
+            if (Test-Path $dll) {
+              $found = $dll
+              $bin = Join-Path $r "bin"
+              $opensslRoot = $r
+              break
+            }
           }
           if (-not $found) {
             Get-ChildItem "C:\Program Files" -Filter "OpenSSL*" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
             throw "libcrypto-3-x64.dll not found under OpenSSL install (fail-fast; do not hang on missing-DLL dialog)"
           }
           $bin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          if ($roots.Count -gt 0) {
-            "OPENSSL_ROOT_DIR=$($roots[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          }
+          # Forward slashes avoid cmd.exe quoting pitfalls; CMake accepts them on Windows.
+          $opensslRootCmake = $opensslRoot -replace '\\', '/'
+          "OPENSSL_ROOT_DIR=$opensslRootCmake" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "OPENSSL_ROOT_DIR=$opensslRootCmake"
           Write-Host "OpenSSL DLL on PATH: $found"
           where.exe libcrypto-3-x64.dll
       - name: Configure (Linux)
@@ -90,7 +101,8 @@ jobs:
       - name: Configure (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=%HDF5_ROOT% -DHDF5_DIR=%HDF5_DIR%
+        # Quote OPENSSL_ROOT_DIR: path contains spaces ("C:/Program Files/OpenSSL").
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT="%HDF5_ROOT%" -DHDF5_DIR="%HDF5_DIR%" -DOPENSSL_ROOT_DIR="%OPENSSL_ROOT_DIR%"
       - name: Build
         run: cmake --build build --config Release
       - name: Test (Linux)
