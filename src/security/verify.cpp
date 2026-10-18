@@ -716,9 +716,21 @@ VerificationReport verify_exchange_set(const std::filesystem::path& exchange_roo
               report.skipped.push_back(path);
               return;
             }
+          } else {
+            // CN unparseable + producerCode present: cannot prove must-match → skip file.
+            // MUST NOT emit producer_code_mismatch / SSE 109 (109 = parse-Ok mismatch only).
+            // NonOfficial via A9 may coexist; no new SSE from this slice.
+            FileVerification fv;
+            fv.path = path;
+            fv.status = AuthStatus::SkippedResource;
+            fv.code = SigRejectCode::None;
+            fv.sse = 0;
+            fv.message = "producer_cn_unparseable";
+            fv.official = oc;
+            report.files.push_back(fv);
+            report.skipped.push_back(path);
+            return;
           }
-          // Unparseable CN while producerCode present: no new SSE this slice (NonOfficial path
-          // is separate / A9); treat as N/A for the match so we do not invent a reject code.
         }
       }
     }

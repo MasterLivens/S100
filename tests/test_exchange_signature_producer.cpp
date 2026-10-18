@@ -110,6 +110,41 @@ void oracle_mismatch() {
   SCHECK(session.datasets().empty());
 }
 
+
+void oracle_cn_unparseable() {
+  // producerCode present + leaf CN not an IHO MRN → Enforce skip; no mismatch reason / no 109.
+  std::cout << "oracle producer_cn_unparseable (CN not-an-iho-mrn + producerCode 99ZZ):\n";
+  const auto root = sig_root() / "producer_cn_unparseable";
+  SCHECK(fs::exists(root / "CATALOG.SIGN"));
+  const auto r = verify_exchange_set(root, test_trust(), fixed_opts());
+  std::cout << "  status=" << static_cast<int>(r.status) << " installed=" << r.installed.size()
+            << " skipped=" << r.skipped.size() << "\n";
+  SCHECK(r.status == AuthStatus::Ok);
+  SCHECK(r.skipped.size() >= 2);
+  SCHECK(r.installed.empty());
+
+  bool saw_skip = false;
+  for (const auto& f : r.files) {
+    if (f.path.extension() != ".000") continue;
+    SCHECK(f.status == AuthStatus::SkippedResource);
+    SCHECK(f.code != SigRejectCode::ProducerCodeMismatch);
+    SCHECK(f.sse != 109);
+    SCHECK(f.sse == 0);
+    SCHECK(f.message.find("producer_code_mismatch") == std::string::npos);
+    SCHECK(f.message.find("producer_cn_unparseable") != std::string::npos);
+    saw_skip = true;
+  }
+  SCHECK(saw_skip);
+
+  s100::ChartSession session;
+  session.set_verify_trust(test_trust());
+  session.set_verify_options(fixed_opts());
+  s100::LoadError err;
+  SCHECK(session.open_exchange_set(root / "CATALOG.XML", &err, VerifyPolicy::Enforce));
+  session.load_all_members(&err);
+  SCHECK(session.datasets().empty());
+}
+
 void oracle_old_positive_na_pass() {
   // Old positive/ has no producerCode → N/A-pass; must stay Ok (do not break exchange_signature).
   std::cout << "oracle old positive N/A-pass (no producerCode):\n";
@@ -136,9 +171,11 @@ void oracle_off_policy() {
 void test_exchange_signature_producer() {
   SCHECK(fs::exists(sig_root() / "producer_match" / "CATALOG.SIGN"));
   SCHECK(fs::exists(sig_root() / "producer_mismatch" / "CATALOG.SIGN"));
+  SCHECK(fs::exists(sig_root() / "producer_cn_unparseable" / "CATALOG.SIGN"));
   oracle_sse_map();
   oracle_match();
   oracle_mismatch();
+  oracle_cn_unparseable();
   oracle_old_positive_na_pass();
   oracle_off_policy();
   std::cout << "exchange_signature_producer ok\n";
