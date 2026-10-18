@@ -32,6 +32,8 @@ struct PowerUpOptions {
   /** Optional override for PU-3; nullptr → TrustStore::builtin_iho_52(). */
   const security::TrustStore* trust_for_pu3{nullptr};
   PowerUpSurface surface{PowerUpSurface::Library};
+  /** When true (install-tree / env override), missing smoke → Pass smoke_na_install_tree. */
+  bool allow_smoke_na{false};
 };
 
 struct PowerUpReport {
@@ -64,5 +66,14 @@ void print_powerup_report(const PowerUpReport& r);
 
 /** Default options from compile-time pins (S100_CATALOGUE_ROOT / smoke paths / version). */
 PowerUpOptions default_powerup_options(PowerUpSurface surface = PowerUpSurface::Library);
+
+/** Resolve catalogue root: env S100_CATALOGUE_ROOT → compile pin if exists →
+ *  exe-relative ../share/s100 (install layout). Optional override wins when non-empty dir. */
+std::filesystem::path resolve_catalogue_root(
+    const std::filesystem::path& override_root = {});
+
+/** Join resolve_catalogue_root() with a path relative to that root (e.g. catalogues/S-101/…). */
+std::filesystem::path catalogue_path(const std::filesystem::path& relative_under_root,
+                                     const std::filesystem::path& override_root = {});
 
 }  // namespace s100

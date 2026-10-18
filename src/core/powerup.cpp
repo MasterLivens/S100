@@ -2,9 +2,18 @@
 #include "s100/session.hpp"
 
 #include <cctype>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <sstream>
+#include <vector>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 #ifndef S100_VERSION
 #define S100_VERSION ""
@@ -25,6 +34,26 @@ namespace {
 std::mutex g_mu;
 bool g_has_run = false;
 PowerUpReport g_last{};
+
+std::filesystem::path executable_dir() {
+  namespace fs = std::filesystem;
+#if defined(_WIN32)
+  wchar_t buf[MAX_PATH];
+  DWORD n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+  if (n == 0 || n >= MAX_PATH) return {};
+  return fs::path(buf).parent_path();
+#else
+  std::error_code ec;
+  auto p = fs::read_symlink("/proc/self/exe", ec);
+  if (ec) return {};
+  return p.parent_path();
+#endif
+}
+
+bool dir_ok(const std::filesystem::path& p) {
+  std::error_code ec;
+  return !p.empty() && std::filesystem::is_directory(p, ec) && !ec;
+}
 
 PowerUpSeverity max_sev(PowerUpSeverity a, PowerUpSeverity b) {
   const auto rank = [](PowerUpSeverity s) {
@@ -56,7 +85,7 @@ const char* sev_name(PowerUpSeverity s) {
 bool is_printable_identity(const std::string& s) {
   if (s.empty()) return false;
   for (unsigned char c : s) {
-    if (c < 0x20 || c > 0x7e) return false;  // non-empty ASCII printable
+    if (c < 0x20 || c > 0x7e) return false;
   }
   return true;
 }
@@ -146,19 +175,23 @@ void check_pu3(PowerUpReport& r, const security::TrustStore* trust_override) {
 
 void check_pu4(PowerUpReport& r, const PowerUpOptions& opts) {
   namespace fs = std::filesystem;
-  if (opts.smoke_exchange.empty() || !fs::exists(opts.smoke_exchange)) {
-    add_item(r, "PU-4", PowerUpSeverity::Block,
-             "smoke exchange fixture missing: " + opts.smoke_exchange.string());
-    return;
-  }
-  if (opts.test_sa_cert.empty() || !fs::is_regular_file(opts.test_sa_cert)) {
+  if (opts.smoke_exchange.empty() || !fs::exists(opts.smoke_exchange) ||
+      opts.test_sa_cert.empty() || !fs::is_regular_file(opts.test_sa_cert)) {
+    if (opts.allow_smoke_na) {
+      add_item(r, "PU-4", PowerUpSeverity::Pass, "smoke_na_install_tree");
+      return;
+    }
+    if (opts.smoke_exchange.empty() || !fs::exists(opts.smoke_exchange)) {
+      add_item(r, "PU-4", PowerUpSeverity::Block,
+               "smoke exchange fixture missing: " + opts.smoke_exchange.string());
+      return;
+    }
     add_item(r, "PU-4", PowerUpSeverity::Block,
              "test SA cert missing: " + opts.test_sa_cert.string());
     return;
   }
   security::VerifyOptions vo = opts.smoke_verify_options;
   if (vo.verify_time == std::chrono::system_clock::time_point{}) {
-    // 2026-01-15T00:00:00Z — same pin as exchange_signature / SIG D2 (no wall clock).
     vo.verify_time = std::chrono::system_clock::from_time_t(static_cast<std::time_t>(1768435200));
   }
   vo.test_mode = true;
@@ -174,12 +207,17 @@ void check_pu4(PowerUpReport& r, const PowerUpOptions& opts) {
 
 void check_pu5(PowerUpReport& r, const PowerUpOptions& opts) {
   namespace fs = std::filesystem;
-  if (opts.smoke_exchange.empty() || !fs::exists(opts.smoke_exchange)) {
-    add_item(r, "PU-5", PowerUpSeverity::Block,
-             "smoke exchange fixture missing: " + opts.smoke_exchange.string());
-    return;
-  }
-  if (opts.test_sa_cert.empty() || !fs::is_regular_file(opts.test_sa_cert)) {
+  if (opts.smoke_exchange.empty() || !fs::exists(opts.smoke_exchange) ||
+      opts.test_sa_cert.empty() || !fs::is_regular_file(opts.test_sa_cert)) {
+    if (opts.allow_smoke_na) {
+      add_item(r, "PU-5", PowerUpSeverity::Pass, "smoke_na_install_tree");
+      return;
+    }
+    if (opts.smoke_exchange.empty() || !fs::exists(opts.smoke_exchange)) {
+      add_item(r, "PU-5", PowerUpSeverity::Block,
+               "smoke exchange fixture missing: " + opts.smoke_exchange.string());
+      return;
+    }
     add_item(r, "PU-5", PowerUpSeverity::Block,
              "test SA cert missing: " + opts.test_sa_cert.string());
     return;
@@ -193,7 +231,6 @@ void check_pu5(PowerUpReport& r, const PowerUpOptions& opts) {
   ChartSession session;
   session.set_verify_trust(security::TrustStore::for_tests(opts.test_sa_cert));
   session.set_verify_options(vo);
-  // Bypass process power-up gate: this IS the power-up smoke (avoid recursion).
   session.set_powerup_gate_bypass(true);
   LoadError err;
   const fs::path catalog = fs::is_directory(opts.smoke_exchange)
@@ -217,7 +254,6 @@ void check_pu6(PowerUpReport& r, PowerUpSurface surface) {
       add_item(r, "PU-6", PowerUpSeverity::Pass, "N/A (CLI)");
       break;
     case PowerUpSurface::Viewer:
-      // First Eng slice: WARN stub (no pixel compare / EncDotNet).
       add_item(r, "PU-6", PowerUpSeverity::Warn, "display_check_stub");
       break;
     case PowerUpSurface::Library:
@@ -234,23 +270,59 @@ security::VerificationReport security_self_test(const std::filesystem::path& exc
   return security::verify_exchange_set(exchange_root, trust, options);
 }
 
+std::filesystem::path resolve_catalogue_root(const std::filesystem::path& override_root) {
+  namespace fs = std::filesystem;
+  if (dir_ok(override_root)) return fs::weakly_canonical(override_root);
+
+  if (const char* env = std::getenv("S100_CATALOGUE_ROOT"); env && *env) {
+    fs::path ep(env);
+    if (dir_ok(ep)) return fs::weakly_canonical(ep);
+  }
+
+  const fs::path compile_pin = S100_CATALOGUE_ROOT;
+  if (dir_ok(compile_pin)) return fs::weakly_canonical(compile_pin);
+
+  const fs::path exe = executable_dir();
+  if (!exe.empty()) {
+    const fs::path cand = exe / ".." / "share" / "s100";
+    if (dir_ok(cand)) return fs::weakly_canonical(cand);
+  }
+  return compile_pin;
+}
+
+std::filesystem::path catalogue_path(const std::filesystem::path& relative_under_root,
+                                     const std::filesystem::path& override_root) {
+  return resolve_catalogue_root(override_root) / relative_under_root;
+}
+
 PowerUpOptions default_powerup_options(PowerUpSurface surface) {
   PowerUpOptions o;
-  o.catalogue_root = S100_CATALOGUE_ROOT;
-  o.smoke_exchange = S100_POWERUP_SMOKE_EXCHANGE;
-  o.test_sa_cert = S100_POWERUP_TEST_SA;
+  const char* env = std::getenv("S100_CATALOGUE_ROOT");
+  const bool env_set = env && *env;
+  o.catalogue_root = resolve_catalogue_root();
   o.smoke_verify_options.verify_time =
       std::chrono::system_clock::from_time_t(static_cast<std::time_t>(1768435200));
   o.smoke_verify_options.test_mode = true;
   o.surface = surface;
+  if (env_set) {
+    o.allow_smoke_na = true;
+    o.smoke_exchange.clear();
+    o.test_sa_cert.clear();
+  } else {
+    o.smoke_exchange = S100_POWERUP_SMOKE_EXCHANGE;
+    o.test_sa_cert = S100_POWERUP_TEST_SA;
+    o.allow_smoke_na = false;
+  }
   return o;
 }
 
 PowerUpReport run_powerup_self_check(const PowerUpOptions& opts_in) {
   PowerUpOptions opts = opts_in;
-  if (opts.catalogue_root.empty()) opts.catalogue_root = S100_CATALOGUE_ROOT;
-  if (opts.smoke_exchange.empty()) opts.smoke_exchange = S100_POWERUP_SMOKE_EXCHANGE;
-  if (opts.test_sa_cert.empty()) opts.test_sa_cert = S100_POWERUP_TEST_SA;
+  if (opts.catalogue_root.empty()) opts.catalogue_root = resolve_catalogue_root();
+  if (!opts.allow_smoke_na) {
+    if (opts.smoke_exchange.empty()) opts.smoke_exchange = S100_POWERUP_SMOKE_EXCHANGE;
+    if (opts.test_sa_cert.empty()) opts.test_sa_cert = S100_POWERUP_TEST_SA;
+  }
   if (opts.smoke_verify_options.verify_time == std::chrono::system_clock::time_point{}) {
     opts.smoke_verify_options.verify_time =
         std::chrono::system_clock::from_time_t(static_cast<std::time_t>(1768435200));

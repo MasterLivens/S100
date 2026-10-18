@@ -77,13 +77,14 @@ endif()
 
 add_executable(s100_cli src/cli/main.cpp)
 target_link_libraries(s100_cli PRIVATE s100_core)
+# Relative to resolve_catalogue_root() (IHO-S164-POWERUP-INSTALL-PREFIX).
 target_compile_definitions(s100_cli PRIVATE
-  S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
-  S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0"
-  S100_DEFAULT_S111_FC="${CMAKE_SOURCE_DIR}/catalogues/S-111/S-111_FC_2.0.0.xml"
-  S100_DEFAULT_S111_PC="${CMAKE_SOURCE_DIR}/catalogues/S-111/PC_2.0.0"
-  S100_DEFAULT_S124_FC="${CMAKE_SOURCE_DIR}/catalogues/S-124/S-124_FC_2.0.0.xml"
-  S100_DEFAULT_S124_PC="${CMAKE_SOURCE_DIR}/catalogues/S-124/PC_2.0.0")
+  S100_DEFAULT_FC="catalogues/S-101/S-101_FC_2.0.0.xml"
+  S100_DEFAULT_PC="catalogues/S-101/PC_2.0.0"
+  S100_DEFAULT_S111_FC="catalogues/S-111/S-111_FC_2.0.0.xml"
+  S100_DEFAULT_S111_PC="catalogues/S-111/PC_2.0.0"
+  S100_DEFAULT_S124_FC="catalogues/S-124/S-124_FC_2.0.0.xml"
+  S100_DEFAULT_S124_PC="catalogues/S-124/PC_2.0.0")
 
 enable_testing()
 add_executable(s100_tests
@@ -117,6 +118,7 @@ add_executable(s100_tests
   tests/test_exchange_signature_cn_shape.cpp
   tests/test_exchange_signature_aggregator.cpp
   tests/test_powerup_self_check.cpp
+  tests/test_powerup_install_prefix.cpp
   tests/support/dataset_digest.cpp
   tests/support/sha256.cpp
 )
@@ -157,6 +159,13 @@ add_test(NAME exchange_signature_cn_shape COMMAND s100_tests exchange_signature_
 add_test(NAME exchange_signature_aggregator COMMAND s100_tests exchange_signature_aggregator)
 # IHO-S164-POWERUP (docs/powerup-self-check-contract.md rev1) — MUST NOT SKIP, Linux + Windows.
 add_test(NAME powerup_self_check COMMAND s100_tests powerup_self_check)
+# IHO-S164-POWERUP-INSTALL-PREFIX (docs/powerup-install-prefix-contract.md rev1) —
+# MUST NOT SKIP, no platform guard. cmake --install into temp prefix then PU-2 oracle.
+add_test(NAME powerup_install_prefix
+  COMMAND ${CMAKE_COMMAND}
+    -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
+    -DCONFIG=$<CONFIG>
+    -P ${CMAKE_SOURCE_DIR}/tests/check_powerup_install_prefix.cmake)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME signature_fixtures_reproducible
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/check_signature_fixtures.py
@@ -187,14 +196,14 @@ if(S100_BUILD_VIEWER)
   add_executable(s100_viewer src/viewer/main.cpp)
   target_link_libraries(s100_viewer PRIVATE s100_core Qt6::Widgets Qt6::Svg)
   target_compile_definitions(s100_viewer PRIVATE
-    S100_DEFAULT_FC="${CMAKE_SOURCE_DIR}/catalogues/S-101/S-101_FC_2.0.0.xml"
-    S100_DEFAULT_PC="${CMAKE_SOURCE_DIR}/catalogues/S-101/PC_2.0.0"
-    S100_DEFAULT_S102_FC="${CMAKE_SOURCE_DIR}/catalogues/S-102/S-102_FC_3.0.0.xml"
-    S100_DEFAULT_S102_PC="${CMAKE_SOURCE_DIR}/catalogues/S-102/PC_3.0.0"
-    S100_DEFAULT_S111_FC="${CMAKE_SOURCE_DIR}/catalogues/S-111/S-111_FC_2.0.0.xml"
-    S100_DEFAULT_S111_PC="${CMAKE_SOURCE_DIR}/catalogues/S-111/PC_2.0.0"
-    S100_DEFAULT_S124_FC="${CMAKE_SOURCE_DIR}/catalogues/S-124/S-124_FC_2.0.0.xml"
-    S100_DEFAULT_S124_PC="${CMAKE_SOURCE_DIR}/catalogues/S-124/PC_2.0.0")
+    S100_DEFAULT_FC="catalogues/S-101/S-101_FC_2.0.0.xml"
+    S100_DEFAULT_PC="catalogues/S-101/PC_2.0.0"
+    S100_DEFAULT_S102_FC="catalogues/S-102/S-102_FC_3.0.0.xml"
+    S100_DEFAULT_S102_PC="catalogues/S-102/PC_3.0.0"
+    S100_DEFAULT_S111_FC="catalogues/S-111/S-111_FC_2.0.0.xml"
+    S100_DEFAULT_S111_PC="catalogues/S-111/PC_2.0.0"
+    S100_DEFAULT_S124_FC="catalogues/S-124/S-124_FC_2.0.0.xml"
+    S100_DEFAULT_S124_PC="catalogues/S-124/PC_2.0.0")
   # Offscreen smoke: paints DrawingInstructions and writes a PNG (no display required).
   add_test(NAME viewer_snapshot
     COMMAND s100_viewer
@@ -242,3 +251,5 @@ endif()
 
 install(TARGETS s100_core s100_security s100_cli RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 install(DIRECTORY include/s100 DESTINATION include)
+# IHO-S164-POWERUP-INSTALL-PREFIX: product catalogue tree under share/s100 (no testdata/).
+install(DIRECTORY catalogues DESTINATION share/s100)

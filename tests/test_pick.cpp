@@ -56,6 +56,7 @@ void test_exchange_signature_producer();
 void test_exchange_signature_cn_shape();
 void test_exchange_signature_aggregator();
 void test_powerup_self_check();
+void test_powerup_install_prefix();
 
 int main(int argc, char** argv) {
   if (argc >= 2 && std::string(argv[1]) == "s102_deepen_multigrid") {
@@ -166,6 +167,10 @@ int main(int argc, char** argv) {
   }
   if (argc >= 2 && std::string(argv[1]) == "powerup_self_check") {
     test_powerup_self_check();
+    return failures ? 1 : 0;
+  }
+  if (argc >= 2 && std::string(argv[1]) == "powerup_install_prefix") {
+    test_powerup_install_prefix();
     return failures ? 1 : 0;
   }
   if (argc >= 2 && std::string(argv[1]) == "exchange_edition_hardening") {

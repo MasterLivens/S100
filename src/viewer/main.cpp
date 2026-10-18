@@ -59,11 +59,22 @@
 #ifndef S100_DEFAULT_S124_FC
 #define S100_DEFAULT_S124_FC ""
 #endif
+
 #ifndef S100_DEFAULT_S124_PC
 #define S100_DEFAULT_S124_PC ""
 #endif
 
 namespace {
+
+static QString catalogue_qstring(const char* rel) {
+  if (!rel || !*rel) return {};
+  return QString::fromStdString(s100::catalogue_path(rel).string());
+}
+static std::string catalogue_stdstring(const char* rel) {
+  if (!rel || !*rel) return {};
+  return s100::catalogue_path(rel).string();
+}
+
 
 namespace fs = std::filesystem;
 
@@ -1363,8 +1374,8 @@ int main(int argc, char** argv) {
   QString cell, snapshot, s102_path, s104_path, s104_time, s111_path, s111_time, s124_path,
       dump_text_boxes, dump_layers;
   QString layers_on, layers_off;
-  QString fc_path = S100_DEFAULT_FC;
-  QString pc_path = S100_DEFAULT_PC;
+  QString fc_path = catalogue_qstring(S100_DEFAULT_FC);
+  QString pc_path = catalogue_qstring(S100_DEFAULT_PC);
   QString palette_name = QStringLiteral("Day");  // Day | Dusk | Night
   int s104_frame = -1;
   int s111_frame = -1;
@@ -1408,8 +1419,8 @@ int main(int argc, char** argv) {
       cell.endsWith(QLatin1String(".hdf5"), Qt::CaseInsensitive);
   // Opening an S-102 cell alone: default to S-102 FC/PC unless the user overrode paths.
   if (cell_is_hdf5) {
-    if (!fc_set && QString(S100_DEFAULT_S102_FC).size() > 0) fc_path = S100_DEFAULT_S102_FC;
-    if (!pc_set && QString(S100_DEFAULT_S102_PC).size() > 0) pc_path = S100_DEFAULT_S102_PC;
+    if (!fc_set && QString(S100_DEFAULT_S102_FC).size() > 0) fc_path = catalogue_qstring(S100_DEFAULT_S102_FC);
+    if (!pc_set && QString(S100_DEFAULT_S102_PC).size() > 0) pc_path = catalogue_qstring(S100_DEFAULT_S102_PC);
   }
   if (palette_name != QLatin1String("Day") && palette_name != QLatin1String("Dusk") &&
       palette_name != QLatin1String("Night")) {
@@ -1633,15 +1644,15 @@ int main(int argc, char** argv) {
         // S-111 alone: Arrow DI with SCAROW* from PC bands; load pinned FC+PC + ColorProfiles.
         if (!fc_set && QString(S100_DEFAULT_S111_FC).size() > 0) {
           std::string e111;
-          if (s100::load_feature_catalogue(std::string(S100_DEFAULT_S111_FC), fc, &e111)) {
-            fc_path = S100_DEFAULT_S111_FC;
+          if (s100::load_feature_catalogue(catalogue_stdstring(S100_DEFAULT_S111_FC), fc, &e111)) {
+            fc_path = catalogue_qstring(S100_DEFAULT_S111_FC);
             have_fc = true;
           }
         }
         if (!pc_set && QString(S100_DEFAULT_S111_PC).size() > 0) {
           std::string e111;
-          if (s100::load_portrayal_catalogue(std::string(S100_DEFAULT_S111_PC), pc, &e111)) {
-            pc_path = S100_DEFAULT_S111_PC;
+          if (s100::load_portrayal_catalogue(catalogue_stdstring(S100_DEFAULT_S111_PC), pc, &e111)) {
+            pc_path = catalogue_qstring(S100_DEFAULT_S111_PC);
             have_pc = true;
             color_profile_xml = pc.root / "ColorProfiles" / "colorProfile.xml";
             if (!pc.color_profiles.empty() && !pc.color_profiles.front().file_name.empty())
@@ -1670,15 +1681,15 @@ int main(int argc, char** argv) {
         // S-124 alone: prefer official PC via portray_nav_warnings_pc; heuristic only on fail.
         if (!fc_set && QString(S100_DEFAULT_S124_FC).size() > 0) {
           std::string e124;
-          if (s100::load_feature_catalogue(std::string(S100_DEFAULT_S124_FC), fc, &e124)) {
-            fc_path = S100_DEFAULT_S124_FC;
+          if (s100::load_feature_catalogue(catalogue_stdstring(S100_DEFAULT_S124_FC), fc, &e124)) {
+            fc_path = catalogue_qstring(S100_DEFAULT_S124_FC);
             have_fc = true;
           }
         }
         if (!pc_set && QString(S100_DEFAULT_S124_PC).size() > 0) {
           std::string e124;
-          if (s100::load_portrayal_catalogue(std::string(S100_DEFAULT_S124_PC), pc, &e124)) {
-            pc_path = S100_DEFAULT_S124_PC;
+          if (s100::load_portrayal_catalogue(catalogue_stdstring(S100_DEFAULT_S124_PC), pc, &e124)) {
+            pc_path = catalogue_qstring(S100_DEFAULT_S124_PC);
             have_pc = true;
             color_profile_xml = pc.root / "ColorProfiles" / "colorProfile.xml";
             if (!pc.color_profiles.empty() && !pc.color_profiles.front().file_name.empty())
@@ -1755,9 +1766,9 @@ int main(int argc, char** argv) {
             s100::PortrayalCatalogue pc102;
             std::string e102;
             const QString fc102_path =
-                QString(S100_DEFAULT_S102_FC).isEmpty() ? fc_path : QString(S100_DEFAULT_S102_FC);
+                QString(S100_DEFAULT_S102_FC).isEmpty() ? fc_path : catalogue_qstring(S100_DEFAULT_S102_FC);
             const QString pc102_path =
-                QString(S100_DEFAULT_S102_PC).isEmpty() ? pc_path : QString(S100_DEFAULT_S102_PC);
+                QString(S100_DEFAULT_S102_PC).isEmpty() ? pc_path : catalogue_qstring(S100_DEFAULT_S102_PC);
             if (s100::load_feature_catalogue(fc102_path.toStdString(), fc102, &e102) &&
                 s100::load_portrayal_catalogue(pc102_path.toStdString(), pc102, &e102)) {
               s100::DrawingInstructions cov_di;
@@ -1879,8 +1890,8 @@ int main(int argc, char** argv) {
               s100::FeatureCatalogue fc124;
               s100::PortrayalCatalogue pc124;
               std::string e_cat;
-              const std::string fc124p = S100_DEFAULT_S124_FC;
-              const std::string pc124p = S100_DEFAULT_S124_PC;
+              const std::string fc124p = catalogue_stdstring(S100_DEFAULT_S124_FC);
+              const std::string pc124p = catalogue_stdstring(S100_DEFAULT_S124_PC);
               if (!fc124p.empty() && !pc124p.empty() &&
                   s100::load_feature_catalogue(fc124p, fc124, &e_cat) &&
                   s100::load_portrayal_catalogue(pc124p, pc124, &e_cat)) {

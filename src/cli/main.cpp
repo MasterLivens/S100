@@ -294,11 +294,13 @@ static int run_single_cell(const std::filesystem::path& path, const std::filesys
       bool used_pc = false;
       // Product-pinned defaults (docs/pc-wire-contract.md); --fc/--pc override when set to
       // non-S-101 paths — prefer explicit S-124 literals when still on S-101 defaults.
-      std::string fc_use = std::string(S100_DEFAULT_S124_FC);
-      std::string pc_use = std::string(S100_DEFAULT_S124_PC);
-      if (!fc_path.empty() && fc_path != std::filesystem::path(S100_DEFAULT_FC))
+      std::string fc_use = s100::catalogue_path(S100_DEFAULT_S124_FC).string();
+      std::string pc_use = s100::catalogue_path(S100_DEFAULT_S124_PC).string();
+      const auto s101_fc = s100::catalogue_path(S100_DEFAULT_FC);
+      const auto s101_pc = s100::catalogue_path(S100_DEFAULT_PC);
+      if (!fc_path.empty() && fc_path != s101_fc)
         fc_use = fc_path.string();
-      if (!pc_path.empty() && pc_path != std::filesystem::path(S100_DEFAULT_PC))
+      if (!pc_path.empty() && pc_path != s101_pc)
         pc_use = pc_path.string();
       if (!fc_use.empty() && !pc_use.empty() &&
           s100::load_feature_catalogue(fc_use, fc124, &e) &&
@@ -496,7 +498,9 @@ int main(int argc, char** argv) {
     std::cerr << kUsage;
     return 2;
   }
-  std::filesystem::path path, fc_path = S100_DEFAULT_FC, pc_path = S100_DEFAULT_PC;
+  std::filesystem::path path;
+  std::filesystem::path fc_path = s100::catalogue_path(S100_DEFAULT_FC);
+  std::filesystem::path pc_path = s100::catalogue_path(S100_DEFAULT_PC);
   bool list_layers = false, do_portray = false, show_errors = false;
   bool list_only = false, load_all = false;
   std::string load_one;
