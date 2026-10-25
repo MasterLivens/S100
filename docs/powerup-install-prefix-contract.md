@@ -1,15 +1,52 @@
-# S-164 / S-98 power-up install-prefix / install-tree catalogue root (rev1)
+# S-164 / S-98 power-up install-prefix / install-tree catalogue root (rev 1) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S164-POWERUP-INSTALL-PREFIX`** (**Active**). CTest: **`powerup_install_prefix`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S164-POWERUP-INSTALL-PREFIX`** (**Active / Open**). CTest: **`powerup_install_prefix`** — **MUST NOT SKIP**, Linux + Windows CI.
+Status: **rev 1** — Planner freeze (MUST below). Install-tree catalogue root / `(prefix)/share/s100` slice after closed **`IHO-DISPLAY-PRIORITY`**. Does **not** reopen POWERUP PU-1…PU-6 / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE; does **not** jump **`S102-GRID-SHIM-RETIRE`**.
 
-**Status: rev1 — Planner BRIEF freeze applied (Open O1–O9 closed).** Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here. Engineer may implement after this rev1.
+Frozen with: `docs/api-contracts.md` (Power-up install-prefix), `docs/powerup-self-check-contract.md` (PU-1…PU-6 — **do not** reopen), `docs/testing/iho-ctest-case-ids.md`. Draw order → **DISPLAY-PRIORITY** already Closed — **do not** reopen. Scale filter → **SCAMIN** already Closed — **do not** reopen. Unified pick → **SESSION-PICK** already Closed — **do not** reopen. Vendor / sha → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. FASC / deb·rpm·MSI / official PowerUp TDS / testdata-in-prefix / code signing = Non-goals.
 
-**Follow-on to** **`IHO-S164-POWERUP`** (`docs/powerup-self-check-contract.md` rev1). **Do not** reopen PU-1…PU-6 severity, Block scope, CLI exits, or PU-2 relative path table. This slice only moves **where** the product catalogue root resolves after `cmake --install`.
+Primary research: `/workspace/research/powerup-install-prefix/BRIEF.md` (2026-10-25 refresh). Former Eng gap **already fixed** @ Eng **`5d323b8`** + Win fix **`065887b`** (docs seed **`fa85162`**).
 
-Primary research: `/workspace/research/powerup-install-prefix/BRIEF.md` (Planner, 2026-10-18). Prior: `/workspace/research/powerup/BRIEF.md` §3.3 (injectable catalogue root only — **no** install layout). Anchors: S-98 Ed 2.0.0 §**20.1** (persistent FC/PC install); POWERUP PU-2 / `docs/catalogue-complete-contract.md`; CMake `install()` today = bin/lib + `include/s100` only (`CMakeLists.txt`).
+**Status: Active / Open (2026-10-25)** — after **DISPLAY-PRIORITY Closed** (tip `c8a1104` ≡ Arch `e8d4b2b`; tip Close CI [`40175675310`](https://github.com/MasterLivens/S100/actions/runs/40175675310) dual-green; Open-bind evidence CI [`40175087823`](https://github.com/MasterLivens/S100/actions/runs/40175087823) @ `dbfa1b6`≡`e6afbf7`, O1=tip-truth/docs-close). Eng tip ancestors **`5d323b8`** + **`065887b`** already on tip — **not greenfield** (`install(DIRECTORY catalogues DESTINATION share/s100)` + shared catalogue-root resolve Dev=`CMAKE_SOURCE_DIR` / Install=`(prefix)/share/s100` / env `S100_CATALOGUE_ROOT` + CLI/viewer `S100_DEFAULT_*` same root + product PU-4/5 `smoke_na_install_tree` + CTest `powerup_install_prefix` cmake `-P` + Win-safe `fs::relative` assert; **no** Win viewer a/b chain — Win path fix already landed). Ubuntu+Windows already Passed — tip Close CI [`40175675310`](https://github.com/MasterLivens/S100/actions/runs/40175675310) `#22 powerup_install_prefix` + Eng landing [`39117072306`](https://github.com/MasterLivens/S100/actions/runs/39117072306) @ `065887b` (cmake `-P` DESTDIR/`--prefix` + native `s100_tests` — **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from DISPLAY-PRIORITY / POWERUP self-check / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE. Do **not** invent case ids or next tip names; freeze tip-truth below. Do **not** reopen POWERUP PU-1…PU-6 / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE. Do **not** invent `INSTALLPFX-*` failure-face prefixes (keep existing bare SCHECK / cmake FATAL). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 1** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
 
-Queue: closes AGGREGATOR / CN-SHAPE “queue next = install-prefix”. **FASC does not cut in line.**
+**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
+- Reuse case id **`IHO-S164-POWERUP-INSTALL-PREFIX`** / CTest **`powerup_install_prefix`**; **forbidden** to invent a second case/test name.
+- MUST tip-truth = primary root `${CMAKE_INSTALL_PREFIX}/share/s100`; env `S100_CATALOGUE_ROOT` wins when set; Dev pin `CMAKE_SOURCE_DIR` kept for `powerup_self_check`; Install binaries **MUST NOT** hard-pin engineer source tree; `install()` MUST `catalogues/` → `share/s100/catalogues/…`, MUST NOT `testdata/` / TEST-ONLY SA; product PU-4/5 skip/N/A → Pass + `smoke_na_install_tree`; `S100_DEFAULT_*` same catalogue-root resolve; CTest temp-prefix install → existence-only PU-2 Pass (sha stays `catalogue_provenance`); **MUST NOT SKIP**; FASC / TDS / deb·rpm / reopen PU table = Non-goals.
+- Eng tip already has **`5d323b8`** + Win **`065887b`** (docs seed **`fa85162`**); Ubuntu+Win (tip `40175675310` `#22` / Eng `39117072306`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield.
+- Self-check PU-1…PU-6 → **`IHO-S164-POWERUP`** still Active — **do not** reopen PU table / severity / Block / CLI exit.
+- Draw order → **`IHO-DISPLAY-PRIORITY`** already Closed — **do not** reopen.
+- Scale filter → **`IHO-SCAMIN-FILTER`** already Closed — **do not** reopen.
+- Unified pick → **`IHO-SESSION-PICK-UNIFIED`** already Closed — **do not** reopen.
+- Vendor / sha → **`IHO-CATALOGUE-COMPLETE`** already Closed — **do not** reopen.
+- Scrubber → **`IHO-TIMELINE-UI`** already Closed — **do not** reopen.
+- Wiring → **`IHO-PC-WIRE-111-124`** already Closed — **do not** reopen.
+- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
+- Failure face = existing bare SCHECK / cmake FATAL; do **not** invent `INSTALLPFX-*` prefixes.
+- Ubuntu + Windows: `powerup_install_prefix` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen POWERUP PU-1…PU-6 / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"` (path fix `065887b` already on tip). Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; cmake `-P` DESTDIR/`--prefix` + native `s100_tests`; existence-only; no SKIP. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `powerup_install_prefix` MUST NOT SKIP, Passed (already tip CI `40175675310` `#22` / Eng `39117072306`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
+- After Close next: **TBD**
+
+**Eng notes:** verify `5d323b8`/`065887b` on tip (docs seed `fa85162`); API `include/s100/powerup.hpp` + `src/core/powerup.cpp` shared root resolve; `install(DIRECTORY catalogues DESTINATION share/s100)`; drivers `tests/check_powerup_install_prefix.cmake` + `tests/test_powerup_install_prefix.cpp`; cmake `powerup_install_prefix`. DISPLAY-PRIORITY Closed already on this stack (`c8a1104`). Do **not** reopen POWERUP PU-1…PU-6 / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE. FASC / TDS / deb·rpm / testdata-in-prefix **Non-goals** — do **not** harden. Do **not** invent `INSTALLPFX-*` failure prefixes. Do **not** change tip-truth install layout / PU-2 relative path table.
+
+**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `5d323b8`/`065887b` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
+2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` (path fix already) — **yes / freeze**.
+3. Contract head → Open; keep display **rev 1** (do **not** bump just for Open) — **yes / freeze**.
+4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
+5. Notes ≠ POWERUP self-check (PU-1…PU-6 do **not** reopen); ≠ DISPLAY-PRIORITY (already Closed; do **not** reopen); ≠ SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE (already Closed; do **not** reopen); ≠ S-124 / S-111 / S-104 open; do **not** reopen QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE; shim-retire stays Backlog; FASC / TDS / deb·rpm / testdata-in-prefix stay Non-goals — **yes / freeze**.
+6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
+7. No other cases this tip (do **not** Closed SIG / POWERUP self-check / etc.) — **yes / freeze**.
+8. architecture.md flip **next** to this Open; clarify install-prefix case Active/Open (docs close), not invent Closed — **yes / freeze**.
+9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
+10. Failure face = existing bare SCHECK / cmake FATAL; do **not** invent `INSTALLPFX-*` prefixes — **yes / freeze**.
+11. install-tree root/layout = this tip; PU-1…PU-6 self-check = POWERUP Active (do **not** reopen); draw order = DISPLAY-PRIORITY Closed — **yes / freeze**.
 
 ---
 
