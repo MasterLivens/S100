@@ -1,13 +1,58 @@
-# Part 15 / S-98 CN MRN shape → OfficialClass (rev1)
+# Part 15 / S-98 CN MRN shape → OfficialClass (rev 1) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S164-SIG-CN-SHAPE`** (**Active**). CTest: **`exchange_signature_cn_shape`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S164-SIG-CN-SHAPE`** (**Active / Open**). CTest: **`exchange_signature_cn_shape`** — **MUST NOT SKIP**, Linux + Windows CI.
+Status: **rev 1** — Planner freeze (MUST below). CN MRN shape → OfficialClass / ST-then-CN / accept `org:` slice after closed **`IHO-S164-SIG-PRODUCER`**. Does **not** reopen PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; does **not** mix/jump Closed **AGGREGATOR** / base SIG crypto reopen; does **not** jump **`S102-GRID-SHIM-RETIRE`**. Does **not** expand tip-truth oracles.
 
-**Status: rev1 — Planner Open frozen (MRN grammar, `org:` accept, ST order, no new skip).** Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here. Engineer may implement after this rev1.
+Frozen with: `docs/api-contracts.md` (Part 15 CN MRN shape), `docs/part15-signature-contract.md` (**D8 / A9** → this case; base SIG — **do not** reopen), `docs/part15-producer-code-contract.md` (PRODUCER Closed — CN parse reuse — **do not** reopen), `docs/part15-aggregator-producer-contract.md` (Active; AGGREGATOR exempt+WARN — **do not** mix/Closed this tip), `docs/powerup-self-check-contract.md` (POWERUP Closed — **do not** reopen), `docs/testing/iho-ctest-case-ids.md`. Draw order → **DISPLAY-PRIORITY** already Closed — **do not** reopen. Scale filter → **SCAMIN** already Closed — **do not** reopen. Unified pick → **SESSION-PICK** already Closed — **do not** reopen. Vendor / sha → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. Install-tree → **INSTALL-PREFIX** already Closed — **do not** reopen. Producer-code Enforce match → **PRODUCER** already Closed — **do not** reopen. UI styling / S-128 packs / permits / invent new SSE / change `exchange_signature` Ok / change `exchange_signature_producer` Ok = Non-goals.
 
-Primary sources: S-98 Ed 2.0.0 §**9.1.1** (ST role + CN MRN shape → official / non-official); `docs/part15-signature-contract.md` (**D8 / A9**); `docs/part15-producer-code-contract.md` (CN/MRN parse reuse — **do not** duplicate producer-match); BRIEF `/workspace/research/producer-code/BRIEF.md` §1.1 / §1.7. Existing `s100_security`: `cert_cn`, `cn_producer_segment`, `classify_st`, `OfficialClass`, `verify_exchange_set`.
+Primary research: `/workspace/research/cn-shape/BRIEF.md` (2026-10-25 tip-truth refresh). Former Eng gap **already fixed** @ Eng **`0c21b4e`** (shared CN/MRN grammar + `classify_official(ST,CN)` + fixtures `cn_shape_ok`/`cn_shape_bad` + keys + CTest).
 
-**rev1 (from Planner freeze):** conforming CN = whole-string match of one of two case-insensitive MRN forms (with optional `org:`); non-conforming CN → **NonOfficial** even when ST ∈ official roles; classify order ST then CN shape; **no** new Enforce skip; **no** producerCode gate in this slice; CTest `exchange_signature_cn_shape`; reuse PRODUCER CN parser.
+**rev1 field freeze (kept — Planner Open frozen MRN grammar / `org:` / ST order / no new skip):** conforming CN = whole-string match form 1 `urn:mrn:iho:<prod>:<id>` **or** form 2 `urn:mrn:iho:org:<prod>:<id>` (case-insensitive; `<prod>`=`[A-Za-z0-9]{2,8}`; `<id>`=`[0-9]{1,8}`; **accept `org:` = yes**); classify order **ST first, then CN shape**; ST ∈ official roles + CN shape Ok → **Official**; ST official + CN non-conforming → **NonOfficial** (even SA); **MUST NOT** new Enforce skip / SSE / reject; **MUST NOT** change PRODUCER skip / SSE 109 / `producer_code_mismatch`; reuse PRODUCER CN parser (single grammar); no producerCode gate; fixtures `cn_shape_ok`/`cn_shape_bad`; hook `verify_exchange_set` only; MUST NOT break `exchange_signature` / `exchange_signature_producer` Ok; MUST NOT SKIP; Linux+Win.
+
+**Status: Active / Open (2026-10-25)** — after **PRODUCER Closed** (tip `7bac31a` ≡ Arch `c08cbe7`; tip Close CI [`40179998165`](https://github.com/MasterLivens/S100/actions/runs/40179998165) dual-green; Open-bind evidence CI [`40179378032`](https://github.com/MasterLivens/S100/actions/runs/40179378032) @ `4431d13`≡`9aa7f34`, CTest `#19 exchange_signature_cn_shape` Passed, O1=tip-truth/docs-close). Eng tip ancestor **`0c21b4e`** (shared CN/MRN grammar + `classify_official(ST,CN)` + fixtures/CTest) already on tip — **not greenfield**. Eng green CI [`39112498473`](https://github.com/MasterLivens/S100/actions/runs/39112498473) @ `0c21b4e` (native `s100_tests` + signature fixtures — **not** `viewer_*` — **no Win O1 (a)/(b)**). Ubuntu+Windows already Passed — tip Close CI [`40179998165`](https://github.com/MasterLivens/S100/actions/runs/40179998165) `#19 exchange_signature_cn_shape` + Open-bind [`40179378032`](https://github.com/MasterLivens/S100/actions/runs/40179378032) `#19` + Eng landing [`39112498473`](https://github.com/MasterLivens/S100/actions/runs/39112498473). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE / AGGREGATOR / base SIG. Do **not** invent case ids or next tip names; freeze tip-truth below (**keep** CN-shape oracles — **do not** expand). Do **not** reopen PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE. Do **not** mix/jump Closed **AGGREGATOR** / base SIG crypto. Do **not** invent `CNSHAPE-*` failure-face / skip prefixes (failure face = OfficialClass report only). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 1** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+
+**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
+- Reuse case id **`IHO-S164-SIG-CN-SHAPE`** / CTest **`exchange_signature_cn_shape`**; **forbidden** to invent a second case/test name.
+- MUST tip-truth = conforming CN forms 1–2 (accept `org:`) + ST then CN → OfficialClass + bad CN → NonOfficial + **still install** + **MUST NOT** new Enforce skip + reuse PRODUCER CN parser + no producerCode gate + fixtures `cn_shape_ok` (Official+install) / `cn_shape_bad` (NonOfficial+still install) + old `positive/` still Official + hook `verify_exchange_set` / report OfficialClass only + **MUST NOT** break `exchange_signature` / `exchange_signature_producer` Ok + CTest **MUST NOT SKIP**; Linux+Win.
+- Eng tip already has **`0c21b4e`**; Ubuntu+Win (tip `40179998165` `#19` / Open-bind `40179378032` `#19` / Eng `39112498473`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield. **Keep** tip-truth oracles — **do not** expand scope / add skip / invent SSE / fork CN grammar / open producerCode gate.
+- Producer-code Enforce match → **`IHO-S164-SIG-PRODUCER`** already Closed — **do not** reopen.
+- Power-up self-check → **`IHO-S164-POWERUP`** already Closed — **do not** reopen.
+- Install-tree root → **`IHO-S164-POWERUP-INSTALL-PREFIX`** already Closed — **do not** reopen.
+- Draw order → **`IHO-DISPLAY-PRIORITY`** already Closed — **do not** reopen.
+- Scale filter → **`IHO-SCAMIN-FILTER`** already Closed — **do not** reopen.
+- Unified pick → **`IHO-SESSION-PICK-UNIFIED`** already Closed — **do not** reopen.
+- Vendor / sha → **`IHO-CATALOGUE-COMPLETE`** already Closed — **do not** reopen.
+- Scrubber → **`IHO-TIMELINE-UI`** already Closed — **do not** reopen.
+- Wiring → **`IHO-PC-WIRE-111-124`** already Closed — **do not** reopen.
+- AGGREGATOR exempt+WARN → **`IHO-S164-SIG-AGGREGATOR`** separate Active Eng `29be187` — **do not** mix / Closed this tip.
+- Base Part 15 crypto → **`IHO-S164-SIG`** — **do not** reopen.
+- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
+- Failure face = OfficialClass report only; do **not** invent `CNSHAPE-*` skip / failure-face prefixes.
+- Ubuntu + Windows: `exchange_signature_cn_shape` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; do **not** mix/jump Closed AGGREGATOR / base SIG.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; native `s100_tests` + signature fixtures (`cn_shape_ok`/`cn_shape_bad`); no SKIP. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `exchange_signature_cn_shape` MUST NOT SKIP, Passed (already tip CI `40179998165` `#19` / Open-bind `40179378032` `#19` / Eng `39112498473`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
+- After Close next: **TBD**
+
+**Eng notes:** verify `0c21b4e` on tip; API/path in `s100_security` (`verify.cpp` `cn_prod_token_ok` / `cn_id_token_ok` / `cn_mrn_shape_ok` / `classify_official(st,cn)`; leaf uses `classify_official(cert_st, cert_cn)`); driver `tests/test_exchange_signature_cn_shape.cpp`; cmake `exchange_signature_cn_shape`; fixtures `testdata/s101/signatures/cn_shape_ok` / `cn_shape_bad`; keys `test_ds_cn_org.crt` / `test_ds_cn_shape_bad.crt`. PRODUCER Closed already on this stack (`7bac31a`). Do **not** reopen PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE. Do **not** mix/Closed AGGREGATOR; do **not** reopen base SIG crypto. UI / S-128 / permits / invent SSE **Non-goals** — do **not** harden. Do **not** invent `CNSHAPE-*` failure prefixes. Do **not** change tip-truth oracles / add Enforce skip / open producerCode gate / fork CN grammar.
+
+**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `0c21b4e` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
+2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **yes / freeze**.
+3. Contract head → Open; keep display **rev 1** (do **not** bump just for Open) — **yes / freeze**.
+4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
+5. Notes ≠ PRODUCER (already Closed; do **not** reopen); ≠ POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE (already Closed; do **not** reopen); ≠ S-124 / S-111 / S-104 open; ≠ AGGREGATOR (do **not** mix / Closed this tip); ≠ base SIG crypto reopen; do **not** reopen QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; shim-retire stays Backlog; UI / S-128 / permits / invent SSE stay Non-goals; **keep** tip-truth oracles (do **not** expand) — **yes / freeze**.
+6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
+7. No other cases this tip (do **not** Closed AGGREGATOR / base SIG / etc.) — **yes / freeze**.
+8. architecture.md flip **next** to this Open — **yes / freeze**.
+9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
+10. Failure face = OfficialClass report only; do **not** invent `CNSHAPE-*` skip / failure-face prefixes — **yes / freeze**.
+11. CN MRN→OfficialClass = this tip; producer-code match = PRODUCER Closed (do **not** reopen); AGGREGATOR WARN = AGGREGATOR Active (do **not** mix); base crypto = SIG (do **not** reopen) — **yes / freeze**.
 
 ---
 
