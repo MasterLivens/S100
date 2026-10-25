@@ -1,50 +1,31 @@
-# ChartSession unified pick (rev 2) · Active / Open
+# ChartSession unified pick (rev 2) (Closed)
 
 Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-SESSION-PICK-UNIFIED`** (**Active / Open**). CTest: **`session_pick_unified`** — **MUST NOT SKIP**, Linux + Windows CI.
-Status: **rev 2** — Planner freeze (MUST below). ChartSession unified pick / CLI `--session-pick` slice after closed **`IHO-CATALOGUE-COMPLETE`**. Does **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; does **not** jump **`S102-GRID-SHIM-RETIRE`**.
+Builds on `docs/api-contracts.md` (Session pick) / `docs/s124-contract.md` (centroid same slice; S-124 open Closed — **do not** reopen) / `docs/s104-contract.md` / `docs/s111-contract.md` (both Closed) / `docs/catalogue-complete-contract.md` (Closed; vendor/sha → CATALOGUE separate) / `docs/timeline-ui-contract.md` (Closed; scrubber → TIMELINE separate) / `docs/pc-wire-contract.md` (Closed; wiring → PC-WIRE separate). Case id: **`IHO-SESSION-PICK-UNIFIED`** (**Closed / Done** 2026-10-25).  
+CTest name: **`session_pick_unified`** — MUST NOT SKIP; Linux + Windows dual-green (CI `40172265305` @ `f8aac10`). Supersedes Open draft on tip `f8aac10` (≡ Arch `8dbe072`).
 
-Builds on `docs/api-contracts.md` (Session pick) / `docs/s124-contract.md` (centroid same slice; S-124 open Closed — **do not** reopen) / `docs/s104-contract.md` / `docs/s111-contract.md` (both Closed). Vendor / sha / pair / SOURCE.md → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. **No** `Dataset::pick`; viewer dump = deferred; ECDIS pick-report / S-98 / time scrubbing = Non-goals.
+Primary research: `/workspace/research/session-pick-unified/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`3c607b7`** (docs pin **`5affbb1`**). Vendor / sha → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. **No** `Dataset::pick`; viewer dump = deferred; ECDIS pick-report / S-98 / time scrubbing = Non-goals.
 
-Primary research: `/workspace/research/session-pick-unified/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`3c607b7`** (docs pin **`5affbb1`**).
+**Status: Closed / Done (2026-10-25)** — CI [`40172265305`](https://github.com/MasterLivens/S100/actions/runs/40172265305) @ `f8aac10`≡`8dbe072` dual-green; **`session_pick_unified` Passed Ubuntu+Win** (native `s100_tests` + multi-product fixtures — **not** `viewer_*`; **no Win O1 (a)/(b)**). Eng **`3c607b7`** already on tip — **docs close only**. MUST tip-truth **unchanged** (`chart_session_pick` → `true` + hits may be empty; hit order S-101 Feature → S-124 NavWarning → S-102 CoverageSample → S-104 WaterLevel → S-111 Current; `numeric_valid` per Kind; active_frame = current only; oracles **A–E**; S-124 centroid exclude closing vertex; CLI `--session-pick`; fixtures **MUST NOT SKIP**; **No** `Dataset::pick`; viewer dump deferred). **O1=tip-truth / docs-close SUCCESS**. Failure face = existing bare CHECKs tip-truth (do **not** invent `SESSIONPICK-*`). Do **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog. Contract display stays **rev 2**. Next: **TBD**.
 
-**Status: Active / Open (2026-10-25)** — after **CATALOGUE Closed** (tip `d77216d` ≡ Arch `78979f1`; tip Close CI [`40171329297`](https://github.com/MasterLivens/S100/actions/runs/40171329297) dual-green; Open-bind evidence CI [`40170639650`](https://github.com/MasterLivens/S100/actions/runs/40170639650) @ `0ba61fb`≡`e2a3d43`, O1=tip-truth/docs-close). Eng tip ancestor **`3c607b7`** already on tip — **not greenfield** (`SessionPickHit`/`SessionPickResult` + `chart_session_pick` + hit order S-101→S-124→S-102→S-104→S-111 + `numeric_valid` + S-124 centroid exclude closing vertex + CLI `--session-pick` + oracles A–E; **No** `Dataset::pick`; viewer dump deferred; vendor/sha → **CATALOGUE** already Closed; scrubber → **TIMELINE** already Closed; wiring → **PC-WIRE** already Closed). Ubuntu+Windows already Passed — tip Close CI [`40171329297`](https://github.com/MasterLivens/S100/actions/runs/40171329297) `#10 session_pick_unified` + Eng landing [`38128761263`](https://github.com/MasterLivens/S100/actions/runs/38128761263) @ `3c607b7` (native `s100_tests` + multi-product fixtures — **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. Do **not** invent case ids or next tip names; freeze tip-truth below. Do **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. Do **not** invent `SESSIONPICK-*` failure-face prefixes (keep existing bare CHECKs). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 2** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+**Planner freeze (kept — rev 2 tip-truth):** Reuse case id **`IHO-SESSION-PICK-UNIFIED`** / CTest **`session_pick_unified`**; MUST tip-truth = `chart_session_pick` → `true` + hits may be empty (incl. OOB/ocean); `false` only hard failure; hit order S-101→S-124→S-102→S-104→S-111; `numeric_valid` per Kind table; active_frame = current only (no `set_active_frame` / `set_active_time` inside pick); oracles **A–E**; S-124 centroid = exterior ring average **excluding** repeated closing vertex; CLI `--session-pick <lon> <lat>`; fixtures **MUST NOT SKIP**; **No** `Dataset::pick`; viewer dump deferred; ECDIS / S-98 / time scrubbing = Non-goals; vendor/sha → **CATALOGUE** already Closed (do **not** reopen); scrubber → **TIMELINE** already Closed (do **not** reopen); wiring → **PC-WIRE** already Closed (do **not** reopen); Eng `3c607b7` already (docs pin `5affbb1`); `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog; failure face = bare CHECK (do **not** invent `SESSIONPICK-*` prefixes / new CTest); after Closed next **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN.
 
-**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
-- Reuse case id **`IHO-SESSION-PICK-UNIFIED`** / CTest **`session_pick_unified`**; **forbidden** to invent a second case/test name.
-- MUST tip-truth = `chart_session_pick` → `true` + hits may be empty (incl. OOB/ocean); `false` only hard failure; hit order S-101 Feature → S-124 NavWarning → S-102 CoverageSample → S-104 WaterLevel → S-111 Current; `numeric_valid` per Kind table; active_frame = current only (no `set_active_frame` / `set_active_time` inside pick); oracles **A–E**; S-124 centroid = exterior ring average **excluding** repeated closing vertex; CLI `--session-pick <lon> <lat>`; fixtures **MUST NOT SKIP**; **No** `Dataset::pick`; viewer dump deferred; ECDIS / S-98 / time scrubbing = Non-goals.
-- Eng tip already has **`3c607b7`** (docs pin **`5affbb1`**); Ubuntu+Win (tip `40171329297` `#10` / Eng `38128761263`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield.
-- Vendor / sha → **`IHO-CATALOGUE-COMPLETE`** already Closed — **do not** reopen.
-- Scrubber → **`IHO-TIMELINE-UI`** already Closed — **do not** reopen.
-- Wiring → **`IHO-PC-WIRE-111-124`** already Closed — **do not** reopen.
-- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
-- Failure face = existing bare CHECKs; do **not** invent `SESSIONPICK-*` prefixes.
-- Ubuntu + Windows: `session_pick_unified` MUST NOT SKIP, Passed (already on tip).
-- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN.
-
-**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; native `s100_tests` + multi-product fixtures; viewer dump deferred. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
-
-**Close criteria (honest):**
-- Ubuntu + Windows: `session_pick_unified` MUST NOT SKIP, Passed (already tip CI `40171329297` `#10` / Eng `38128761263`; re-check on tip after this Open if needed)
-- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
-- After Close next: **TBD**
-
-**Eng notes:** verify `3c607b7` on tip (docs pin `5affbb1`); fixtures `testdata/s101/101AA00DS0008.000` + `testdata/s124/synthetic_navwarning.gml` + `testdata/s102/synthetic_multigrid_4326.h5` + `testdata/s104/synthetic_waterlevel_4326.h5` + `testdata/s111/synthetic_current_4326.h5`; driver `tests/test_session_pick.cpp`; cmake `session_pick_unified`. CATALOGUE Closed already on this stack (`d77216d`). Do **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. Viewer dump / ECDIS / S-98 / time scrubbing **Non-goals / deferred** — do **not** harden. Do **not** invent `Dataset::pick`. Do **not** change hit order / `numeric_valid` tip-truth.
-
-**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
-1. Docs close / verify primarily (Eng `3c607b7` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
-2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **yes / freeze**.
-3. Contract head → Open; keep display **rev 2** (do **not** bump just for Open) — **yes / freeze**.
-4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
-5. Notes ≠ CATALOGUE-COMPLETE (already Closed; do **not** reopen); ≠ TIMELINE-UI (already Closed; do **not** reopen); ≠ PC-WIRE (already Closed; do **not** reopen); ≠ S-124 / S-111 / S-104 open; do **not** reopen QBC-MG / UNCERT / DEEPEN; shim-retire stays Backlog; viewer dump / ECDIS / S-98 stay Non-goals — **yes / freeze**.
-6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
-7. No other cases this tip (do **not** Closed SCAMIN / DISPLAY-PRIORITY / SIG / POWERUP / etc.) — **yes / freeze**.
-8. architecture.md flip **next** to this Open — **yes / freeze**.
-9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
-10. Failure face = existing bare CHECKs; do **not** invent `SESSIONPICK-*` prefixes — **yes / freeze**.
-11. unified pick/CLI = this tip; vendor/sha = CATALOGUE Closed; scrubber = TIMELINE Closed; wiring = PC-WIRE Closed — **yes / freeze**.
+**O1 closed as tip-truth / docs-close:** Eng `3c607b7` already on tip (`SessionPickHit`/`SessionPickResult` + `chart_session_pick` + hit order + `numeric_valid` + S-124 centroid + CLI `--session-pick` + oracles A–E; docs pin `5affbb1`; CTest **`session_pick_unified`**). Slice = Arch docs close only — not greenfield Eng. Do **not** invent case ids or next tip names; do **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; do **not** invent `SESSIONPICK-*` prefixes; do **not** retire `grid()` this tip; do **not** invent `Dataset::pick`; do **not** harden viewer dump / ECDIS / S-98 / time scrubbing. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest; inventing oracles / next tip id; inventing `SESSIONPICK-*` failure-face prefixes.
 
 ---
+
+## Slice close — 2026-10-25
+
+**Status: Closed / Done** (formal docs close — **not** a pick / Eng rewrite).
+
+- Evidence: CI [40172265305](https://github.com/MasterLivens/S100/actions/runs/40172265305) tip `f8aac10`≡`8dbe072` — Ubuntu + Windows **`session_pick_unified` Passed** (MUST NOT SKIP). Ancestor greens also Eng landing [`38128761263`](https://github.com/MasterLivens/S100/actions/runs/38128761263) @ `3c607b7` + prior tip `#10 session_pick_unified` Passed (CATALOGUE Close CI [`40171329297`](https://github.com/MasterLivens/S100/actions/runs/40171329297) @ `d77216d`).
+- **O1=tip-truth / docs-close SUCCESS** — Eng `3c607b7` already on tip; Arch Open→Closed only; Planner BRIEF §7 answers frozen.
+- MUST tip-truth unchanged (`chart_session_pick` + hit order + `numeric_valid` + oracles A–E + CLI `--session-pick` + S-124 centroid + fixtures **MUST NOT SKIP**; **No** `Dataset::pick`; viewer dump deferred).
+- Eng `3c607b7` already on tip — docs close only; no `ci.yml` change; **no Win (a)/(b)**; no large Eng.
+- Failure face stays bare CHECK tip-truth — do **not** invent `SESSIONPICK-*`.
+- **Notes:** next **TBD** (architecture / registered Active — do **not** invent a next tip id). **Backlog:** `grid()` shim retire (`S102-GRID-SHIM-RETIRE`) — do not insert ahead. Contract display stays **rev 2**. Vendor/sha → CATALOGUE already Closed (do **not** reopen); scrubber → TIMELINE already Closed (do **not** reopen); wiring → PC-WIRE already Closed (do **not** reopen).
+- Boundaries: independent; ≠ CATALOGUE (already Closed); ≠ TIMELINE (already Closed); ≠ PC-WIRE (already Closed); do **not** reopen CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN.
+- **Non-goals this close:** inventing oracles / next tip id; retiring `grid()` shim; pick/Eng rewrite; reopening CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; Win (a)/(b) (N/A — non-`viewer_*`); inventing `SESSIONPICK-*` failure-face prefixes; inventing `Dataset::pick`; hardening viewer dump / ECDIS / S-98 / time scrubbing.
 
 ## Goal
 
