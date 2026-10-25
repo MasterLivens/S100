@@ -1,49 +1,31 @@
-# Wire official S-111 / S-124 Portrayal Catalogues (rev 2) · Active / Open
+# Wire official S-111 / S-124 Portrayal Catalogues (rev 2) (Closed)
 
 Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-PC-WIRE-111-124`** (**Active / Open**). CTest: **`pc_wire_111_124`** — **MUST NOT SKIP**, Linux + Windows CI.
-Status: **rev 2** — Planner freeze (MUST below). S-111/S-124 PC wire slice after closed **`IHO-S124-OPEN-LIST`**. Does **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; does **not** mix **`IHO-TIMELINE-UI`** / **`IHO-CATALOGUE-COMPLETE`**; does **not** jump **`S102-GRID-SHIM-RETIRE`**.
+Builds on `docs/api-contracts.md` (PC wiring) / `docs/s111-contract.md` / `docs/s124-contract.md` (both Closed; PC-WIRE separate) / `docs/catalogue-complete-contract.md` (on-disk FC/PC sha+pair — **≠** this tip). Case id: **`IHO-PC-WIRE-111-124`** (**Closed / Done** 2026-10-25).  
+CTest name: **`pc_wire_111_124`** — MUST NOT SKIP; Linux + Windows dual-green (CI `40165684207` @ `9e7eae0`). Supersedes Open draft on tip `9e7eae0` (≡ Arch `5b27957`).
 
-Builds on `docs/api-contracts.md` (PC wiring) / `docs/s111-contract.md` / `docs/s124-contract.md` (both Closed; PC-WIRE separate) / `docs/catalogue-complete-contract.md` (on-disk FC/PC sha+pair — **≠** this tip). Scrubber / `--list-frames` / `timeline_entries` → separate Active **`IHO-TIMELINE-UI`** (`docs/timeline-ui-contract.md`). Vendor / sha / pair / SOURCE.md → separate Active **`IHO-CATALOGUE-COMPLETE`** — **do not** close CATALOGUE this tip. Wiring ≠ CATALOGUE vendor.
+Primary research: `/workspace/research/pc-wire-111-124/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`e6c8f4a`** (+Win **`d885505`**). Scrubber / `--list-frames` / `timeline_entries` → separate Active **`IHO-TIMELINE-UI`** (`docs/timeline-ui-contract.md`). Vendor / sha / pair / SOURCE.md → separate Active **`IHO-CATALOGUE-COMPLETE`** — **do not** close CATALOGUE this tip. Wiring ≠ CATALOGUE vendor. S-111 XSLT host → **WARN** (do **not** harden).
 
-Primary research: `/workspace/research/pc-wire-111-124/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`e6c8f4a`** (+Win **`d885505`**).
+**Status: Closed / Done (2026-10-25)** — CI [`40165684207`](https://github.com/MasterLivens/S100/actions/runs/40165684207) @ `9e7eae0` dual-green; **`pc_wire_111_124` Passed Ubuntu+Win** (native `s100_tests` + catalogues/GML/HDF5 — **not** `viewer_*`; **no Win O1 (a)/(b)**). Eng **`e6c8f4a`** (+Win **`d885505`**) already on tip — **docs close only**. MUST tip-truth **unchanged** (S-124 `S124HostAdapter` + `portray_nav_warnings_pc` — **not** heuristic CHYLW default; S-111 `SCAROW01`…`09` Frame0→`SCAROW02` / Frame1→`SCAROW03` + ColorProfiles; **no** S-111 Lua; `catalogue_provenance` FATAL-clean; S-104 unchanged; fixture MUST NOT SKIP; XSLT host → **WARN**). **O1=tip-truth / docs-close SUCCESS**. Failure face = bare CHECK tip-truth (do **not** invent `PCWIRE-*`). Do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; do **not** mix TIMELINE-UI / CATALOGUE-COMPLETE; `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog. Contract display stays **rev 2**. Next: **TBD**.
 
-**Status: Active / Open (2026-10-25)** — after **S-124 Closed** (tip `35301c1` ≡ Arch `5f55f60`; tip Close CI [`40164798588`](https://github.com/MasterLivens/S100/actions/runs/40164798588) dual-green; Open-bind evidence CI [`40164164518`](https://github.com/MasterLivens/S100/actions/runs/40164164518) @ `f2dccb1`≡`647bd75`, O1=tip-truth/docs-close). Eng tip ancestors **`e6c8f4a`** (+Win **`d885505`**) already on tip — **not greenfield** (S-124 `S124HostAdapter` + `portray_nav_warnings_pc` — **not** heuristic CHYLW default; S-111 `SCAROW01`…`09` Frame0→`SCAROW02` / Frame1→`SCAROW03` + ColorProfiles; **no** S-111 Lua; `catalogue_provenance` FATAL-clean; S-104 unchanged; fixture MUST NOT SKIP; XSLT host → **WARN**; CTest **`pc_wire_111_124`**). Ubuntu+Windows already Passed — tip Close CI [`40164798588`](https://github.com/MasterLivens/S100/actions/runs/40164798588) `#13` + Eng landing [`38131323424`](https://github.com/MasterLivens/S100/actions/runs/38131323424) @ `d885505` (native `s100_tests` + catalogues/GML/HDF5, **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / TIMELINE-UI / CATALOGUE-COMPLETE. Do **not** invent case ids or next tip names; freeze tip-truth below. Do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. Do **not** mix TIMELINE / CATALOGUE. Do **not** invent `PCWIRE-*` failure-face prefixes (keep existing bare CHECKs). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 2** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+**Planner freeze (kept — rev 2 tip-truth):** Reuse case id **`IHO-PC-WIRE-111-124`** / CTest **`pc_wire_111_124`**; MUST tip-truth = S-124 `S124HostAdapter` + `portray_nav_warnings_pc` (**not** heuristic CHYLW default) + S-111 `SCAROW01`…`09` (Frame0→`SCAROW02` / Frame1→`SCAROW03`) + ColorProfiles + **no** S-111 Lua + `catalogue_provenance` FATAL-clean + S-104 unchanged; fixture MUST NOT SKIP; XSLT host → **WARN**; vendor/sha → **CATALOGUE-COMPLETE** separate; scrubber → **TIMELINE-UI** separate; official catalogue trees **read-only**; Eng `e6c8f4a` (+Win `d885505`) already; `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog; failure face = bare CHECKs (do **not** invent `PCWIRE-*`); after Closed next **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; do **not** mix TIMELINE-UI / CATALOGUE-COMPLETE.
 
-**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
-- Reuse case id **`IHO-PC-WIRE-111-124`** / CTest **`pc_wire_111_124`**; **forbidden** to invent a second case/test name.
-- MUST tip-truth = S-124 `S124HostAdapter` + `portray_nav_warnings_pc` (**not** heuristic CHYLW default) + S-111 `SCAROW01`…`09` (Frame0→`SCAROW02` / Frame1→`SCAROW03`) + ColorProfiles + **no** S-111 Lua + `catalogue_provenance` FATAL-clean + S-104 unchanged; fixture **MUST NOT SKIP**; XSLT host → **WARN**; vendor/sha → **CATALOGUE-COMPLETE** separate; scrubber → **TIMELINE-UI** separate.
-- Official catalogue trees **read-only** — forbid edit S-111/S-124 FC/PC; forbid forge S-104 PC; forbid invent S-111 Lua HostAdapter / rewrite XSLT→Lua.
-- Fixture `testdata/s124/synthetic_navwarning.gml` + `testdata/s111/synthetic_current_4326.h5` **MUST NOT SKIP** on CI (Linux+Win).
-- Scrubber / `--list-frames` / `timeline_entries` → **`IHO-TIMELINE-UI`** (separate tip; **not** this case).
-- Vendor / sha / pair / SOURCE.md → **`IHO-CATALOGUE-COMPLETE`** (separate tip; **do not** close this tip). Wiring ≠ CATALOGUE vendor.
-- Eng tip already has **`e6c8f4a`** (+Win **`d885505`**); Ubuntu+Win (tip `40164798588` `#13` / Eng `38131323424`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield.
-- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
-- Failure face = existing bare CHECKs; do **not** invent `PCWIRE-*` prefixes.
-- Ubuntu + Windows: `pc_wire_111_124` MUST NOT SKIP, Passed (already on tip).
-- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; do **not** mix TIMELINE-UI / CATALOGUE-COMPLETE.
+**O1 closed as tip-truth / docs-close:** Eng `e6c8f4a` (+Win `d885505`) already on tip (S-124 `S124HostAdapter` + `portray_nav_warnings_pc`; S-111 `SCAROW01`…`09` Frame0→`SCAROW02` / Frame1→`SCAROW03` + ColorProfiles; **no** S-111 Lua; `catalogue_provenance` FATAL-clean; S-104 unchanged; fixtures `synthetic_navwarning.gml` + `synthetic_current_4326.h5`; CTest **`pc_wire_111_124`**). Slice = Arch docs close only — not greenfield Eng. Do **not** invent case ids or next tip names; do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; do **not** invent `PCWIRE-*` prefixes; do **not** retire `grid()` this tip; do **not** close CATALOGUE / TIMELINE; do **not** harden XSLT host. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest; inventing oracles / next tip id; mixing TIMELINE-UI / CATALOGUE; forging S-111 Lua / S-104 PC; editing official catalogue trees.
 
-**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+---
 
-**Close criteria (honest):**
-- Ubuntu + Windows: `pc_wire_111_124` MUST NOT SKIP, Passed (already tip CI `40164798588` `#13` / Eng `38131323424`; re-check on tip after this Open if needed)
-- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
-- After Close next: **TBD**
+## Slice close — 2026-10-25
 
-**Eng notes:** verify `e6c8f4a` (+`d885505`) on tip; fixtures `testdata/s124/synthetic_navwarning.gml` + `testdata/s111/synthetic_current_4326.h5` + SOURCE; driver `tests/test_pc_wire_111_124.cpp`; cmake `pc_wire_111_124`. S-124 Closed already on this stack (`35301c1`). Do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. XSLT host **WARN-only** — do **not** harden. Official trees read-only; vendor/sha → CATALOGUE separate (do **not** close CATALOGUE / TIMELINE this tip).
+**Status: Closed / Done** (formal docs close — **not** a wire / catalogue rewrite).
 
-**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
-1. Docs close / verify primarily (Eng `e6c8f4a`+`d885505` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
-2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **yes / freeze**.
-3. Contract head → Open; keep display **rev 2** (do **not** bump just for Open) — **yes / freeze**.
-4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
-5. Notes ≠ TIMELINE-UI; ≠ CATALOGUE-COMPLETE; do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; shim-retire stays Backlog; XSLT stays WARN — **yes / freeze**.
-6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
-7. No other cases this tip (do **not** Closed TIMELINE / CATALOGUE / SESSION-PICK / SIG / POWERUP / etc.) — **yes / freeze**.
-8. architecture.md flip **next** to this Open — **yes / freeze**.
-9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
-10. Failure face = existing bare CHECKs; do **not** invent `PCWIRE-*` prefixes — **yes / freeze**.
-11. Wiring ≠ CATALOGUE vendor; official trees read-only; XSLT host → WARN — **yes / freeze**.
+- Evidence: CI [40165684207](https://github.com/MasterLivens/S100/actions/runs/40165684207) tip `9e7eae0` — Ubuntu + Windows **`pc_wire_111_124` Passed** (MUST NOT SKIP). Ancestor greens also Eng landing [`38131323424`](https://github.com/MasterLivens/S100/actions/runs/38131323424) @ `d885505` + tip Open `#13 pc_wire_111_124` Passed (same Close-bind run / prior tip greens).
+- **O1=tip-truth / docs-close SUCCESS** — Eng `e6c8f4a`+`d885505` already on tip; Arch Open→Closed only; Planner BRIEF §7 answers frozen.
+- MUST tip-truth unchanged (S-124 `S124HostAdapter` + `portray_nav_warnings_pc` — **not** heuristic CHYLW default; S-111 `SCAROW01`…`09` Frame0→`SCAROW02` / Frame1→`SCAROW03` + ColorProfiles; **no** S-111 Lua; `catalogue_provenance` FATAL-clean; S-104 unchanged; fixture MUST NOT SKIP; XSLT host → **WARN**).
+- Eng `e6c8f4a`+`d885505` already on tip — docs close only; no `ci.yml` change; **no Win (a)/(b)**.
+- Failure face stays bare CHECK tip-truth — do **not** invent `PCWIRE-*`.
+- **Notes:** next **TBD** (architecture / registered Active — do **not** invent a next tip id). **Backlog:** `grid()` shim retire (`S102-GRID-SHIM-RETIRE`) — do not insert ahead. Contract display stays **rev 2**. XSLT host stays WARN; vendor/sha → CATALOGUE-COMPLETE stays separate Active (do **not** close); scrubber → TIMELINE-UI stays separate Active (do **not** close); S-104 unchanged.
+- Boundaries: independent; ≠ TIMELINE-UI; ≠ CATALOGUE-COMPLETE; do **not** reopen S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN.
+- **Non-goals this close:** inventing oracles / next tip id; closing CATALOGUE / TIMELINE; retiring `grid()` shim; wire/catalogue rewrite; reopening S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; Win (a)/(b) (N/A — non-`viewer_*`); inventing `PCWIRE-*` failure-face prefixes; hardening XSLT host; forging S-111 Lua / S-104 PC; editing official catalogue trees.
 
 ---
 
