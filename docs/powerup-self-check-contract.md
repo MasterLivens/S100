@@ -1,13 +1,57 @@
-# S-164 / S-98 power-up / start-up self-check (rev1)
+# S-164 / S-98 power-up / start-up self-check (rev 1) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S164-POWERUP`** (**Active**). CTest: **`powerup_self_check`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S164-POWERUP`** (**Active / Open**). CTest: **`powerup_self_check`** — **MUST NOT SKIP**, Linux + Windows CI.
+Status: **rev 1** — Planner freeze (MUST below). Build-tree power-up self-check / PU-1…PU-6 slice after closed **`IHO-S164-POWERUP-INSTALL-PREFIX`**. Does **not** reopen INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE; does **not** mix SIG / FASC; does **not** jump **`S102-GRID-SHIM-RETIRE`**. Does **not** expand PU-1…PU-6 tip-truth oracles.
 
-**Status: rev1 — Planner checklist frozen.** Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here. Engineer may implement after this rev1.
+Frozen with: `docs/api-contracts.md` (Power-up), `docs/powerup-install-prefix-contract.md` (Closed; install-tree → INSTALL-PREFIX separate — **do not** reopen), `docs/testing/iho-ctest-case-ids.md`. Draw order → **DISPLAY-PRIORITY** already Closed — **do not** reopen. Scale filter → **SCAMIN** already Closed — **do not** reopen. Unified pick → **SESSION-PICK** already Closed — **do not** reopen. Vendor / sha → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. Part 15 crypto / producer-code → **SIG** family (separate Active — **do not** mix). FASC / BRIDGE already Closed — **do not** mix. Official PowerUp TDS / producer-code / EncDotNet / type approval = Non-goals.
 
-**Install-tree follow-on (separate case):** **`IHO-S164-POWERUP-INSTALL-PREFIX`** — `docs/powerup-install-prefix-contract.md` (rev1). This file’s PU-1…PU-6 table is **unchanged**; install-prefix only relocates catalogue root after `cmake --install`.
+Primary research: `/workspace/research/powerup/BRIEF.md` (2026-10-25 tip-truth refresh). Former Eng gap **already fixed** @ Eng **`980a10c`** (docs prep **`a93da6e`** / **`5491924`**).
 
-Primary research: `/workspace/research/powerup/BRIEF.md` (Planner, 2026-10-18). Spec texts: S-164 Ed 1.0.0 §2.1.1 / §2.2.1–2.2.2 (+ 2.0.1 draft), S-98 Ed 2.0.0 §20.1 / §20.4.3 c / App. B, IEC 61174 4.4.1 (via S-164 cite only), `docs/part15-signature-contract.md`, `docs/catalogue-complete-contract.md`, `docs/certification/*`.
+**Install-tree follow-on:** **`IHO-S164-POWERUP-INSTALL-PREFIX`** already **Closed** — `docs/powerup-install-prefix-contract.md` (rev1). This file’s PU-1…PU-6 table is **unchanged**; install-prefix only relocated catalogue root after `cmake --install` — **do not** reopen.
+
+**Status: Active / Open (2026-10-25)** — after **INSTALL-PREFIX Closed** (tip `f7e8418` ≡ Arch `3ad7cb3`; tip Close CI [`40177052197`](https://github.com/MasterLivens/S100/actions/runs/40177052197) dual-green; Open-bind evidence CI [`40176493323`](https://github.com/MasterLivens/S100/actions/runs/40176493323) @ `7b1e9b6`≡`2cfe932`, O1=tip-truth/docs-close). Eng tip ancestor **`980a10c`** already on tip — **not greenfield** (`run_powerup_self_check` / `security_self_test` / `PowerUpReport` + PU-1…PU-6 + CLI/viewer hooks + session Block ops paths + CTest `powerup_self_check`; **no** Win a/b chain). Ubuntu+Windows already Passed — tip Close CI [`40177052197`](https://github.com/MasterLivens/S100/actions/runs/40177052197) `#21 powerup_self_check` + Eng landing [`39109478325`](https://github.com/MasterLivens/S100/actions/runs/39109478325) @ `980a10c` (native `s100_tests` + source-tree catalogues + synthetic smoke — **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / SIG / FASC. Do **not** invent case ids or next tip names; freeze tip-truth below (**keep** PU-1…PU-6 oracles — **do not** expand). Do **not** reopen INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE. Do **not** invent `POWERUP-*` failure-face prefixes (keep existing bare SCHECK). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 1** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+
+**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
+- Reuse case id **`IHO-S164-POWERUP`** / CTest **`powerup_self_check`**; **forbidden** to invent a second case/test name.
+- MUST tip-truth = PU-1…5 MUST+Block (ops/exchange only); PU-6 WARN stub / CLI N/A→Pass; PU-2 = catalogue-complete pins (S-101/102/111/124 FC+PC; S-104 FC only / **no** S-104 PC); PU-3/4 Track B project decisions (SIG); PU-4 mini gold `verify_exchange_set`; CLI Pass/Warn=0 Block=2; D7 UNVERIFIED allowed; CI synthetic only; no producer-code; fixtures **MUST NOT SKIP**; official PowerUp TDS / EncDotNet / type approval = Non-goals.
+- Eng tip already has **`980a10c`** (docs prep **`a93da6e`** / **`5491924`**); Ubuntu+Win (tip `40177052197` `#21` / Eng `39109478325`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield. **Keep** PU-1…PU-6 oracles — **do not** expand scope / severity / Block / exit / path table.
+- Install-tree root → **`IHO-S164-POWERUP-INSTALL-PREFIX`** already Closed — **do not** reopen.
+- Draw order → **`IHO-DISPLAY-PRIORITY`** already Closed — **do not** reopen.
+- Scale filter → **`IHO-SCAMIN-FILTER`** already Closed — **do not** reopen.
+- Unified pick → **`IHO-SESSION-PICK-UNIFIED`** already Closed — **do not** reopen.
+- Vendor / sha → **`IHO-CATALOGUE-COMPLETE`** already Closed — **do not** reopen.
+- Scrubber → **`IHO-TIMELINE-UI`** already Closed — **do not** reopen.
+- Wiring → **`IHO-PC-WIRE-111-124`** already Closed — **do not** reopen.
+- Part 15 crypto / producer-code → **SIG** family separate Active — **do not** mix this tip; FASC / BRIDGE already Closed — **do not** mix.
+- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
+- Failure face = existing bare SCHECK; do **not** invent `POWERUP-*` prefixes.
+- Ubuntu + Windows: `powerup_self_check` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; native `s100_tests` + source-tree catalogues + synthetic smoke; no SKIP. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `powerup_self_check` MUST NOT SKIP, Passed (already tip CI `40177052197` `#21` / Eng `39109478325`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
+- After Close next: **TBD**
+
+**Eng notes:** verify `980a10c` on tip (docs prep `a93da6e`/`5491924`); API `include/s100/powerup.hpp` + `src/core/powerup.cpp`; driver `tests/test_powerup_self_check.cpp`; cmake `powerup_self_check`. INSTALL-PREFIX Closed already on this stack (`f7e8418`). Do **not** reopen INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE. Do **not** mix SIG / FASC. Official TDS / producer-code / EncDotNet **Non-goals** — do **not** harden. Do **not** invent `POWERUP-*` failure prefixes. Do **not** change tip-truth PU-1…PU-6 oracles / severity / Block / exit.
+
+**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `980a10c` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
+2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **yes / freeze**.
+3. Contract head → Open; keep display **rev 1** (do **not** bump just for Open) — **yes / freeze**.
+4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
+5. Notes ≠ INSTALL-PREFIX (already Closed; do **not** reopen); ≠ DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE (already Closed; do **not** reopen); ≠ S-124 / S-111 / S-104 open; ≠ SIG / FASC (do **not** mix); do **not** reopen QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE; shim-retire stays Backlog; official TDS / producer-code / EncDotNet stay Non-goals; **keep** PU-1…PU-6 tip-truth (do **not** expand) — **yes / freeze**.
+6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
+7. No other cases this tip (do **not** Closed SIG / FASC / etc.) — **yes / freeze**.
+8. architecture.md flip **next** to this Open — **yes / freeze**.
+9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
+10. Failure face = existing bare SCHECK; do **not** invent `POWERUP-*` prefixes — **yes / freeze**.
+11. build-tree PU-1…PU-6 self-check = this tip; install-tree root = INSTALL-PREFIX Closed; Part 15 crypto = SIG Active (do **not** mix) — **yes / freeze**.
+
+---
 
 ### Naming context (locked)
 
