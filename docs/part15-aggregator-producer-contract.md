@@ -1,15 +1,58 @@
-# Part 15 / S-98 aggregator-signed producer policy (rev1)
+# Part 15 / S-98 aggregator-signed producer policy (rev 1) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S164-SIG-AGGREGATOR`** (**Active**). CTest: **`exchange_signature_aggregator`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S164-SIG-AGGREGATOR`** (**Active / Open**). CTest: **`exchange_signature_aggregator`** — **MUST NOT SKIP**, Linux + Windows CI.
+Status: **rev 1** — Planner freeze (MUST below). ST=`DATA_AGGREGATOR` permanent exempt + optional WARN slice after closed **`IHO-S164-SIG-CN-SHAPE`**. Does **not** reopen CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; does **not** mix/jump Closed **base SIG** crypto; does **not** jump **`S102-GRID-SHIM-RETIRE`**. Does **not** expand tip-truth oracles / add Block match / invent SSE / emit 109 on AGG path.
 
-**Status: rev1 — policy contract frozen (Planner Open O1–O6 closed).** Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here. Engineer may implement after this rev1.
+Frozen with: `docs/api-contracts.md` (Part 15 aggregator), `docs/part15-signature-contract.md` (base SIG — **do not** reopen), `docs/part15-producer-code-contract.md` (PRODUCER Closed — DATA_PRODUCER path — **do not** reopen), `docs/part15-cn-shape-contract.md` (CN-SHAPE Closed — OfficialClass — **do not** reopen), `docs/powerup-self-check-contract.md` (POWERUP Closed — **do not** reopen), `docs/testing/iho-ctest-case-ids.md`. Draw order → **DISPLAY-PRIORITY** already Closed — **do not** reopen. Scale filter → **SCAMIN** already Closed — **do not** reopen. Unified pick → **SESSION-PICK** already Closed — **do not** reopen. Vendor / sha → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. Install-tree → **INSTALL-PREFIX** already Closed — **do not** reopen. Producer-code Enforce match → **PRODUCER** already Closed — **do not** reopen. CN MRN→OfficialClass → **CN-SHAPE** already Closed — **do not** reopen. UI styling / S-128 packs / permits / invent new SSE / Block member/aggregator/either match / change `exchange_signature` / `exchange_signature_producer` / `exchange_signature_cn_shape` Ok = Non-goals.
 
-Takes the **Aggregator CN ↔ member HO producer matching** Backlog deferred from **`IHO-S164-SIG-PRODUCER`** and **closes it as permanent exempt policy** — **not** as a Block match rule. Under PRODUCER, ST=`DATA_AGGREGATOR` was already exempt “this slice”; this case **elevates** that exempt to a lasting contract MUST so RENC-signed member HO packs (CHS/PRIMAR: CN=`00PM`, member `CA00` in fileName/agency, often **no** `producerCode`) are **never** false-killed.
+Primary research: `/workspace/research/aggregator-producer/BRIEF.md` (2026-10-25 tip-truth refresh). Former Eng gap **already fixed** @ Eng **`29be187`** (permanent ST=`DATA_AGGREGATOR` exempt + optional WARN `aggregator_producer_code_divergent` + fixture `aggregator_exempt/` + key + CTest).
 
-**Do not** reopen PRODUCER / CN-SHAPE / POWERUP — **reuse** their CN parsers, ST→OfficialClass rules, SSE map TU, and Enforce hook. **No** new S-98 SSE.
+**rev1 field freeze (kept — Planner Open O1–O6 closed / policy-exempt + WARN):** ST=`DATA_AGGREGATOR` → **permanent exempt** from PRODUCER CN seg3↔`producerCode` Block; DATA_PRODUCER path **unchanged**; missing `producerCode` → N/A-pass; optional WARN reason **`aggregator_producer_code_divergent`** when producerCode present ≠ CN seg3 (**no** skip / **no** SSE 109 / no new SSE); leaf `certificateRef` only (no whole-chain member scan); ST=`AGGREGATOR` (S-128) **out of slice**; fixture `aggregator_exempt/` (AGGREGATOR ST + member producerCode ≠ CN → Enforce **still installs**); reuse PRODUCER/CN-SHAPE helpers; hook `verify_exchange_set` only; MUST NOT break `exchange_signature` / `exchange_signature_producer` / `exchange_signature_cn_shape` Ok; MUST NOT SKIP; Linux+Win.
 
-Primary sources: S-98 Ed 2.0.0 §9.1.1 (ST=`DATA_AGGREGATOR` “on behalf of members” + CN match sentence); `/workspace/research/aggregator-producer/BRIEF.md` (Planner freeze correction); CHS/PRIMAR COMBINED sample (ST=`DATA_AGGREGATOR`, CN `urn:mrn:iho:00PM:…`, `producerCode` absent, member `CA00` in fileName); `docs/part15-producer-code-contract.md`; `docs/part15-cn-shape-contract.md`; SIG A9 ST.
+**Status: Active / Open (2026-10-25)** — after **CN-SHAPE Closed** (tip `ae89f29` ≡ Arch `656db7b`; tip Close CI [`40181637772`](https://github.com/MasterLivens/S100/actions/runs/40181637772) dual-green; Open-bind evidence CI [`40181021692`](https://github.com/MasterLivens/S100/actions/runs/40181021692) @ `7793a63`≡`c799da5`, CTest `#20 exchange_signature_aggregator` Passed, O1=tip-truth/docs-close). Eng tip ancestor **`29be187`** (permanent DATA_AGGREGATOR exempt + optional WARN + fixture/CTest) already on tip — **not greenfield**. Eng green CI [`39115171877`](https://github.com/MasterLivens/S100/actions/runs/39115171877) @ `29be187` (native `s100_tests` + signature fixtures — **not** `viewer_*` — **no Win O1 (a)/(b)**). Ubuntu+Windows already Passed — tip Close CI [`40181637772`](https://github.com/MasterLivens/S100/actions/runs/40181637772) `#20 exchange_signature_aggregator` + Open-bind [`40181021692`](https://github.com/MasterLivens/S100/actions/runs/40181021692) `#20` + Eng landing [`39115171877`](https://github.com/MasterLivens/S100/actions/runs/39115171877). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE / base SIG. Do **not** invent case ids or next tip names; freeze tip-truth below (**keep** AGGREGATOR oracles — **do not** expand). Do **not** reopen CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE. Do **not** mix/jump Closed **base SIG** crypto. Do **not** invent `AGG-*`/`SIGAGG-*` failure-face / skip prefixes (failure face = bare SCHECK / existing reason codes). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 1** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+
+**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
+- Reuse case id **`IHO-S164-SIG-AGGREGATOR`** / CTest **`exchange_signature_aggregator`**; **forbidden** to invent a second case/test name.
+- MUST tip-truth = permanent ST=`DATA_AGGREGATOR` exempt + DATA_PRODUCER unchanged + missing→N/A-pass + optional WARN `aggregator_producer_code_divergent` (no skip / no 109) + leaf-only + fixture `aggregator_exempt/` (install + no 109 + no `producer_code_mismatch` + WARN when divergent) + hook `verify_exchange_set` Enforce only + **MUST NOT** break `exchange_signature` / `exchange_signature_producer` / `exchange_signature_cn_shape` Ok + CTest **MUST NOT SKIP**; Linux+Win.
+- Eng tip already has **`29be187`**; Ubuntu+Win (tip `40181637772` `#20` / Open-bind `40181021692` `#20` / Eng `39115171877`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield. **Keep** tip-truth oracles — **do not** expand scope / add Block match / invent SSE / emit 109 on AGG path / reopen CN-SHAPE/PRODUCER.
+- CN MRN→OfficialClass → **`IHO-S164-SIG-CN-SHAPE`** already Closed — **do not** reopen.
+- Producer-code Enforce match → **`IHO-S164-SIG-PRODUCER`** already Closed — **do not** reopen.
+- Power-up self-check → **`IHO-S164-POWERUP`** already Closed — **do not** reopen.
+- Install-tree root → **`IHO-S164-POWERUP-INSTALL-PREFIX`** already Closed — **do not** reopen.
+- Draw order → **`IHO-DISPLAY-PRIORITY`** already Closed — **do not** reopen.
+- Scale filter → **`IHO-SCAMIN-FILTER`** already Closed — **do not** reopen.
+- Unified pick → **`IHO-SESSION-PICK-UNIFIED`** already Closed — **do not** reopen.
+- Vendor / sha → **`IHO-CATALOGUE-COMPLETE`** already Closed — **do not** reopen.
+- Scrubber → **`IHO-TIMELINE-UI`** already Closed — **do not** reopen.
+- Wiring → **`IHO-PC-WIRE-111-124`** already Closed — **do not** reopen.
+- Base Part 15 crypto → **`IHO-S164-SIG`** — **do not** reopen / mix / Closed this tip.
+- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
+- Failure face = bare SCHECK / existing reason codes; do **not** invent `AGG-*`/`SIGAGG-*` skip / failure-face prefixes.
+- Ubuntu + Windows: `exchange_signature_aggregator` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; do **not** mix/jump Closed base SIG.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; native `s100_tests` + signature fixtures (`aggregator_exempt/`); no SKIP. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `exchange_signature_aggregator` MUST NOT SKIP, Passed (already tip CI `40181637772` `#20` / Open-bind `40181021692` `#20` / Eng `39115171877`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
+- After Close next: **TBD**
+
+**Eng notes:** verify `29be187` on tip; API/path in `s100_security` (`verify.cpp` permanent DATA_AGGREGATOR exempt + optional WARN `aggregator_producer_code_divergent`); driver `tests/test_exchange_signature_aggregator.cpp`; cmake `exchange_signature_aggregator`; fixture `testdata/s101/signatures/aggregator_exempt`; key `test_ds_aggregator.crt`. CN-SHAPE Closed already on this stack (`ae89f29`). Do **not** reopen CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE. Do **not** mix/Closed base SIG crypto. UI / S-128 / permits / invent SSE / Block match **Non-goals** — do **not** harden. Do **not** invent `AGG-*`/`SIGAGG-*` failure prefixes. Do **not** change tip-truth oracles / add Block match / emit 109 on AGG path.
+
+**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `29be187` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
+2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **yes / freeze**.
+3. Contract head → Open; keep display **rev 1** (do **not** bump just for Open) — **yes / freeze**.
+4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
+5. Notes ≠ CN-SHAPE (already Closed; do **not** reopen); ≠ PRODUCER (already Closed; do **not** reopen); ≠ POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE (already Closed; do **not** reopen); ≠ S-124 / S-111 / S-104 open; ≠ base SIG crypto reopen; do **not** reopen QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; shim-retire stays Backlog; UI / S-128 / permits / invent SSE / Block match stay Non-goals; **keep** tip-truth oracles (do **not** expand) — **yes / freeze**.
+6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
+7. No other cases this tip (do **not** Closed base SIG / etc.) — **yes / freeze**.
+8. architecture.md flip **next** to this Open — **yes / freeze**.
+9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
+10. Failure face = bare SCHECK / existing reason codes; do **not** invent `AGG-*`/`SIGAGG-*` skip / failure-face prefixes — **yes / freeze**.
+11. AGGREGATOR exempt+WARN = this tip; CN MRN→OfficialClass = CN-SHAPE Closed (do **not** reopen); producer-code match = PRODUCER Closed (do **not** reopen); base crypto = SIG (do **not** reopen) — **yes / freeze**.
 
 ---
 
@@ -143,23 +186,21 @@ Engineer **SHOULD** emit this WARN (MUST-log preferred; Tester may assert presen
 - New S-98 App. B SSE; emit 109 on AGGREGATOR divergent WARN path.
 - ST=`AGGREGATOR` (S-128) classify change.
 - Real PRIMAR / HO private keys in product or committed fixtures.
-- QBC (still Backlog). Install-prefix queue → **Active** as **`IHO-S164-POWERUP-INSTALL-PREFIX`** (`docs/powerup-install-prefix-contract.md` rev1).
+- QBC (still Backlog). Install-prefix → **`IHO-S164-POWERUP-INSTALL-PREFIX`** already **Closed** — **do not** reopen (`docs/powerup-install-prefix-contract.md`).
 
 ---
 
-## 8. Docs sync (this commit)
+## 8. Docs sync (this Open tip)
 
-- `docs/testing/iho-ctest-case-ids.md` — case **`IHO-S164-SIG-AGGREGATOR`** **Active** rev1 (policy-exempt + WARN).
-- `docs/api-contracts.md` — pointer: permanent exempt + optional WARN; not member match.
-- `docs/part15-producer-code-contract.md` — AGGREGATOR exempt → **permanent** (closed by this case); Backlog matching row → **Closed as permanent exempt**.
-- `docs/architecture.md` — security row aggregator **rev1**.
-- `docs/part15-signature-contract.md` / `docs/part15-cn-shape-contract.md` — cross-ref rev1 policy-exempt.
-- Cross-ref only; no engine / CMake / CI.
+- `docs/testing/iho-ctest-case-ids.md` — case **`IHO-S164-SIG-AGGREGATOR`** **Active / Open** (Eng `29be187` tip-truth; clear stale «queue next INSTALL-PREFIX»).
+- `docs/architecture.md` — **next** → this Open; security row AGGREGATOR **Active / Open**.
+- Contract display header stays **rev 1** (do **not** bump just for Open). Body §1–§7 tip-truth frozen — **keep**; do **not** expand oracles / add Block match / invent SSE.
+- Cross-ref only this tip; **no** engine / CMake / CI change.
 
 ---
 
 ## 9. Engineer / Tester
 
-**Engineer:** implement §3–§6; keep PRODUCER DATA_PRODUCER path untouched; elevate ST=`DATA_AGGREGATOR` exempt to permanent (shared helper ok); optional WARN `aggregator_producer_code_divergent`; fixture `aggregator_exempt/` + CTest `exchange_signature_aggregator`; **no** new SSE; **no** aggregator mismatch→skip.
+**Engineer:** tip already has `29be187` (permanent DATA_AGGREGATOR exempt + optional WARN + fixture `aggregator_exempt/` + CTest). This Open tip = **docs close / verify primarily** — **no** large Eng / **no** `ci.yml`. Keep PRODUCER DATA_PRODUCER path untouched; **no** new SSE; **no** aggregator mismatch→skip; **MUST NOT** break `exchange_signature` / `exchange_signature_producer` / `exchange_signature_cn_shape` Ok.
 
-**Tester:** gate on truth table §4; CTest MUST NOT SKIP; assert install when AGGREGATOR ST + member `producerCode` ≠ CN; assert **no** 109 / **no** skip on that path; WARN reason optional assert; no real PRIMAR keys.
+**Tester:** gate on truth table §4; CTest MUST NOT SKIP; assert install when AGGREGATOR ST + member `producerCode` ≠ CN; assert **no** 109 / **no** skip on that path; WARN reason optional assert; no real PRIMAR keys. Close binds Ubuntu+Win Passed.
