@@ -1,39 +1,16 @@
-# S-102 bathymetry uncertainty layer (rev1) · Active / Open
+# S-102 bathymetry uncertainty layer (rev1) (Closed)
 
 Owner: SoftwareArchitecture (2026-10-24). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S102-UNCERTAINTY`** (**Active / Open**). CTest: **`s102_uncertainty`**.
-Status: **rev1** — Planner P1–P5 resolved (clause table + decisions below). Supersedes draft `696cad3`.
-
-Builds on `docs/s102-contract.md` / `docs/s102-deepen-contract.md`. Unlocks deepen Non-goal “uncertainty as its own layer” for this case only; does **not** reopen OPEN / OVERLAY / DEEPEN.
+Builds on `docs/s102-contract.md` / `docs/s102-deepen-contract.md`. Case id: **`IHO-S102-UNCERTAINTY`** (**Closed / Done** 2026-10-25).  
+CTest name: **`s102_uncertainty`** — MUST NOT SKIP; Linux + Windows dual-green (CI `40142462597` @ `13b7c3c`). Supersedes draft `696cad3`.
 
 Primary research: `/workspace/research/s102-uncertainty/BRIEF.md` + `SOURCES.md` (S-102 Ed **3.0.0**, S-100 **5.2.0**).
 
-**Status: Active / Open (2026-10-24)** — after **DEEPEN-MULTIGRID Closed** (CI `39141930422` @ `5e05675`, O1=`grid()` shim → **Backlog**). Eng tip ancestor **`b2d17de`** already on tip — **not greenfield** (dual-channel sample / depth-only §10 loader / VG `13031` vendor CoverageFill / fixtures A+B / CTest MUST #1/#1b/#2–7). QBC-META Eng **`7b20a56`** also on tip (flipped fixture **B** #1b → broadcast `unc≈0.75` + unc-DI). Ubuntu+Windows CI already Passed on tip — CI [`40098659137`](https://github.com/MasterLivens/S100/actions/runs/40098659137) @ `24e8db3` (`s102_uncertainty` Passed both; native `s100_tests` + HDF5, **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **docs close / verify primarily**. Independent tip from DEEPEN / QBC-META / QBC-MG. Do **not** invent oracles; freeze tip-truth below. Do **not** reopen DEEPEN. Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog; UNCERT still calls `grid()`). After Closed next: **`IHO-S102-QBC-META`**.
+**Status: Closed / Done (2026-10-25)** — CI [`40142462597`](https://github.com/MasterLivens/S100/actions/runs/40142462597) @ `13b7c3c` dual-green; **`s102_uncertainty` Passed Ubuntu+Win** (native `s100_tests` + HDF5 — **not** `viewer_*`; **no Win O1 (a)/(b)**). Eng **`b2d17de`** (+ QBC-META **`7b20a56`** tip-truth #1b flip) already on tip — **docs close only**. Oracles MUST #1/#1b/#2–7 **unchanged** (tip-truth). **O1=#1b tip-truth broadcast SUCCESS**. Soft-nit body T1/U2b/fixture B/#1b aligned this Close stack (`30e3e7f`). `grid()` shim stays Backlog. Next: **`IHO-S102-QBC-META`**.
 
-**Planner freeze (MUST — from rev1 + BRIEF + tip truth):**
-- Reuse case id / CTest name; **forbidden** to invent a second case/test name.
-- MUST #1 / #1b / #2–7: fixture **A** dual-channel sample (Point A unc metres; Point B fill → `!has_uncertainty`); fixture **B** depth-only load succeeds; portray depth VG **`13030`** + unc VG **`13031`** (vendor ext); hide **`13031` only** → unc DIs gone, depth **`13030` remains**, samples unchanged; show again; Linux+Win smoke; real NOAA/CHS per U6 (unc metres only; QoBC out); prior deepen still green.
-- **#1b tip-truth (freeze):** QBC-META already elected §10 min==max broadcast on tip → fixture **B** samples **`has_uncertainty==true`**, `uncertainty≈0.75`, unc CoverageFill present. Historical “rev1 landing no-broadcast” is superseded by tip; do **not** revert loader. Broadcast failure face stays **`BCAST-*`** on **`IHO-S102-QBC-META`** (do not conflate).
-- Fixtures `synthetic_uncertainty_4326.h5` + `synthetic_uncertainty_depth_only_4326.h5` **MUST NOT SKIP** on CI (Linux+Win).
-- VG **`13031`** = project-private vendor extension (NOT PS/PC); **do not** bind unc toggle to **`13030`**; symbolic colour tokens only (no hard-coded RGB).
-- **`grid()` shim stays** (DEEPEN O1=Backlog) — UNCERT may still use `grid()`; retire = separate Backlog / later cleanup, **not** this tip.
-- Ubuntu + Windows: `s102_uncertainty` MUST NOT SKIP, Passed (already on tip ancestors / tip CI `40098659137`).
-- After Closed next: **`IHO-S102-QBC-META`**.
+**Planner freeze (kept — rev1 tip-truth):** Reuse case id / CTest name; MUST #1/#1b/#2–7 (fixture **A** dual-channel; fixture **B** depth-only tip-truth broadcast `has_uncertainty==true` / unc≈0.75 + unc-DI; portray depth VG **`13030`** + unc VG **`13031`**; hide **`13031` only**; real NOAA/CHS per U6 unc metres only); fixtures MUST NOT SKIP; VG **`13031`** vendor ext; symbolic colour tokens only; **do not** revert loader; broadcast **failure** face → **`BCAST-*`** / QBC-META; shim stays Backlog.
 
-**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
-
-**Close criteria (honest):**
-- Ubuntu + Windows: `s102_uncertainty` MUST NOT SKIP, Passed (already on tip CI `40098659137` @ `24e8db3`; re-check on tip after this Open if needed)
-- Docs → Closed + CI Notes when done; no Eng `ci.yml` change required
-- After Close next: **`IHO-S102-QBC-META`**
-
-**Eng notes:** verify `b2d17de` on tip; fixtures A/B + `SOURCE.md`; driver `tests/test_s102.cpp` `test_s102_uncertainty`; cmake `s102_uncertainty`. DEEPEN Closed already on this stack (`24e8db3`). QBC-META Eng already flipped #1b — do **not** revert. Soft pixel WARN-only — do **not** harden EncDotNet. QoBC U32 / `featureAttributeTable` out of scope (QBC-META).
-
-**O-questions (real gaps only — Planner):**
-1. **#1b fixture B oracle** — **RESOLVED O1=#1b tip-truth broadcast** (Planner). Body T1/U2b/fixture B/#1b aligned; historical no-broadcast wording superseded. Do **not** revert loader. Failure face → `BCAST-*` / QBC-META.
-2. Docs close / verify primarily (Eng `b2d17de` + QBC-META flip already on tip; no `ci.yml`) — **recommend yes**.
-3. `grid()` shim — DEEPEN O1=**Backlog** stays; do **not** retire this tip (UNCERT still calls `grid()`) — **freeze, not a question**.
-4. Closed next → **`IHO-S102-QBC-META`** (contract/BRIEF follow-up; Eng `7b20a56` already on main; separate tip) — **recommend yes**.
+**O1 closed as tip-truth:** #1b fixture **B** → tip already elects §10 min==max broadcast. Historical “rev1 no-broadcast” wording **superseded** (body aligned soft-nit). Do **not** revert loader. Failure face stays QBC-META. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest; inventing oracles; retiring `grid()` this tip.
 
 ---
 
@@ -158,21 +135,14 @@ Soft pixel / screenshot: **WARN-only**. EncDotNet pixel compare: **out** (Non-go
 
 ---
 
-## Open
+## Slice close — 2026-10-25
 
-**Active / Open (2026-10-24)** — see header Status / Planner freeze / O-questions. P1–P5 remain resolved; residual research caveats live in BRIEF §6 and do not block Eng.
+**Status: Closed / Done** (formal docs close — **not** a loader / portray rewrite).
 
-**O1 (Planner) — RESOLVED:** **#1b tip-truth broadcast.** Fixture B → `has_uncertainty==true` / unc≈0.75 + unc-DI; do **not** revert loader. Historical “rev1 no-broadcast” superseded (body T1/U2b/#1b aligned this tip). Broadcast **failure** face stays **`BCAST-*`** on **`IHO-S102-QBC-META`**.
-
-Follow-up **taken** (after Closed): **`IHO-S102-QBC-META`** — QBC U32 + `featureAttributeTable` load/pick **and** broadcast failure face (`docs/s102-qbc-meta-contract.md`). Do **not** invent a different next tip.
-
----
-
-## Implement sketch (Eng)
-
-1. Fixture **A** + fixture **B** generators + SOURCE.md oracles + `.gitignore` `!` exceptions.
-2. **Loader** for depth-only compound (§10): tip already elects min==max broadcast — verify fixture **B** `has_uncertainty==true` / unc≈0.75 + unc-DI (**do not revert**). Harden fill sentinel only if tests require. Broadcast failure face → QBC-META.
-3. Emit uncertainty CoverageFill (VG **`13031` vendor extension**) beside depth (`13030`); viewer branch on `coverage_attribute`; default-hide `13031` OK; never bind unc toggle to `13030`.
-4. Band table: symbolic tokens only; document in SOURCE.md.
-5. CTest `s102_uncertainty` wired Linux+Win (#1, **#1b**, #2–7); real-sample branch per U6 (unc metres only).
-6. No push from Architect; Eng lands code on eng branch after Tester sign-off plan.
+- Evidence: CI [40142462597](https://github.com/MasterLivens/S100/actions/runs/40142462597) tip `13b7c3c` — Ubuntu + Windows **`s102_uncertainty` Passed** (MUST NOT SKIP). Ancestor green also CI [`40098659137`](https://github.com/MasterLivens/S100/actions/runs/40098659137) @ `24e8db3`.
+- **O1=#1b tip-truth SUCCESS** — fixture **B** `has_uncertainty==true` / unc≈0.75 + unc-DI; do **not** revert loader.
+- Soft nit: body T1/U2b/fixture B/#1b historical “no-broadcast” → tip-truth (this Close stack includes `30e3e7f`).
+- Oracles stay as frozen rev1 MUST #1/#1b/#2–7 (tip-truth).
+- Eng `b2d17de` + QBC-META `7b20a56` already on tip — docs close only; no `ci.yml` change.
+- **Notes:** next Eng **`IHO-S102-QBC-META`**. Broadcast **failure** face (`BCAST-*`) stays there. **Backlog:** `grid()` shim retire (`S102-GRID-SHIM-RETIRE`) — do not insert ahead of Active S-102 tips.
+- **Non-goals this close:** inventing oracles; reverting tip-truth loader; retiring `grid()` shim; loader/portray rewrite; reopening DEEPEN / DISPLAY; Win (a)/(b) (N/A — non-`viewer_*`); conflating Close with QBC-META `BCAST-*`.
