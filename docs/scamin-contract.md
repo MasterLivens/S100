@@ -1,53 +1,31 @@
-# SCAMIN / scale filter (rev 1) · Active / Open
+# SCAMIN / scale filter (rev 1) (Closed)
 
 Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-SCAMIN-FILTER`** (**Active / Open**). Also closes backlog row **`IHO-S101-SCAMIN`** per this contract (do **not** invent new ids).
-CTest: **`scamin_filter`** — **MUST NOT SKIP**, Linux + Windows CI.
-Status: **rev 1** — Planner freeze (MUST below). SCAMIN / scale filter / `visible_at_scale` slice after closed **`IHO-SESSION-PICK-UNIFIED`**. Does **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; does **not** jump **`S102-GRID-SHIM-RETIRE`**.
+Builds on `docs/api-contracts.md` / `docs/portrayal-contract.md` (visibility) / `docs/testing/iho-ctest-case-ids.md` / `docs/session-pick-contract.md` (Closed; unified pick → SESSION-PICK separate) / `docs/catalogue-complete-contract.md` (Closed; vendor/sha → CATALOGUE separate) / `docs/timeline-ui-contract.md` (Closed; scrubber → TIMELINE separate) / `docs/pc-wire-contract.md` (Closed; wiring → PC-WIRE separate). Case id: **`IHO-SCAMIN-FILTER`** (**Closed / Done** 2026-10-25). Also closes backlog row **`IHO-S101-SCAMIN`** (do **not** invent new ids).  
+CTest name: **`scamin_filter`** — MUST NOT SKIP; Linux + Windows dual-green (CI `40173570061` @ `8d6fdc2`). Supersedes Open draft on tip `8d6fdc2` (≡ Arch `9a14fb5`).
 
-Frozen with: `docs/api-contracts.md`, `docs/portrayal-contract.md` (visibility), `docs/testing/iho-ctest-case-ids.md`. Unified pick → **SESSION-PICK** already Closed — **do not** reopen. Vendor / sha → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. Soft pixel / official PC Lua / S-98 dual fuel / ISO 8211 SCAMIN writer / animation = Non-goals / WARN.
+Primary research: `/workspace/research/scamin-filter/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`3541836`** (docs prep **`6e2adac`** / **`b443a13`**). Unified pick → **SESSION-PICK** already Closed — **do not** reopen. Vendor / sha → **CATALOGUE** already Closed — **do not** reopen. Scrubber → **TIMELINE** already Closed — **do not** reopen. Wiring → **PC-WIRE** already Closed — **do not** reopen. Soft pixel / official PC Lua / S-98 dual fuel / ISO 8211 SCAMIN writer / animation = Non-goals / WARN.
 
-Primary research: `/workspace/research/scamin-filter/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`3541836`** (docs prep **`6e2adac`** / **`b443a13`**).
+**Status: Closed / Done (2026-10-25)** — CI [`40173570061`](https://github.com/MasterLivens/S100/actions/runs/40173570061) @ `8d6fdc2`≡`9a14fb5` dual-green; **`scamin_filter` Passed Ubuntu+Win** (native `s100_tests` + synthetic DI — **not** `viewer_*`; **no Win O1 (a)/(b)**). Eng **`3541836`** already on tip — **docs close only**. MUST tip-truth **unchanged** (`visible_at_scale` / `filter_instructions_by_scale` + rules 1–4 + `ignore_scale_minimum` skips SCAMIN only + oracles **A–H** + batch [A,B,C]@50k + DEF `ScaleMinimum:22000` + CLI/viewer `--view-scale`/`--ignore-scamin`; fixtures **MUST NOT SKIP**). **O1=tip-truth / docs-close SUCCESS**. Failure face = existing bare CHECKs tip-truth (do **not** invent `SCAMIN-*`). Do **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog. Contract display stays **rev 1**. Next: **TBD**.
 
-**Status: Active / Open (2026-10-25)** — after **SESSION-PICK Closed** (tip `2041980` ≡ Arch `371fedf`; tip Close CI [`40172798123`](https://github.com/MasterLivens/S100/actions/runs/40172798123) dual-green; Open-bind evidence CI [`40172265305`](https://github.com/MasterLivens/S100/actions/runs/40172265305) @ `f8aac10`≡`8dbe072`, O1=tip-truth/docs-close). Eng tip ancestor **`3541836`** already on tip — **not greenfield** (`visible_at_scale` / `filter_instructions_by_scale` + viewer/CLI `--view-scale`/`--ignore-scamin` + CTest `scamin_filter` oracles A–H + batch + DEF `ScaleMinimum` parse; **no** Win a/b chain). Ubuntu+Windows already Passed — tip Close CI [`40172798123`](https://github.com/MasterLivens/S100/actions/runs/40172798123) `#11 scamin_filter` + Eng landing [`38131881865`](https://github.com/MasterLivens/S100/actions/runs/38131881865) @ `3541836` (native `s100_tests` + synthetic DI — **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. Do **not** invent case ids or next tip names; freeze tip-truth below. Do **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. Do **not** invent `SCAMIN-*` failure-face prefixes (keep existing bare CHECKs). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 1** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+**Planner freeze (kept — rev 1 tip-truth):** Reuse case id **`IHO-SCAMIN-FILTER`** / CTest **`scamin_filter`**; Close also closes backlog **`IHO-S101-SCAMIN`** (do **not** invent new ids); MUST tip-truth = `visible_at_scale(di, view_scale_denom, ignore_scale_minimum)` + `filter_instructions_by_scale` (stable relative order); rules (1) `view_scale_denom <= 0` → false; (2) `!ignore && scale_minimum > 0 && view > scale_minimum` → hide; (3) `scale_maximum > 0 && view < scale_maximum` → hide; (4) else visible; `ignore_scale_minimum` skips SCAMIN only (SCAMAX still applies); oracles **A–H**; batch [A,B,C]@50000/false → [A]; @50000/ignore → [A,B,C]; DEF `ScaleMinimum:22000` → field == 22000; CLI/viewer `--view-scale` / `--ignore-scamin`; fixtures **MUST NOT SKIP** (synthetic DI); official PC Lua / soft pixel / S-98 dual fuel / ISO 8211 writer / animation = Non-goals / WARN; unified pick → **SESSION-PICK** already Closed (do **not** reopen); vendor/sha → **CATALOGUE** already Closed (do **not** reopen); scrubber → **TIMELINE** already Closed (do **not** reopen); wiring → **PC-WIRE** already Closed (do **not** reopen); Eng `3541836` already (docs prep `6e2adac`/`b443a13`); `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog; failure face = bare CHECK (do **not** invent `SCAMIN-*` prefixes / new CTest); after Closed next **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN.
 
-**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
-- Reuse case id **`IHO-SCAMIN-FILTER`** / CTest **`scamin_filter`**; **forbidden** to invent a second case/test name; Close also closes backlog **`IHO-S101-SCAMIN`** (do **not** invent new ids).
-- MUST tip-truth = `visible_at_scale(di, view_scale_denom, ignore_scale_minimum)` + `filter_instructions_by_scale` (stable relative order); rules (1) `view_scale_denom <= 0` → false; (2) `!ignore && scale_minimum > 0 && view > scale_minimum` → hide; (3) `scale_maximum > 0 && view < scale_maximum` → hide; (4) else visible; `ignore_scale_minimum` skips SCAMIN only (SCAMAX still applies); oracles **A–H**; batch [A,B,C]@50000/false → [A]; @50000/ignore → [A,B,C]; DEF `ScaleMinimum:22000` → field == 22000; CLI/viewer `--view-scale` / `--ignore-scamin`; fixtures **MUST NOT SKIP** (synthetic DI); official PC Lua / soft pixel / S-98 dual fuel / ISO 8211 writer / animation = Non-goals / WARN.
-- Eng tip already has **`3541836`** (docs prep **`6e2adac`** / **`b443a13`**); Ubuntu+Win (tip `40172798123` `#11` / Eng `38131881865`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield.
-- Unified pick → **`IHO-SESSION-PICK-UNIFIED`** already Closed — **do not** reopen.
-- Vendor / sha → **`IHO-CATALOGUE-COMPLETE`** already Closed — **do not** reopen.
-- Scrubber → **`IHO-TIMELINE-UI`** already Closed — **do not** reopen.
-- Wiring → **`IHO-PC-WIRE-111-124`** already Closed — **do not** reopen.
-- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
-- Failure face = existing bare CHECKs; do **not** invent `SCAMIN-*` prefixes.
-- Ubuntu + Windows: `scamin_filter` MUST NOT SKIP, Passed (already on tip).
-- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN.
-
-**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; native `s100_tests` + synthetic DI; no SKIP. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
-
-**Close criteria (honest):**
-- Ubuntu + Windows: `scamin_filter` MUST NOT SKIP, Passed (already tip CI `40172798123` `#11` / Eng `38131881865`; re-check on tip after this Open if needed)
-- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
-- Also closes backlog row **`IHO-S101-SCAMIN`**
-- After Close next: **TBD**
-
-**Eng notes:** verify `3541836` on tip (docs prep `6e2adac`/`b443a13`); API `include/s100/scale_filter.hpp` + `src/core/scale_filter.cpp`; driver `tests/test_scamin_filter.cpp`; cmake `scamin_filter`; synthetic DI (no cell); DEF string parse. SESSION-PICK Closed already on this stack (`2041980`). Do **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN. Official PC Lua / soft pixel / S-98 dual fuel / ISO 8211 writer / animation **Non-goals / WARN** — do **not** harden. Do **not** invent `SCAMIN-*` failure prefixes. Do **not** change tip-truth rule order / oracles A–H.
-
-**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
-1. Docs close / verify primarily (Eng `3541836` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
-2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **yes / freeze**.
-3. Contract head → Open; keep display **rev 1** (do **not** bump just for Open) — **yes / freeze**.
-4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
-5. Notes ≠ SESSION-PICK-UNIFIED (already Closed; do **not** reopen); ≠ CATALOGUE-COMPLETE (already Closed; do **not** reopen); ≠ TIMELINE-UI (already Closed; do **not** reopen); ≠ PC-WIRE (already Closed; do **not** reopen); ≠ S-124 / S-111 / S-104 open; do **not** reopen QBC-MG / UNCERT / DEEPEN; shim-retire stays Backlog; official Lua / soft pixel / S-98 stay Non-goals / WARN — **yes / freeze**.
-6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
-7. No other cases this tip (do **not** Closed DISPLAY-PRIORITY / SIG / POWERUP / etc.) — **yes / freeze**.
-8. architecture.md flip **next** to this Open — **yes / freeze**.
-9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
-10. Failure face = existing bare CHECKs; do **not** invent `SCAMIN-*` prefixes — **yes / freeze**.
-11. scale filter/CLI = this tip; unified pick = SESSION-PICK Closed; vendor/sha = CATALOGUE Closed; scrubber = TIMELINE Closed; wiring = PC-WIRE Closed — **yes / freeze**.
+**O1 closed as tip-truth / docs-close:** Eng `3541836` already on tip (`visible_at_scale` / `filter_instructions_by_scale` + viewer/CLI `--view-scale`/`--ignore-scamin` + CTest `scamin_filter` oracles A–H + batch + DEF ScaleMinimum parse; docs prep `6e2adac`/`b443a13`; CTest **`scamin_filter`**). Slice = Arch docs close only — not greenfield Eng. Do **not** invent case ids or next tip names; do **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; do **not** invent `SCAMIN-*` prefixes; do **not** retire `grid()` this tip; do **not** harden official PC Lua / soft pixel / S-98 dual fuel / ISO 8211 writer / animation. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest; inventing oracles / next tip id; inventing `SCAMIN-*` failure-face prefixes.
 
 ---
+
+## Slice close — 2026-10-25
+
+**Status: Closed / Done** (formal docs close — **not** a scale-filter / Eng rewrite).
+
+- Evidence: CI [40173570061](https://github.com/MasterLivens/S100/actions/runs/40173570061) tip `8d6fdc2`≡`9a14fb5` — Ubuntu + Windows **`scamin_filter` Passed** (MUST NOT SKIP). Ancestor greens also Eng landing [`38131881865`](https://github.com/MasterLivens/S100/actions/runs/38131881865) @ `3541836` + prior tip `#11 scamin_filter` Passed (SESSION-PICK Close CI [`40172798123`](https://github.com/MasterLivens/S100/actions/runs/40172798123) @ `2041980`).
+- **O1=tip-truth / docs-close SUCCESS** — Eng `3541836` already on tip; Arch Open→Closed only; Planner BRIEF §7 answers frozen.
+- MUST tip-truth unchanged (`visible_at_scale` / `filter_instructions_by_scale` + oracles A–H + batch + DEF ScaleMinimum + CLI/viewer `--view-scale`/`--ignore-scamin` + fixtures **MUST NOT SKIP**).
+- Eng `3541836` already on tip — docs close only; no `ci.yml` change; **no Win (a)/(b)**; no large Eng.
+- Failure face stays bare CHECK tip-truth — do **not** invent `SCAMIN-*`.
+- **Notes:** next **TBD** (architecture / registered Active — do **not** invent a next tip id). **Backlog:** `grid()` shim retire (`S102-GRID-SHIM-RETIRE`) — do not insert ahead. Contract display stays **rev 1**. Also closes backlog **`IHO-S101-SCAMIN`**. Unified pick → SESSION-PICK already Closed (do **not** reopen); vendor/sha → CATALOGUE already Closed (do **not** reopen); scrubber → TIMELINE already Closed (do **not** reopen); wiring → PC-WIRE already Closed (do **not** reopen).
+- Boundaries: independent; ≠ SESSION-PICK (already Closed); ≠ CATALOGUE (already Closed); ≠ TIMELINE (already Closed); ≠ PC-WIRE (already Closed); do **not** reopen SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN.
+- **Non-goals this close:** inventing oracles / next tip id; retiring `grid()` shim; scale-filter/Eng rewrite; reopening SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN; Win (a)/(b) (N/A — non-`viewer_*`); inventing `SCAMIN-*` failure-face prefixes; hardening official PC Lua / soft pixel / S-98 dual fuel / ISO 8211 writer / animation.
 
 ## Goal
 
