@@ -1,49 +1,31 @@
-# S-111 surface currents — first slice (rev 2) · Active / Open
+# S-111 surface currents — first slice (rev 2) (Closed)
 
 Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S111-OPEN-FRAME`** (**Active / Open**). CTest: **`s111_open_frame`** — **MUST NOT SKIP**, Linux + Windows CI.
-Status: **rev 2** — Planner freeze (MUST below). First S-111 open/frame slice after closed **`IHO-S104-OPEN-FRAME`**. Does **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN; does **not** mix **`IHO-TIMELINE-UI`** / **`IHO-PC-WIRE-111-124`** / **`IHO-CATALOGUE-COMPLETE`** / **`IHO-S124-OPEN-LIST`**; does **not** jump **`S102-GRID-SHIM-RETIRE`**.
+Builds on `docs/api-contracts.md` (S-111) / `docs/catalogue-complete-contract.md` (S-111 **FC+PC** MUST — ≠ S-104 FC-only). Case id: **`IHO-S111-OPEN-FRAME`** (**Closed / Done** 2026-10-25).  
+CTest name: **`s111_open_frame`** — MUST NOT SKIP; Linux + Windows dual-green (CI `40162377554` @ `d512e30`). Supersedes Open draft on tip `d512e30` (≡ Arch `1be2b1b`).
 
-Builds on `docs/api-contracts.md` (S-111) / `docs/catalogue-complete-contract.md` (S-111 **FC+PC** MUST — ≠ S-104 FC-only). Scrubber / `--list-frames` / `timeline_entries` → separate Active **`IHO-TIMELINE-UI`** (`docs/timeline-ui-contract.md`). PC wiring (SCAROW / ColorProfiles / XSLT WARN / no invented Lua) → separate Active **`IHO-PC-WIRE-111-124`** (`docs/pc-wire-contract.md`) — **do not** close PC-WIRE this tip.
+Primary research: `/workspace/research/s111-open-frame/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`858d51a`**. Scrubber / `--list-frames` / `timeline_entries` → separate Active **`IHO-TIMELINE-UI`** (`docs/timeline-ui-contract.md`). PC wiring (SCAROW / ColorProfiles / XSLT WARN / no invented Lua) → separate Active **`IHO-PC-WIRE-111-124`** (`docs/pc-wire-contract.md`) — **do not** close PC-WIRE this tip.
 
-Primary research: `/workspace/research/s111-open-frame/BRIEF.md`. Former Eng gap **already fixed** @ Eng **`858d51a`**.
+**Status: Closed / Done (2026-10-25)** — CI [`40162377554`](https://github.com/MasterLivens/S100/actions/runs/40162377554) @ `d512e30` dual-green; **`s111_open_frame` Passed Ubuntu+Win** (native `s100_tests` + HDF5 — **not** `viewer_*`; **no Win O1 (a)/(b)**). Eng **`858d51a`** already on tip — **docs close only**. MUST tip-truth **unchanged** (open≥2 frames + frame API + sample 0.2/0.2 ≈0.5/90° ≠ ≈1.5/180° + Arrow stride=`kS111ArrowStride=2` (count=9) + ChartSession S-101+S-111 + **FC+PC on disk** + soft pixel WARN-only; fixture MUST NOT SKIP). **O1=tip-truth / docs-close SUCCESS**. Failure face = bare CHECK tip-truth (do **not** invent `S111-*`). Do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN; do **not** mix TIMELINE-UI / PC-WIRE / CATALOGUE-COMPLETE / S-124; `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog. Contract display stays **rev 2**. Next: **TBD**.
 
-**Status: Active / Open (2026-10-25)** — after **S-104 Closed** (tip `2504c72` ≡ Arch `cc5a62d`; tip CI [`40160836622`](https://github.com/MasterLivens/S100/actions/runs/40160836622) dual-green; formal Close CI bind [`40159993218`](https://github.com/MasterLivens/S100/actions/runs/40159993218) @ `28e0f2b`≡`06da68d`, O1=tip-truth/docs-close). Eng tip ancestor **`858d51a`** already on tip — **not greenfield** (HDF5 open → `Dataset::current`; ≥2 frames; frame API; sample 0.2/0.2 → frame0≈**0.5 m/s / 90°** ≠ frame1≈**1.5 m/s / 180°**; portray `Kind::Arrow` + stride **`kS111ArrowStride=2`** (5×5 → count=9); ChartSession S-101+S-111; fixture `synthetic_current_4326.h5`; CTest **`s111_open_frame`**). Ubuntu+Windows already Passed — tip CI [`40160836622`](https://github.com/MasterLivens/S100/actions/runs/40160836622) `#8` + Eng landing [`38127367335`](https://github.com/MasterLivens/S100/actions/runs/38127367335) @ `858d51a` (native `s100_tests` + HDF5, **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from S-104 / QBC-MG / UNCERT / DEEPEN / TIMELINE-UI / PC-WIRE / CATALOGUE-COMPLETE / S-124. Do **not** invent case ids or next tip names; freeze tip-truth below. Do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN. Do **not** write this tip as S-104-style FC-only — **FC+PC on disk** (catalogue-complete); PC **wiring** stays PC-WIRE separate. Do **not** invent `S111-*` failure-face prefixes (keep existing bare CHECKs). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 2** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+**Planner freeze (kept — rev 2 tip-truth):** Reuse case id **`IHO-S111-OPEN-FRAME`** / CTest **`s111_open_frame`**; MUST = open≥2 frames + frame API (`set_active_frame` / `set_active_time` / `sample_wgs84` / `bounds`) + sample 0.2/0.2 frame0≈**0.5 m/s / 90°** ≠ frame1≈**1.5 m/s / 180°** + portray ≥1 `Kind::Arrow` + stride **`kS111ArrowStride=2`** (5×5 → count=**9**) + ChartSession S-101+S-111 + **FC+PC on disk** (catalogue-complete; ≠ S-104 FC-only) + soft pixel **WARN-only**; data model `Dataset::current` / `CurrentDataset` (**forbid** reuse `Dataset::coverage` / `water_level`); fixture `synthetic_current_4326.h5` MUST NOT SKIP; scrubber → **`IHO-TIMELINE-UI`** (separate); PC wiring → **`IHO-PC-WIRE-111-124`** (separate; **do not** close); Eng `858d51a` already; `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog; failure face = bare CHECKs (do **not** invent `S111-*`); after Closed next **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN; do **not** mix TIMELINE-UI / PC-WIRE / CATALOGUE-COMPLETE / S-124.
 
-**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
-- Reuse case id **`IHO-S111-OPEN-FRAME`** / CTest **`s111_open_frame`**; **forbidden** to invent a second case/test name.
-- MUST = open≥2 frames + frame API (`set_active_frame` / `set_active_time` / `sample_wgs84` / `bounds`) + sample 0.2/0.2 frame0≈**0.5 m/s / 90°** ≠ frame1≈**1.5 m/s / 180°** + portray ≥1 `Kind::Arrow` + stride **`kS111ArrowStride=2`** (5×5 → count=**9**) + ChartSession S-101+S-111 + **FC+PC on disk** (catalogue-complete; ≠ S-104 FC-only) + soft pixel **WARN-only**.
-- Data model: `Dataset::current` / `CurrentDataset`; **forbid** reuse `Dataset::coverage` / `water_level` for S-111.
-- Fixture `testdata/s111/synthetic_current_4326.h5` **MUST NOT SKIP** on CI (Linux+Win).
-- Scrubber / `--list-frames` / `timeline_entries` → **`IHO-TIMELINE-UI`** (separate tip; **not** this case).
-- PC wiring (SCAROW / ColorProfiles / XSLT / no invented Lua) → **`IHO-PC-WIRE-111-124`** (separate tip; **do not** close this tip).
-- Eng tip already has **`858d51a`**; Ubuntu+Win (tip `40160836622` `#8` / Eng `38127367335`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield.
-- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
-- Failure face = existing bare CHECKs; do **not** invent `S111-*` prefixes.
-- Ubuntu + Windows: `s111_open_frame` MUST NOT SKIP, Passed (already on tip).
-- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN; do **not** mix TIMELINE-UI / PC-WIRE / CATALOGUE-COMPLETE / S-124.
+**O1 closed as tip-truth / docs-close:** Eng `858d51a` already on tip (HDF5 open → `Dataset::current`; ≥2 frames; frame API; sample 0.2/0.2 → 0.5/90° & 1.5/180°; portray Arrow + stride; ChartSession S-101+S-111; fixture `synthetic_current_4326.h5`; CTest **`s111_open_frame`**). Slice = Arch docs close only — not greenfield Eng. Do **not** invent case ids or next tip names; do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN; do **not** write FC-only; do **not** invent `S111-*` prefixes; do **not** retire `grid()` this tip; do **not** close PC-WIRE / CATALOGUE / TIMELINE / S-124. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest; inventing oracles / next tip id; mixing TIMELINE-UI / PC-WIRE / CATALOGUE / S-124.
 
-**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+---
 
-**Close criteria (honest):**
-- Ubuntu + Windows: `s111_open_frame` MUST NOT SKIP, Passed (already tip CI `40160836622` `#8` / Eng `38127367335`; re-check on tip after this Open if needed)
-- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
-- After Close next: **TBD**
+## Slice close — 2026-10-25
 
-**Eng notes:** verify `858d51a` on tip; fixture `testdata/s111/synthetic_current_4326.h5` + `SOURCE.md`; driver `tests/test_s111.cpp` `test_s111_open_frame`; cmake `s111_open_frame`. S-104 Closed already on this stack (`2504c72`). Do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN. Soft pixel **WARN-only** — do **not** harden. **FC+PC on disk** via catalogue-complete; PC wiring → PC-WIRE separate (do **not** close PC-WIRE / CATALOGUE this tip).
+**Status: Closed / Done** (formal docs close — **not** a loader / portray rewrite).
 
-**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
-1. Docs close / verify primarily (Eng `858d51a` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
-2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **yes / freeze**.
-3. Contract head → Open; keep display **rev 2** (do **not** bump just for Open) — **yes / freeze**.
-4. case-ids Active → Open (Status stays Active family) — **yes / freeze**.
-5. Notes ≠ TIMELINE-UI; ≠ PC-WIRE / CATALOGUE-COMPLETE; ≠ S-124; do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN; shim-retire stays Backlog — **yes / freeze**.
-6. Closed next → **TBD** (architecture / registered Active; do **not** invent) — **yes / freeze**.
-7. No other cases this tip (do **not** Closed TIMELINE / PC-WIRE / CATALOGUE / S-124 / SIG / POWERUP / etc.) — **yes / freeze**.
-8. architecture.md flip **next** to this Open — **yes / freeze**.
-9. `grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog — **yes / freeze**.
-10. Failure face = existing bare CHECKs; do **not** invent `S111-*` prefixes — **yes / freeze**.
-11. FC+PC on disk (≠ S-104 FC-only); PC wiring → PC-WIRE separate — **yes / freeze**.
+- Evidence: CI [40162377554](https://github.com/MasterLivens/S100/actions/runs/40162377554) tip `d512e30` — Ubuntu + Windows **`s111_open_frame` Passed** (MUST NOT SKIP). Ancestor greens also Eng landing [`38127367335`](https://github.com/MasterLivens/S100/actions/runs/38127367335) @ `858d51a` + pre-Open tip [`40160836622`](https://github.com/MasterLivens/S100/actions/runs/40160836622) `#8`.
+- **O1=tip-truth / docs-close SUCCESS** — Eng `858d51a` already on tip; Arch Open→Closed only; Planner BRIEF §7 answers frozen.
+- MUST tip-truth unchanged (open≥2 frames + frame API + sample 0.2/0.2 ≈0.5/90° ≠ ≈1.5/180° + Arrow stride=`kS111ArrowStride=2` (count=9) + ChartSession S-101+S-111 + **FC+PC on disk** + soft pixel WARN-only; fixture MUST NOT SKIP).
+- Eng `858d51a` already on tip — docs close only; no `ci.yml` change.
+- Failure face stays bare CHECK tip-truth — do **not** invent `S111-*`.
+- **Notes:** next **TBD** (architecture / registered Active — do **not** invent a next tip id; do **not** auto-open S-124). **Backlog:** `grid()` shim retire (`S102-GRID-SHIM-RETIRE`) — do not insert ahead. Contract display stays **rev 2**. FC+PC on disk kept; PC-WIRE stays separate Active (do **not** close).
+- Boundaries: independent; ≠ TIMELINE-UI; ≠ PC-WIRE / CATALOGUE-COMPLETE; ≠ S-124; do **not** reopen S-104 / QBC-MG / UNCERT / DEEPEN.
+- **Non-goals this close:** inventing oracles / next tip id; writing FC-only; closing PC-WIRE / CATALOGUE / TIMELINE / S-124; retiring `grid()` shim; loader/portray rewrite; reopening S-104 / QBC-MG / UNCERT / DEEPEN; Win (a)/(b) (N/A — non-`viewer_*`); inventing `S111-*` failure-face prefixes.
 
 ---
 
