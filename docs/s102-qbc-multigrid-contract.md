@@ -1,12 +1,41 @@
-# S-102 QoBC multi-grid binding (rev1)
+# S-102 QoBC multi-grid binding (rev1) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S102-QBC-MULTIGRID`** (**Active**). CTest: **`s102_qbc_multigrid`** — **MUST NOT SKIP**, Linux + Windows CI.
-Status: **rev1** — Planner Open **frozen** from `/workspace/research/qbc-multigrid/BRIEF.md`. Docs only in this Architect commit — **no** engine / fixture / CMake / CI change here.
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S102-QBC-MULTIGRID`** (**Active / Open**). CTest: **`s102_qbc_multigrid`** — **MUST NOT SKIP**, Linux + Windows CI.
+Status: **rev1** — Planner freeze (MUST below). Takes the multi-grid QoBC binding gap deferred from closed **`IHO-S102-QBC-META`** (`docs/s102-qbc-meta-contract.md`).
 
-Takes the multi-grid QoBC binding gap deferred from closed **`IHO-S102-QBC-META`** (`docs/s102-qbc-meta-contract.md`). Does **not** reopen QBC-META U32+FAT / NullInstruction / **`QBC-*`** / **`BCAST-*`** surfaces, nor UNCERTAINTY VG **`13031`**.
+Builds on `docs/s102-contract.md` / `docs/s102-deepen-contract.md` / `docs/s102-uncertainty-contract.md` / `docs/s102-qbc-meta-contract.md`. Does **not** reopen QBC-META U32+FAT / NullInstruction / **`QBC-*`** / **`BCAST-*`** surfaces, nor UNCERTAINTY VG **`13031`**, nor DEEPEN routing.
 
-Primary research: `/workspace/research/qbc-multigrid/BRIEF.md` (+ `/workspace/research/s102-uncertainty/BRIEF.md` §10 multiplicity). Code gap: `hdf5_product.cpp` `load_quality_of_bathymetry_coverage` → `load_qbc_id_grid(..., out.grids[0], ...)` hard-bind.
+Primary research: `/workspace/research/qbc-multigrid/BRIEF.md` (+ `/workspace/research/s102-uncertainty/BRIEF.md` §10 multiplicity). Former code gap (`hdf5_product.cpp` `grids[0]` hard-bind) **already fixed** @ Eng **`aabbb54`**.
+
+**Status: Active / Open (2026-10-25)** — after **QBC-META Closed** (tip `305bc89` ≡ Arch `921351d`; CI [`40155189914`](https://github.com/MasterLivens/S100/actions/runs/40155189914) dual-green; Closed Open-tip CI [`40154401620`](https://github.com/MasterLivens/S100/actions/runs/40154401620) @ `670708f`, O1=tip-truth/docs-close). Eng tip ancestor **`aabbb54`** already on tip — **not greenfield** (shape+origin/spacing bind; forbid `grids[0]` hard-bind; zero match → LoadError; fixture MG-PS; CTest **`QBC-MG-1..5`**). Ubuntu+Windows already Passed — Eng landing [`39113487504`](https://github.com/MasterLivens/S100/actions/runs/39113487504) @ `aabbb54` `#6` + tip ancestor [`40098659137`](https://github.com/MasterLivens/S100/actions/runs/40098659137) `#6` (native `s100_tests` + HDF5, **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from META / UNCERT / DEEPEN. Do **not** invent oracles; freeze tip-truth below. Do **not** reopen META / UNCERT / DEEPEN. Do **not** conflate failure faces **`QBC-MG-*` ≠ `QBC-*` / `BCAST-*`**. Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). After Closed next: **TBD** (architecture / backlog — do **not** invent).
+
+**Planner freeze (MUST — from rev1 + BRIEF §7 + tip truth):**
+- Reuse case id **`IHO-S102-QBC-MULTIGRID`** / CTest **`s102_qbc_multigrid`**; **forbidden** to invent a second case/test name.
+- MUST = **QBC-MG-1..5** (fixture **MG-PS** co-located multi-VD + dual `sample_cell` + portray **NullInstruction** / **no** id colour band + prior `s102_qbc_meta` / deepen / uncertainty green).
+- Fixture MG-PS **MUST NOT SKIP** on CI (Linux+Win).
+- Failure face **`QBC-MG-*`** — do **not** reopen / conflate META **`QBC-*` / `BCAST-*`**.
+- O1 hybrid shape+origin/spacing bind to every matching `grids[i]`; **forbid** `grids[0]` hard-bind; zero match → **`LoadError`**.
+- Eng tip already has **`aabbb54`**; Ubuntu+Win (Eng `39113487504` `#6` / ancestor tip `#6`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield.
+- **`grid()` shim stays Backlog** (DEEPEN O1); QBC-MG may still use `grid()`; retire = separate Backlog, **not** this tip.
+- Ubuntu + Windows: `s102_qbc_multigrid` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **TBD** (architecture / backlog — do **not** invent). Independent tip; do **not** reopen META / UNCERT / DEEPEN.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `s102_qbc_multigrid` MUST NOT SKIP, Passed (already Eng `39113487504` `#6` / ancestor tip `#6`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
+- After Close next: **TBD**
+
+**Eng notes:** verify `aabbb54` on tip; fixture MG-PS `synthetic_qbc_multigrid_vd_4326.h5` + `SOURCE.md`; driver `tests/test_s102.cpp` `test_s102_qbc_multigrid`; cmake `s102_qbc_multigrid`. META Closed already on this stack (`305bc89`). Do **not** reopen META `QBC-*`/`BCAST-*` / UNCERT / DEEPEN. Soft WARN **QBC-MG-W1** only — do **not** harden EncDotNet. O4 storage tip-truth = per-grid `qbc_ids` copy.
+
+**O-questions (BRIEF §7 — Planner already answered; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `aabbb54` already; no `ci.yml` / no large Eng) — **recommend yes / freeze**.
+2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **recommend yes / freeze**.
+3. Notes failure face **`QBC-MG-*`**; do **not** reopen META **`QBC-*`/`BCAST-*`** — **recommend yes / freeze**.
+4. Closed next → **TBD** (architecture / backlog; do **not** invent) — **recommend yes / freeze**.
+5. `grid()` shim stays Backlog — **freeze, not a question**.
 
 ---
 
@@ -86,9 +115,11 @@ Failure-face ids: **`QBC-MG-*`**. **Do not** reuse or mix with closed **`QBC-*`*
 
 ---
 
-## 4. Open
+## 4. Open (historical Eng pins — tip-truth already landed @ `aabbb54`)
 
-**None** — Planner Open O1–O6 frozen in §3. Remaining Eng pins (exact float compare for origin/spacing, SOURCE.md lon/lat / id cells, generator script name) are implementation detail, not Architect Open.
+**None remaining as Architect Open** — Planner Open O1–O6 frozen in §3; Eng pins (float compare for origin/spacing, SOURCE.md lon/lat / id cells, generator `scripts/gen_s102_qbc_multigrid_synthetic.py`, O4 per-grid copy) **done** on tip `aabbb54`.
+
+Planner O-questions (BRIEF §7) → **answered / freeze** in header Status block (docs close; Win no a/b; `QBC-MG-*` ≠ META `QBC-*`/`BCAST-*`; next=**TBD**; `grid()` Backlog).
 
 ---
 
@@ -132,15 +163,12 @@ Soft / optional: **QBC-MG-W1** disjoint+QoBC-on-.01 → `.02` zone `!has_qbc` �
 | `docs/testing/iho-ctest-case-ids.md` | **Active** row `IHO-S102-QBC-MULTIGRID` → `s102_qbc_multigrid` (rev1 wording) |
 | `docs/api-contracts.md` | Multi-grid QoBC: O1 hybrid bind; no `grids[0]` hard-bind; no-match → LoadError; pointer here |
 | `docs/s102-qbc-meta-contract.md` | One-line / Backlog pointer → this case (O6) |
-| `docs/architecture.md` | No change this rev1 |
+| `docs/architecture.md` | **Active / Open** row for this case; **next** = this case; after Closed → **TBD** |
 
 ---
 
-## 8. Implement sketch (Eng — after this rev1)
+## 8. Implement sketch (Eng — **already landed** @ `aabbb54`; docs close only)
 
-1. Replace `load_qbc_id_grid(..., grids[0], ...)` with: load QoBC.01 once; for each `grids[i]`, if shape+origin/spacing (envelope) match → attach/share `qbc_ids`; if **zero** matchers → `LoadError`.
-2. O3: matchers only at `i≠0` → bind them + WARN log.
-3. O4: copy or shared view — Eng choice.
-4. Generator for MG-PS + `.gitignore` `!` + SOURCE.md **`QBC-MG-*`** oracles (include dual `sample_cell`).
-5. CTest `s102_qbc_multigrid` (Linux+Win); regress meta / deepen / uncertainty.
-6. No push from Architect; Eng lands on eng branch after Tester plan.
+1. ~~Replace `load_qbc_id_grid(..., grids[0], ...)`~~ — **done**: load QoBC.01 once; for each `grids[i]`, if shape+origin/spacing match → attach/share `qbc_ids`; zero matchers → `LoadError`.
+2. O3 / O4 / MG-PS generator / SOURCE.md **`QBC-MG-*`** / CTest `s102_qbc_multigrid` — **done** on tip.
+3. This Open tip = **Arch docs close / verify**; no Eng rewrite; no push from Architect.
