@@ -1,11 +1,55 @@
-# Cancellation · re-issue · new edition (rev 2)
+# Cancellation · re-issue · new edition (rev 2) · CANCEL-REISSUE Active / Open (after UPD-CORRUPT Closed)
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S164-CANCEL-REISSUE`** (**Active**). CTest: **`exchange_cancel_reissue`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI. Fixture reproducibility stays under `update_fixtures_reproducible`.
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S164-CANCEL-REISSUE`** (**Active / Open**). Sibling **`IHO-S164-EDITION-HARDEN`** remains **Active** (separate contract / separate CTest `exchange_edition_hardening` — **do not** mix/Closed). CTest: **`exchange_cancel_reissue`** — **MUST NOT SKIP**, Linux + Windows CI.
+Status: **rev 2** display (tip-truth content **rev 2.1** — Close sync may align header; **do not** open Eng for bump). Cancel / re-issue / new-edition slice after closed **`IHO-S164-UPD-CORRUPT`**. Does **not** reopen UPD-SEQ / UPD-CORRUPT / SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; does **not** mix/jump Closed **EDITION-HARDEN**; does **not** jump **`S102-GRID-SHIM-RETIRE`**. Does **not** expand tip-truth oracles / change enum / change check order / invent `CANCEL-*` failure-face prefixes.
 
-**Resolved by `docs/edition-hardening-contract.md` rev 1 (`IHO-S164-EDITION-HARDEN`):** open item 3 (superseded only detected on the exchange-set path, Behaviour #5 — now every series path; standalone `apply_s101_update` stays `EditionMismatch`) and a base cell with unparseable DSED loading as ED 0 (now rejected, as is a base with DSED `"0"`).
+Frozen with: `docs/api-contracts.md` (cancel segment), `docs/update-robustness-contract.md` (UPD-SEQ + UPD-CORRUPT Closed — **do not** reopen), `docs/edition-hardening-contract.md` (EDITION separate Active — **do not** mix/Closed), `docs/testing/iho-ctest-case-ids.md`. Extends `docs/exchange-set.md`. S-101 only; fileless cancel / permits / S-102+ updates / SIG Track B out of scope.
 
-Builds on `docs/update-robustness-contract.md` rev 1.4 (strong guarantee, `UpdateRejectCode`, `UpdateReport`, `dataset_digest()`, session keeps last good state). Same module boundary: all decisions in `s100_core`; CLI/viewer only display.
+Primary research: `/workspace/research/cancel-reissue/BRIEF.md` (2026-10-25 tip-truth refresh). Former Eng gap **already fixed** @ Eng **`45c355e`** (feat cancel/reissue/new-edition rev2.1 + fixtures `testdata/s101/updates/{cancel,reissue,newed,pending,nodot,…}` + CTest; tip ancestors docs `867126f`/`6aaadc8` rev2/2.1). **EDITION Eng `e3c0b2d` already on tip but separate Active — do not mix/Closed this tip.**
+
+**rev 2.1 field freeze (kept):** DSED bare integer; cancel PROF2+DSID-only ED0 → `DatasetCancelled`; re-issue skip≤n; newed superseded; `NewerEditionPending`; `DatasetNameMismatch`; session wholesale replace; `UpdateReport` skipped/cancelled/superseded/notice; `Dataset::cancelled`; check order Truncated→BadStructure→**DatasetNameMismatch**→**DatasetCancelled**→**cancel detection**→NotUpdateFile→CatalogueMismatch→**NewerEditionPending**→EditionMismatch→OutOfSequence→records; D4 cancel not sequence-checked; D5 DSNM stem; oracles 0–11 tip-truth; MUST NOT SKIP; Linux+Win. EDITION → separate — **do not** mix/Closed.
+
+**Status: Active / Open (2026-10-25)** — after **UPD-CORRUPT Closed** (tip `eb91435` ≡ Arch `17eea30`; tip Close CI [`40195685446`](https://github.com/MasterLivens/S100/actions/runs/40195685446) dual-green; Open-bind evidence CI [`40193555523`](https://github.com/MasterLivens/S100/actions/runs/40193555523) @ `700d73d`≡`5e4ccb1`, CTest `#15 exchange_cancel_reissue` Passed, O1=tip-truth/docs-close). Eng tip ancestor **`45c355e`** already on tip — **not greenfield**. Eng green CI [`39097623362`](https://github.com/MasterLivens/S100/actions/runs/39097623362) @ `45c355e` (native `s100_tests` + cancel/reissue fixtures — **not** `viewer_*` — **no Win O1 (a)/(b)**). Ubuntu+Windows already Passed — tip Close CI [`40195685446`](https://github.com/MasterLivens/S100/actions/runs/40195685446) `#15` + Open-bind [`40193555523`](https://github.com/MasterLivens/S100/actions/runs/40193555523) `#15` + Eng landing [`39097623362`](https://github.com/MasterLivens/S100/actions/runs/39097623362). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from UPD-SEQ / UPD-CORRUPT / SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE / EDITION-HARDEN. Do **not** invent case ids or next tip names; freeze tip-truth below (**keep** oracles 0–11 — **do not** expand). Do **not** reopen UPD-SEQ / UPD-CORRUPT / SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE. Do **not** mix/jump Closed **EDITION-HARDEN**. Do **not** invent `CANCEL-*` failure-face / skip prefixes (failure face = bare CHECK + enum tip-truth / existing SSE/`sse_map`). Do **not** retire `grid()` shim this tip. Contract display header stays **rev 2** (content tip-truth **rev 2.1**). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+
+**Planner freeze (MUST — from BRIEF + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
+- Reuse case id **`IHO-S164-CANCEL-REISSUE`** / CTest **`exchange_cancel_reissue`**; **forbidden** to invent a second case/test name.
+- MUST tip-truth = DSED bare / cancel ED0 / DatasetCancelled / re-issue skip≤n / newed superseded / NewerEditionPending / DatasetNameMismatch / session replace / oracles 0–11 + CTest **MUST NOT SKIP**; Linux+Win.
+- Eng tip already has **`45c355e`**; Ubuntu+Win (tip `40195685446` `#15` / Open-bind `40193555523` `#15` / Eng `39097623362`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield. **Keep** tip-truth oracles — **do not** expand / change enum / change check order / reopen UPD-SEQ/UPD-CORRUPT.
+- Update-sequence → **`IHO-S164-UPD-SEQ`** already Closed — **do not** reopen.
+- Corrupt-input → **`IHO-S164-UPD-CORRUPT`** already Closed — **do not** reopen.
+- SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE already Closed — **do not** reopen.
+- Edition harden → **`IHO-S164-EDITION-HARDEN`** separate Active (Eng `e3c0b2d` already on tip) — **do not** mix / Closed this tip.
+- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog**; **not** this tip.
+- Failure face = bare CHECK + `UpdateRejectCode` tip-truth (or existing SSE/`sse_map`); do **not** invent `CANCEL-*` prefixes.
+- Ubuntu + Windows: `exchange_cancel_reissue` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen UPD-SEQ / UPD-CORRUPT / SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; do **not** mix/jump Closed EDITION-HARDEN.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; native `s100_tests` + cancel/reissue fixtures; no SKIP. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `exchange_cancel_reissue` MUST NOT SKIP, Passed (already tip CI `40195685446` `#15` / Open-bind `40193555523` `#15` / Eng `39097623362`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; **only** CANCEL-REISSUE case-ids row → Closed; UPD-SEQ/UPD-CORRUPT stay Closed; EDITION stays Active; no Eng `ci.yml` / large Eng diff required
+- After Close next: **TBD**
+
+**Eng notes:** verify `45c355e` on tip; fixtures under `testdata/s101/updates/{nodot,cancel,cancel_bad,cancel_wrong_name,cancel_ooo,wrong_name,reissue,newed,pending,session_replace}/`; driver `tests/test_cancel_reissue.cpp`; cmake `exchange_cancel_reissue`; CLI report fields; viewer `CANCELLED:` (WARN). UPD-SEQ/UPD-CORRUPT Closed already on this stack (`0833930` / `eb91435`). Do **not** reopen UPD-SEQ / UPD-CORRUPT / SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY etc. Do **not** mix/Closed EDITION-HARDEN. Do **not** invent `CANCEL-*` failure prefixes. Do **not** change tip-truth oracles / enum / check order.
+
+**O-questions (BRIEF — Arch answers; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `45c355e` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
+2. Win: **no (a)/(b)**; Close binds dual-green — **yes / freeze**.
+3. Keep tip-truth oracles 0–11 (cancel/reissue/newed face Closed object; do **not** reopen UPD-SEQ/UPD-CORRUPT) — **yes / freeze**.
+4. EDITION-HARDEN stays Active — **yes / freeze**; do **not** mix/Closed this tip.
+5. `grid()` / shim Backlog — **yes / freeze**.
+6. Failure face = bare CHECK + enum (or existing SSE/`sse_map`) — **yes / freeze**; do **not** invent `CANCEL-*`.
+7. After Closed next = **TBD** — **yes / freeze**; do **not** invent.
+
+**UPD-SEQ / UPD-CORRUPT Closed (kept — do not reopen):** UPD-SEQ tip `0833930`≡`bb337ce`; UPD-CORRUPT tip `eb91435`≡`17eea30`; Open `700d73d`≡`5e4ccb1`; Close CI `40195685446` dual-green; O1 tip-truth/docs-close SUCCESS.
+
+**Resolved by `docs/edition-hardening-contract.md` rev 1 (`IHO-S164-EDITION-HARDEN` — still Active, separate tip):** open item 3 (superseded only detected on the exchange-set path, Behaviour #5 — now every series path; standalone `apply_s101_update` stays `EditionMismatch`) and a base cell with unparseable DSED loading as ED 0 (now rejected, as is a base with DSED `"0"`). **Do not** mix/Closed EDITION this tip.
+
+Builds on `docs/update-robustness-contract.md` rev 1.4 (UPD-SEQ + UPD-CORRUPT **Closed** — **do not** reopen). Same module boundary: all decisions in `s100_core`; CLI/viewer only display.
+
+---
 
 ## Sources (Research&Planner, 2026-10-18, primary texts in `/workspace/research/`)
 
