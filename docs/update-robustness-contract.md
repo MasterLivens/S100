@@ -1,10 +1,50 @@
-# Update-sequence robustness (rev 1.4)
+# Update-sequence robustness (rev 1.4) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case ids (**Active**): `IHO-S164-UPD-SEQ`, `IHO-S164-UPD-CORRUPT`. `IHO-S164-CANCEL-REISSUE` is the **next** slice (see Non-goals).
-CTest: **`exchange_update_robustness`** — **MUST NOT SKIP**, no platform guard, Linux + Windows CI.
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S164-UPD-SEQ`** (**Active / Open**). Sibling **`IHO-S164-UPD-CORRUPT`** remains **Active** (same contract / same CTest — **do not** Closed this tip). CTest: **`exchange_update_robustness`** — **MUST NOT SKIP**, Linux + Windows CI.
+Status: **rev 1.4** — Planner freeze (MUST below). Update-sequence robustness slice after closed **`IHO-S164-SIG`** (SIG family PRODUCER→CN-SHAPE→AGGREGATOR→base SIG 收口). Does **not** reopen SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; does **not** mix/jump Closed **UPD-CORRUPT / CANCEL-REISSUE / EDITION-HARDEN**; does **not** jump **`S102-GRID-SHIM-RETIRE`**. Does **not** expand tip-truth oracles / change `UpdateRejectCode` enum / change check order / weaken copy-and-swap strong guarantee.
 
-Extends `docs/exchange-set.md` (rule 3 "do not partially apply" is now enforced and tested). S-101 only in this slice; S-102+ updates are out of scope.
+Frozen with: `docs/api-contracts.md` (update robustness), `docs/part15-signature-contract.md` (SIG Closed — **do not** reopen), `docs/part15-aggregator-producer-contract.md` / `docs/part15-cn-shape-contract.md` / `docs/part15-producer-code-contract.md` (Closed — **do not** reopen), `docs/cancel-reissue-contract.md` / `docs/edition-hardening-contract.md` (CANCEL / EDITION separate Active — **do not** mix/Closed), `docs/testing/iho-ctest-case-ids.md`. Extends `docs/exchange-set.md` (rule 3 "do not partially apply"). S-101 only; S-102+ updates out of scope.
+
+Primary research: `/workspace/research/upd-seq/BRIEF.md` (2026-10-25 tip-truth refresh). Former Eng gap **already fixed** @ Eng **`331b9b9`** (feat UpdateRejectCode/UpdateReport + check order + fixtures + CTest; parent **`a3eb691`** copy-and-swap strong guarantee; tip ancestors **`0b97c33`/`3c68439`** rev1.3 session last-good; **`a2acaa6`** rev1.4 viewer sibling via core).
+
+**rev1.4 field freeze (kept):** `UpdateRejectCode` single code per reject (None / EditionMismatch / OutOfSequence / NotUpdateFile / Truncated / BadStructure / BadInstruction / MissingTarget / CatalogueMismatch); `UpdateReport`; `apply_s101_update` strong guarantee (copy-and-swap); stop-at-first; check order Truncated→BadStructure→NotUpdateFile→CatalogueMismatch→EditionMismatch→OutOfSequence→record; list order = apply order; DSID ED/UPD sequencing; session keeps last good + `last_update_report`; viewer applies sibling updates via core API only; CLI `--with-updates` report line; synthetic fixtures `testdata/s101/updates/` + `tools/gen_update_fixtures.py`; oracles 0–11 tip-truth; MUST NOT SKIP; Linux+Win. **CORRUPT fixtures** share this CTest but case **`IHO-S164-UPD-CORRUPT` stays Active** — **do not** Closed this tip. CANCEL / EDITION → separate contracts/CTests — **do not** mix/Closed.
+
+**Status: Active / Open (2026-10-25)** — after **SIG Closed** (tip `3197c64` ≡ Arch `283728a`; tip Close CI [`40187387296`](https://github.com/MasterLivens/S100/actions/runs/40187387296) dual-green; Open-bind evidence CI [`40186786770`](https://github.com/MasterLivens/S100/actions/runs/40186786770) @ `0158aa0`≡`2d05469`, CTest `#14 exchange_update_robustness` Passed, O1=tip-truth/docs-close). Eng tip ancestors **`a3eb691`→`331b9b9`** (+ rev1.3/1.4 docs) already on tip — **not greenfield**. Eng green CI [`39094178764`](https://github.com/MasterLivens/S100/actions/runs/39094178764) @ `331b9b9` (native `s100_tests` + update fixtures — **not** `viewer_*` — **no Win O1 (a)/(b)**). Ubuntu+Windows already Passed — tip Close CI [`40187387296`](https://github.com/MasterLivens/S100/actions/runs/40187387296) `#14 exchange_update_robustness` + Open-bind [`40186786770`](https://github.com/MasterLivens/S100/actions/runs/40186786770) `#14` + Eng landing [`39094178764`](https://github.com/MasterLivens/S100/actions/runs/39094178764). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE / UPD-CORRUPT / CANCEL-REISSUE / EDITION-HARDEN. Do **not** invent case ids or next tip names; freeze tip-truth below (**keep** oracles 0–11 — **do not** expand). Do **not** reopen SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE. Do **not** mix/jump Closed **UPD-CORRUPT / CANCEL-REISSUE / EDITION-HARDEN**. Do **not** invent `UPDSEQ-*` failure-face / skip prefixes (failure face = bare CHECK + enum tip-truth). Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). Contract display header stays **rev 1.4** (do **not** bump just for Open). After Closed next: **TBD** (architecture / registered Active only — do **not** invent).
+
+**Planner freeze (MUST — from BRIEF §7 + tip truth; Arch O1 = tip-truth / docs-close freeze yes):**
+- Reuse case id **`IHO-S164-UPD-SEQ`** / CTest **`exchange_update_robustness`**; **forbidden** to invent a second case/test name.
+- MUST tip-truth = UpdateRejectCode single-code / UpdateReport / check order / strong guarantee / list-order apply / DSID sequencing / session last-good / viewer sibling via core / oracles 0–11 + CTest **MUST NOT SKIP**; Linux+Win.
+- Eng tip already has **`331b9b9`** (parent `a3eb691`); Ubuntu+Win (tip `40187387296` `#14` / Open-bind `40186786770` `#14` / Eng `39094178764`) Passed → this slice = **Arch docs close** (Open→Closed), not greenfield. **Keep** tip-truth oracles — **do not** expand scope / change enum / change check order / weaken strong guarantee / reopen Closed tips.
+- Baseline Part 15 crypto → **`IHO-S164-SIG`** already Closed — **do not** reopen.
+- Aggregator / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE already Closed — **do not** reopen.
+- Corrupt fixtures / case → **`IHO-S164-UPD-CORRUPT`** remains Active (same CTest) — **do not** Closed this tip.
+- Cancel / re-issue → **`IHO-S164-CANCEL-REISSUE`** separate Active (`exchange_cancel_reissue`; Eng `45c355e` already) — **do not** mix / Closed this tip.
+- Edition harden → **`IHO-S164-EDITION-HARDEN`** separate Active (`exchange_edition_hardening`; Eng `e3c0b2d` already) — **do not** mix / Closed this tip.
+- **`grid()` / `S102-GRID-SHIM-RETIRE` stays Backlog** (DEEPEN O1); **not** this tip.
+- Failure face = bare CHECK + `UpdateRejectCode` tip-truth; do **not** invent `UPDSEQ-*` skip / failure-face prefixes.
+- Ubuntu + Windows: `exchange_update_robustness` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **TBD** (architecture / registered Active — do **not** invent). Independent tip; do **not** reopen SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE; do **not** mix/jump Closed UPD-CORRUPT / CANCEL-REISSUE / EDITION-HARDEN.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`; native `s100_tests` + update fixtures; no SKIP. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `exchange_update_robustness` MUST NOT SKIP, Passed (already tip CI `40187387296` `#14` / Open-bind `40186786770` `#14` / Eng `39094178764`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; **only** UPD-SEQ case-ids row → Closed; UPD-CORRUPT stays Active; no Eng `ci.yml` / large Eng diff required
+- After Close next: **TBD**
+
+**Eng notes:** verify `331b9b9` (parent `a3eb691`) on tip; `s101_update.cpp` / `exchange_set.cpp`; driver `tests/test_update_robustness.cpp`; cmake `exchange_update_robustness`; fixtures `testdata/s101/updates/*`; `tools/gen_update_fixtures.py`; session `last_update_report`; viewer sibling via core. SIG Closed already on this stack (`3197c64`). Do **not** reopen SIG / AGGREGATOR / CN-SHAPE / PRODUCER / POWERUP / INSTALL-PREFIX / DISPLAY-PRIORITY / SCAMIN / SESSION-PICK / CATALOGUE / TIMELINE / PC-WIRE / S-124 / S-111 / S-104 / QBC-MG / UNCERT / DEEPEN / DISPLAY-COMPARE / FASC / BRIDGE. Do **not** mix/Closed UPD-CORRUPT / CANCEL-REISSUE / EDITION-HARDEN. Do **not** invent `UPDSEQ-*` failure prefixes. Do **not** change tip-truth oracles / enum / check order / weaken strong guarantee.
+
+**O-questions (BRIEF §3 Open 1–N — Arch answers; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `331b9b9` already; no `ci.yml` / no large Eng) — **yes / freeze** (O1 = tip-truth / docs-close).
+2. Win: **no (a)/(b)**; Close binds dual-green — **yes / freeze**.
+3. Keep tip-truth oracles 0–11 (SEQ face Closed object; CORRUPT fixtures stay green but case Active) — **yes / freeze**; do **not** expand.
+4. UPD-CORRUPT / CANCEL-REISSUE / EDITION-HARDEN stay Active — **yes / freeze**; do **not** mix/Closed this tip.
+5. `grid()` / shim Backlog — **yes / freeze**.
+6. Failure face = bare CHECK + enum — **yes / freeze**; do **not** invent `UPDSEQ-*`.
+7. After Closed next = **TBD** — **yes / freeze**; do **not** invent.
+
+---
 
 ## Module boundary
 
