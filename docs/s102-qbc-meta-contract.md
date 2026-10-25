@@ -1,12 +1,40 @@
-# S-102 QualityOfBathymetryCoverage meta + §10 min==max broadcast (rev1)
+# S-102 QualityOfBathymetryCoverage meta + §10 min==max broadcast (rev1) · Active / Open
 
-Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: SoftwareTester.
-Case id: **`IHO-S102-QBC-META`** (**Active**). CTest: **`s102_qbc_meta`**.
-Status: **rev1** — Planner + Architect + Tester steering (separate failure surfaces). Takes QBC deferral and §10 min==max broadcast MAY from `docs/s102-uncertainty-contract.md` (`IHO-S102-UNCERTAINTY`).
+Owner: SoftwareArchitecture (2026-10-25). Implement: SoftwareEngineer. Test: SoftwareTester.
+Case id: **`IHO-S102-QBC-META`** (**Active / Open**). CTest: **`s102_qbc_meta`**.
+Status: **rev1** — Planner freeze (MUST below). Takes QBC deferral and §10 min==max broadcast failure face from `docs/s102-uncertainty-contract.md` (`IHO-S102-UNCERTAINTY` **Closed**).
 
 Builds on `docs/s102-contract.md` / `docs/s102-deepen-contract.md` / `docs/s102-uncertainty-contract.md`. Does **not** reopen OPEN / OVERLAY / DEEPEN / UNCERTAINTY dual-channel VG `13031` painting.
 
-Primary research: `/workspace/research/s102-uncertainty/BRIEF.md` + NOAA sample `102US004AK5HQ262267.h5` (h5dump 2026-10-18).
+Primary research: `/workspace/research/qbc-meta/BRIEF.md` (+ earlier `/workspace/research/s102-uncertainty/BRIEF.md` + NOAA sample `102US004AK5HQ262267.h5`).
+
+**Status: Active / Open (2026-10-25)** — after **UNCERTAINTY Closed** (tip `0539109`; CI [`40152825887`](https://github.com/MasterLivens/S100/actions/runs/40152825887) dual-green; Closed CI [`40142462597`](https://github.com/MasterLivens/S100/actions/runs/40142462597) @ `13b7c3c`, O1=#1b tip-truth). Eng tip ancestor **`7b20a56`** already on tip — **not greenfield** (optional QoBC U32+FAT / NullInstruction / §10 broadcast elect / fixtures C+BCAST-2 / CTest `QBC-1..4` + `BCAST-1..2`). Ubuntu+Windows already Passed — tip CI [`40098659137`](https://github.com/MasterLivens/S100/actions/runs/40098659137) `#5` + Eng landing [`39107961238`](https://github.com/MasterLivens/S100/actions/runs/39107961238) @ `7b20a56` (native `s100_tests` + HDF5, **not** `viewer_*` — **no Win O1 (a)/(b)**). This slice = **Arch docs close / verify primarily** (Open→Closed), not greenfield Eng. Independent tip from UNCERT / DEEPEN / QBC-MG. Do **not** invent oracles; freeze tip-truth below. Do **not** reopen UNCERT / DEEPEN. Do **not** conflate failure faces **`QBC-*` ≠ `BCAST-*`**. Do **not** retire `grid()` shim this tip (DEEPEN O1=Backlog). After Closed next: **`IHO-S102-QBC-MULTIGRID`** (Eng `aabbb54` already on main; separate tip).
+
+**Planner freeze (MUST — from rev1 + BRIEF §7 + tip truth):**
+- Reuse case id **`IHO-S102-QBC-META`** / CTest **`s102_qbc_meta`**; **forbidden** to invent a second case/test name.
+- MUST = **QBC-1..4** (fixture **C** + Q6 real NOAA/CHS) + **BCAST-1..2** (fixture **B** broadcast + fill-minmax no-broadcast) + portray **NullInstruction** / **no** id colour band + prior `s102_uncertainty` / deepen / overlay green.
+- Fixtures C / B / BCAST-2 **MUST NOT SKIP** on CI (Linux+Win).
+- Failure faces **`QBC-*` ≠ `BCAST-*`** — do not conflate; same CTest binary OK; CHECK prefixes stay separable.
+- Eng tip already has **`7b20a56`**; Ubuntu+Win (`40098659137` #5 / Eng `39107961238`) + local Passed → this slice = **Arch docs close** (Open→Closed), not greenfield.
+- **`grid()` shim stays Backlog** (DEEPEN O1); QBC may still use `grid()`; retire = separate Backlog, **not** this tip.
+- Ubuntu + Windows: `s102_qbc_meta` MUST NOT SKIP, Passed (already on tip).
+- After Closed next: **`IHO-S102-QBC-MULTIGRID`** (Eng `aabbb54` already; separate tip). Do **not** Closed QBC-MG on this tip.
+
+**Win policy:** **no (a)/(b)** — not viewer/snapshot family; already dual-green under Win `-E "viewer_"`. Close binds Ubuntu+Win Passed. Notes: non-`viewer_*`. **Forbidden:** platform SKIP inside the test; Eng `ci.yml` viewer_* change for this CTest.
+
+**Close criteria (honest):**
+- Ubuntu + Windows: `s102_qbc_meta` MUST NOT SKIP, Passed (already on tip CI `40098659137` #5 / Eng `39107961238`; re-check on tip after this Open if needed)
+- Docs → Closed + CI Notes when done; no Eng `ci.yml` / large Eng diff required
+- After Close next: **`IHO-S102-QBC-MULTIGRID`**
+
+**Eng notes:** verify `7b20a56` on tip; fixtures C + B + BCAST-2 + `SOURCE.md`; driver `tests/test_s102.cpp` `test_s102_qbc_meta`; cmake `s102_qbc_meta`. UNCERT Closed already on this stack (`0539109`). Do **not** revert broadcast loader / UNCERT #1b tip-truth. Soft pixel WARN-only — do **not** harden EncDotNet. Multi-grid QoBC bind out of scope (QBC-MG).
+
+**O-questions (BRIEF §7 — Planner already answered; freeze tip-truth):**
+1. Docs close / verify primarily (Eng `7b20a56` already; no `ci.yml` / no large Eng) — **recommend yes / freeze**.
+2. Win: **no (a)/(b)**; Close binds dual-green Notes non-`viewer_*` — **recommend yes / freeze**.
+3. Notes split failure faces **`QBC-*` ≠ `BCAST-*`** — **recommend yes / freeze**.
+4. Closed next → **`IHO-S102-QBC-MULTIGRID`** (Eng `aabbb54` already; separate tip) — **recommend yes / freeze**.
+5. `grid()` shim stays Backlog — **freeze, not a question**.
 
 ---
 
@@ -192,11 +220,13 @@ Soft pixel / screenshot: **WARN-only**. EncDotNet: **out**.
 
 ---
 
-## Open
+## Open (historical Eng pins — tip-truth already landed @ `7b20a56`)
 
-- Exact fixture **C** lon/lat / id values — Eng pins in `testdata/s102/SOURCE.md` when generating the file.
-- Whether session-pick prints QBC strings in CLI in this slice or only exposes fields on `CoverageSample` / `QbcAttributeRecord` (default: fields on sample + lookup API; CLI pretty-print optional WARN).
-- Full FAT field round-trip vs oracle subset above — Eng MAY load all HDF5 members internally; public record MUST cover the oracle columns.
+- Exact fixture **C** lon/lat / id values — **done** in `testdata/s102/SOURCE.md` (Eng tip).
+- Session-pick / CLI pretty-print of QBC strings — fields on sample + `lookup_qbc_record` landed; CLI pretty-print remains optional WARN (not a Close blocker).
+- Full FAT field round-trip vs oracle subset — Eng MAY load all HDF5 members internally; public record MUST cover oracle columns (tip-truth).
+
+Planner O-questions (BRIEF §7) → **answered / freeze** in header Status block (docs close; Win no a/b; `QBC-*` ≠ `BCAST-*`; next=QBC-MG; `grid()` Backlog).
 
 ---
 
