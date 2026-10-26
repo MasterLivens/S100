@@ -240,6 +240,14 @@ if(S100_BUILD_VIEWER)
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_OPENGL=software;S100_TESTDATA=${CMAKE_SOURCE_DIR}/testdata/s101"
     TIMEOUT 120)
 
+  add_test(NAME viewer_disp_ref_compare
+    COMMAND ${CMAKE_COMMAND}
+      -DSRC=${CMAKE_SOURCE_DIR} -DBIN=${CMAKE_BINARY_DIR}
+      -P ${CMAKE_SOURCE_DIR}/tests/check_disp_ref_compare.cmake)
+  set_tests_properties(viewer_disp_ref_compare PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_OPENGL=software;S100_TESTDATA=${CMAKE_SOURCE_DIR}/testdata/s101"
+    TIMEOUT 180)
+
   if(S100_ENCDOTNET_ORACLE)
     add_test(NAME viewer_encdotnet_oracle
       COMMAND ${CMAKE_COMMAND}
