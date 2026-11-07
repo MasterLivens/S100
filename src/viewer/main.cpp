@@ -1611,8 +1611,8 @@ int main(int argc, char** argv) {
           portrayed = true;
           msg = QString("loaded S-102 %1 — coverage %2x%3 instructions=%4 lua_errors=%5 (FC %6 %7, PC %8 %9)")
                     .arg(cell)
-                    .arg(static_cast<qulonglong>(ds.coverage->grid().ncols))
-                    .arg(static_cast<qulonglong>(ds.coverage->grid().nrows))
+                    .arg(static_cast<qulonglong>(ds.coverage->grids[0].ncols))
+                    .arg(static_cast<qulonglong>(ds.coverage->grids[0].nrows))
                     .arg(static_cast<qulonglong>(ps.instructions))
                     .arg(static_cast<qulonglong>(ps.lua_errors))
                     .arg(QString::fromStdString(fc.product))

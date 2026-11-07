@@ -74,26 +74,26 @@ void test_s102_open_bounds_sample_portray() {
   CHECK(b.valid);
   CHECK(b.east > b.west);
   CHECK(b.north > b.south);
-  CHECK(ds.coverage->grid().nrows > 0 && ds.coverage->grid().ncols > 0);
+  CHECK(ds.coverage->grids[0].nrows > 0 && ds.coverage->grids[0].ncols > 0);
   CHECK(!ds.coverage->features.empty());
   CHECK(ds.coverage->features[0].code == "BathymetryCoverage");
   std::cout << "S-102 open " << cell.filename() << " bounds=[" << b.west << "," << b.south << ","
-            << b.east << "," << b.north << "] grid=" << ds.coverage->grid().ncols << "x"
-            << ds.coverage->grid().nrows << " crs=" << ds.coverage->grid().horizontal_crs << "\n";
+            << b.east << "," << b.north << "] grid=" << ds.coverage->grids[0].ncols << "x"
+            << ds.coverage->grids[0].nrows << " crs=" << ds.coverage->grids[0].horizontal_crs << "\n";
 
   // sample_wgs84 only for EPSG:4326 (CHS). Projected NOAA: verify cell sample instead.
-  if (ds.coverage->grid().horizontal_crs == 4326) {
+  if (ds.coverage->grids[0].horizontal_crs == 4326) {
     bool found = false;
     s100::CoverageSample sm;
-    for (std::size_t r = 0; r < ds.coverage->grid().nrows && !found; r += 17) {
-      for (std::size_t c = 0; c < ds.coverage->grid().ncols && !found; c += 17) {
-        if (!ds.coverage->grid().sample_cell(r, c, sm)) continue;
+    for (std::size_t r = 0; r < ds.coverage->grids[0].nrows && !found; r += 17) {
+      for (std::size_t c = 0; c < ds.coverage->grids[0].ncols && !found; c += 17) {
+        if (!ds.coverage->grids[0].sample_cell(r, c, sm)) continue;
         const double lon =
-            ds.coverage->grid().origin_x + static_cast<double>(c) * ds.coverage->grid().spacing_x;
+            ds.coverage->grids[0].origin_x + static_cast<double>(c) * ds.coverage->grids[0].spacing_x;
         const double lat =
-            ds.coverage->grid().origin_y + static_cast<double>(r) * ds.coverage->grid().spacing_y;
+            ds.coverage->grids[0].origin_y + static_cast<double>(r) * ds.coverage->grids[0].spacing_y;
         s100::CoverageSample sm2;
-        CHECK(ds.coverage->grid().sample_wgs84(lon, lat, sm2));
+        CHECK(ds.coverage->sample_wgs84(lon, lat, sm2));
         CHECK(sm2.has_depth);
         CHECK(std::fabs(sm2.depth - sm.depth) < 1e-3f);
         found = true;
@@ -106,10 +106,10 @@ void test_s102_open_bounds_sample_portray() {
     s100::CoverageSample sm;
     bool found = false;
     std::size_t fr = 0, fc = 0;
-    for (std::size_t i = 0; i < ds.coverage->grid().depth.size(); ++i) {
-      const std::size_t r = i / ds.coverage->grid().ncols;
-      const std::size_t c = i % ds.coverage->grid().ncols;
-      if (ds.coverage->grid().sample_cell(r, c, sm)) {
+    for (std::size_t i = 0; i < ds.coverage->grids[0].depth.size(); ++i) {
+      const std::size_t r = i / ds.coverage->grids[0].ncols;
+      const std::size_t c = i % ds.coverage->grids[0].ncols;
+      if (ds.coverage->grids[0].sample_cell(r, c, sm)) {
         found = true;
         fr = r;
         fc = c;
@@ -118,9 +118,9 @@ void test_s102_open_bounds_sample_portray() {
     }
     CHECK(found);
     const double east =
-        ds.coverage->grid().origin_x + static_cast<double>(fc) * ds.coverage->grid().spacing_x;
+        ds.coverage->grids[0].origin_x + static_cast<double>(fc) * ds.coverage->grids[0].spacing_x;
     const double north =
-        ds.coverage->grid().origin_y + static_cast<double>(fr) * ds.coverage->grid().spacing_y;
+        ds.coverage->grids[0].origin_y + static_cast<double>(fr) * ds.coverage->grids[0].spacing_y;
     // Pick a WGS84 point inside the geographic envelope and require a depth hit.
     s100::CoverageSample sm2;
     bool wh = false;
@@ -129,13 +129,13 @@ void test_s102_open_bounds_sample_portray() {
       const double lon = b.west + (b.east - b.west) * (static_cast<double>(i) / steps);
       for (int j = 0; j <= steps && !wh; ++j) {
         const double lat = b.south + (b.north - b.south) * (static_cast<double>(j) / steps);
-        if (ds.coverage->grid().sample_wgs84(lon, lat, sm2) && sm2.has_depth) wh = true;
+        if (ds.coverage->sample_wgs84(lon, lat, sm2) && sm2.has_depth) wh = true;
       }
     }
     CHECK(wh);
     s100::CoverageSample reject;
-    CHECK(!ds.coverage->grid().sample_wgs84(b.west - 1.0, b.south - 1.0, reject));
-    std::cout << "S-102 projected CRS " << ds.coverage->grid().horizontal_crs
+    CHECK(!ds.coverage->sample_wgs84(b.west - 1.0, b.south - 1.0, reject));
+    std::cout << "S-102 projected CRS " << ds.coverage->grids[0].horizontal_crs
               << " cell=(" << fr << "," << fc << ") easting=" << east << " northing=" << north
               << " wgs84 sample depth=" << sm2.depth << "\n";
   }
@@ -250,7 +250,7 @@ void test_s102_utm_sample_wgs84() {
   s100::Dataset ds;
   CHECK(s100::open_dataset(noaa, ds, &err));
   CHECK(ds.coverage.has_value());
-  CHECK(ds.coverage->grid().horizontal_crs == 32609);
+  CHECK(ds.coverage->grids[0].horizontal_crs == 32609);
   const auto b = ds.bounds();
   CHECK(b.valid);
   // Geographic envelope can include fill cells; scan for a WGS84 hit with depth.
@@ -262,7 +262,7 @@ void test_s102_utm_sample_wgs84() {
     const double lon = b.west + (b.east - b.west) * (static_cast<double>(i) / steps);
     for (int j = 0; j <= steps && !hit; ++j) {
       const double lat = b.south + (b.north - b.south) * (static_cast<double>(j) / steps);
-      if (ds.coverage->grid().sample_wgs84(lon, lat, sm) && sm.has_depth) {
+      if (ds.coverage->sample_wgs84(lon, lat, sm) && sm.has_depth) {
         hit = true;
         hit_lon = lon;
         hit_lat = lat;
@@ -271,7 +271,7 @@ void test_s102_utm_sample_wgs84() {
   }
   CHECK(hit);
   s100::CoverageSample reject;
-  CHECK(!ds.coverage->grid().sample_wgs84(b.west - 2.0, b.south - 2.0, reject));
+  CHECK(!ds.coverage->sample_wgs84(b.west - 2.0, b.south - 2.0, reject));
   std::cout << "S-102 UTM sample_wgs84 EPSG:32609 lon=" << hit_lon << " lat=" << hit_lat
             << " depth=" << sm.depth << "\n";
 }
@@ -290,7 +290,7 @@ void test_s102_deepen_multigrid() {
   CHECK(ds.coverage.has_value());
   CHECK(ds.coverage->grids.size() >= 2);
   CHECK(ds.coverage->features.size() == ds.coverage->grids.size());
-  CHECK(ds.coverage->grid().horizontal_crs == 4326);
+  CHECK(ds.coverage->grids[0].horizontal_crs == 4326);
   std::cout << "S-102 deepen grids=" << ds.coverage->grids.size()
             << " A=" << ds.coverage->grids[0].ncols << "x" << ds.coverage->grids[0].nrows
             << " B=" << ds.coverage->grids[1].ncols << "x" << ds.coverage->grids[1].nrows << "\n";
@@ -431,12 +431,10 @@ void test_s102_deepen_multigrid() {
             << std::get<2>(dusk_rgb) << ")\n";
 
   // #6 prior single-grid path still loads (NOAA when present) — exercised by other tests;
-  // here assert synthetic still has grids[0] shim and union bounds.
   const auto b = ds.bounds();
   CHECK(b.valid);
   CHECK(b.west <= 0.0 + 1e-6 && b.east >= 10.4 - 1e-3);
   CHECK(b.south <= 0.0 + 1e-6 && b.north >= 10.4 - 1e-3);
-  CHECK(ds.coverage->grid().ncols == ds.coverage->grids[0].ncols);
   std::cout << "S-102 deepen multigrid OK (IHO-S102-DEEPEN-MULTIGRID)\n";
 }
 
@@ -457,7 +455,7 @@ void test_s102_uncertainty() {
     CHECK(ds.product == s100::ProductId::S102);
     CHECK(ds.coverage.has_value());
     CHECK(ds.coverage->grids.size() >= 1);
-    CHECK(ds.coverage->grid().horizontal_crs == 4326);
+    CHECK(ds.coverage->grids[0].horizontal_crs == 4326);
 
     s100::CoverageSample pa, pb;
     CHECK(ds.coverage->sample_wgs84(20.0, 20.0, pa));
@@ -566,7 +564,7 @@ void test_s102_uncertainty() {
     CHECK(s100::open_dataset(fixture_b, ds, &err));
     CHECK(ds.coverage.has_value());
     CHECK(ds.coverage->grids.size() >= 1);
-    CHECK(ds.coverage->grid().uncertainty.size() == ds.coverage->grid().depth.size());
+    CHECK(ds.coverage->grids[0].uncertainty.size() == ds.coverage->grids[0].depth.size());
     s100::CoverageSample sm;
     CHECK(ds.coverage->sample_wgs84(30.0, 30.0, sm));
     CHECK(sm.has_depth);
@@ -618,7 +616,7 @@ void test_s102_uncertainty() {
       s100::CoverageSample sm;
       bool any_depth = false;
       bool any_unc = false;
-      const auto& g = ds.coverage->grid();
+      const auto& g = ds.coverage->grids[0];
       for (std::size_t r = 0; r < g.nrows; r += std::max<std::size_t>(1, g.nrows / 64)) {
         for (std::size_t c = 0; c < g.ncols; c += std::max<std::size_t>(1, g.ncols / 64)) {
           if (!g.sample_cell(r, c, sm)) continue;
@@ -694,7 +692,7 @@ void test_s102_qbc_meta() {
     // QBC-3 open: has_qbc_coverage
     CHECK_QBC("QBC-3", ds.coverage->has_qbc_coverage);
     CHECK_QBC("QBC-3", ds.coverage->grids.size() >= 1);
-    CHECK_QBC("QBC-3", !ds.coverage->grid().qbc_ids.empty());
+    CHECK_QBC("QBC-3", !ds.coverage->grids[0].qbc_ids.empty());
 
     // QBC-1 Point C1
     s100::CoverageSample c1;
@@ -772,7 +770,7 @@ void test_s102_qbc_meta() {
       if (prefer_noaa) {
         CHECK_QBC("QBC-4", ds.coverage->has_qbc_coverage);
         s100::CoverageSample sm;
-        CHECK_QBC("QBC-4", ds.coverage->grid().sample_cell(700, 700, sm));
+        CHECK_QBC("QBC-4", ds.coverage->grids[0].sample_cell(700, 700, sm));
         CHECK_QBC("QBC-4", sm.has_qbc);
         CHECK_QBC("QBC-4", sm.qbc_id == 1u);
         s100::QbcAttributeRecord rec;
@@ -809,7 +807,7 @@ void test_s102_qbc_meta() {
     s100::Dataset ds;
     CHECK_BCAST("BCAST-2", s100::open_dataset(fixture_b2, ds, &err));
     CHECK_BCAST("BCAST-2", ds.coverage.has_value());
-    CHECK_BCAST("BCAST-2", ds.coverage->grid().uncertainty.empty());
+    CHECK_BCAST("BCAST-2", ds.coverage->grids[0].uncertainty.empty());
     s100::CoverageSample sm;
     CHECK_BCAST("BCAST-2", ds.coverage->sample_wgs84(35.0, 35.0, sm));
     CHECK_BCAST("BCAST-2", sm.has_depth);

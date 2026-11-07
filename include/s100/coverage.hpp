@@ -99,10 +99,6 @@ struct CoverageDataset {
   /** Rows from featureAttributeTable (id-keyed lookup). */
   std::vector<QbcAttributeRecord> qbc_attribute_table;
 
-  /** Temporary shim → grids[0] (one release; prefer grids / sample_wgs84). */
-  CoverageGrid& grid() { return grids.at(0); }
-  const CoverageGrid& grid() const { return grids.at(0); }
-
   /** Among grids whose geographic envelope contains (lon,lat), pick smallest
    *  enclosing area then lowest index; else false. Fills QBC fields when loaded. */
   bool sample_wgs84(double lon, double lat, CoverageSample& out) const;
