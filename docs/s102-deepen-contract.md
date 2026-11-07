@@ -4,11 +4,11 @@ Owner: SoftwareArchitecture (2026-10-18). Implement: SoftwareEngineer. Test: Sof
 Builds on `docs/s102-contract.md`. Case id: **`IHO-S102-DEEPEN-MULTIGRID`** (**Closed / Done** 2026-10-19).  
 CTest name: **`s102_deepen_multigrid`** (plus helpers as needed) — MUST NOT SKIP; Linux + Windows dual-green (CI `39141930422` @ `5e05675`).
 
-**Status: Closed / Done (2026-10-19)** — CI [`39141930422`](https://github.com/MasterLivens/S100/actions/runs/39141930422) @ `5e05675` dual-green; **`s102_deepen_multigrid` Passed Ubuntu+Win** (native `s100_tests` + HDF5 — **not** `viewer_*`; **no Win O1 (a)/(b)**). Eng **`0dd39f2`** already on tip — **docs close only**. Oracles MUST #1–6 **unchanged**. **O1 closed as Backlog** — `grid()` → `grids[0]` shim **stays** (still used heavily in `test_s102` single-grid / UNCERT / QBC; retiring now = big Eng test churn, hurts downstream Active cases). Cleanup tip **Active / Eng tip-truth**: `S102-GRID-SHIM-RETIRE` — callers migrated off `grid()`; header shim **deleted** (see `docs/s102-grid-shim-retire-contract.md` rev1). Next: **`IHO-S102-UNCERTAINTY`**.
+**Status: Closed / Done (2026-10-19)** — CI [`39141930422`](https://github.com/MasterLivens/S100/actions/runs/39141930422) @ `5e05675` dual-green; **`s102_deepen_multigrid` Passed Ubuntu+Win** (native `s100_tests` + HDF5 — **not** `viewer_*`; **no Win O1 (a)/(b)**). Eng **`0dd39f2`** already on tip — **docs close only**. Oracles MUST #1–6 **unchanged**. **O1 closed as Backlog** (this DEEPEN slice) — shim retire later completed under **`S102-GRID-SHIM-RETIRE` Closed / Done** 2026-11-07 (Eng tip-truth `14e27bc` / Eng CI `42372491173`; see `docs/s102-grid-shim-retire-contract.md` rev1). Next: **`IHO-S102-UNCERTAINTY`**.
 
 **Planner freeze (kept — rev2 unchanged):** Reuse case id / CTest name; MUST #1–6 (`grids.size() >= 2`; envelope `sample_wgs84` routing; N×CoverageFill; FourShades/SafetyContour; Day→Dusk token-stable + soft RGB; prior single-grid / overlay green); fixture `synthetic_multigrid_4326.h5` MUST NOT SKIP; WGS84 façade; deepen disjoint ≠ QBC-MG co-located (Non-goal).
 
-**O1 closed as Backlog:** `grid()` temporary shim **kept** this slice. Do **not** retire here. Downstream UNCERT/QBC / single-grid tests still call `grid()`. Cleanup = **Active** `S102-GRID-SHIM-RETIRE` — Eng tip-truth migrates callers → `grids[0]` / `sample_wgs84` and **removes** shim. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest.
+**O1 closed as Backlog (this DEEPEN slice):** `grid()` temporary shim **kept** here. Do **not** retire in DEEPEN. Follow-on **`S102-GRID-SHIM-RETIRE` Closed / Done** 2026-11-07 — Eng tip-truth `14e27bc` migrated callers → `grids[0]` / `sample_wgs84` and **removed** shim. **Forbidden:** platform SKIP; Eng `ci.yml` viewer_* change for this CTest.
 
 ## Slice close — 2026-10-19
 
@@ -18,7 +18,7 @@ CTest name: **`s102_deepen_multigrid`** (plus helpers as needed) — MUST NOT SK
 - **O1=Backlog SUCCESS** — shim stays; retire deferred (test churn / downstream Active).
 - Oracles stay as frozen rev2 MUST #1–6.
 - Eng `0dd39f2` already on tip — docs close only; no `ci.yml` change.
-- **Notes:** next Eng **`IHO-S102-UNCERTAINTY`**. **Active follow-on:** retire `CoverageDataset::grid()` shim → **`S102-GRID-SHIM-RETIRE`** (`docs/s102-grid-shim-retire-contract.md` rev1; Open 2026-11-07; base `1d81fc5`; Eng tip-truth deletes shim).
+- **Notes:** next Eng **`IHO-S102-UNCERTAINTY`**. **Follow-on Closed:** retire `CoverageDataset::grid()` shim → **`S102-GRID-SHIM-RETIRE` Closed / Done** 2026-11-07 (`docs/s102-grid-shim-retire-contract.md` rev1; Eng tip-truth `14e27bc` / Eng CI `42372491173`).
 - **Non-goals this close:** inventing oracles; retiring `grid()` shim; loader/portray rewrite; reopening DISPLAY / UNCERT / QBC; Win (a)/(b) (N/A — non-`viewer_*`).
 
 ## Portray model (locked)
@@ -33,8 +33,8 @@ Each instruction carries a distinct `feature_id` (coverage feature instance id) 
 struct CoverageDataset {
   // ...
   std::vector<CoverageGrid> grids;           // required; size >= 1 after successful open
-  // CoverageGrid grid;                      // REMOVED as sole storage — keep temporary
-  //                                       // shim `grid()` → grids[0] only for one release
+  // CoverageGrid grid;                      // REMOVED as sole storage — shim retired
+  //                                       // (`S102-GRID-SHIM-RETIRE` Closed; use grids[i])
   bool sample_wgs84(double lon, double lat, CoverageSample& out) const;
 };
 ```
