@@ -1,4 +1,5 @@
 Source: https://github.com/iho-ohi/S-101-Test-Datasets
 Path: S-101_Test_DataSets/cells/
-Cells: 101AA00DS0003, 101AA00DS0006, 101AA00DS0008
+Cells: 101AA00DS0003, 101AA00DS0004, 101AA00DS0005, 101AA00DS0006, 101AA00DS0007, 101AA00DS0008, 101AA00DS0009, 101AA00DS0010
+Editions (upstream folder): 0004/0005/0007 → 9; 0009/0010 → 8; 0003/0006/0008 kept as previously vendored
 Test only — not for navigation.

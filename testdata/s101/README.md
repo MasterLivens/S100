@@ -4,8 +4,13 @@
 Public IHO samples from [iho-ohi/S-101-Test-Datasets](https://github.com/iho-ohi/S-101-Test-Datasets).
 
 - `101AA00DS0003.000`
+- `101AA00DS0004.000`
+- `101AA00DS0005.000`
 - `101AA00DS0006.000`
+- `101AA00DS0007.000`
 - `101AA00DS0008.000` (default for P0 smoke)
+- `101AA00DS0009.000`
+- `101AA00DS0010.000`
 
 Test/development only — not for navigation.
 
