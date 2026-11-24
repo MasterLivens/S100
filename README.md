@@ -6,6 +6,7 @@ Cross-platform S-100 nautical chart system (Linux / Windows) — **C++17 + CMake
 
 - Project handoff (Chinese): [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md) — purpose, baseline evidence, capabilities, doc map
 - Project plan (Chinese): [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) — approved vs proposed work; FontSize is proposed only
+- Project status (Chinese, mutable snapshot): [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) — current owner/assignee, progress, arrangements, blockers, transfer log
 - Engineering handoff (Chinese): [`docs/engineering-handoff.md`](docs/engineering-handoff.md) — build, code entry points, platform caveats
 - Architecture: [`docs/architecture.md`](docs/architecture.md)
 

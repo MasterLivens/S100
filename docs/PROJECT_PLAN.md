@@ -2,7 +2,7 @@
 
 更新日期：2026-11-24（Asia/Shanghai）。本文区分**已批准 / 已完成**与**仅提议、尚未批准**的工作。不新增 Active，不把候选 case-id 写成当前实现目标。
 
-项目总览与基线证据见 [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md)。构建与代码入口见 [`engineering-handoff.md`](engineering-handoff.md)。
+项目总览与基线证据见 [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md)。构建与代码入口见 [`engineering-handoff.md`](engineering-handoff.md)。当前负责人、进度与移交日志见可变快照 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)。
 
 ## 1. 当前状态（已核对）
 

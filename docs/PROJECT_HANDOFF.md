@@ -2,7 +2,7 @@
 
 更新日期：2026-11-24（Asia/Shanghai）。本文供新的 agent **仅凭本仓库**继续工作，说明项目目的、能力边界、文档地图与已核实基线。
 
-本文是**项目总览与计划索引**，不新增 Active，也不把候选工作写成已批准实现目标。构建命令、代码入口、Windows 测试拆分与平台注意见 [`engineering-handoff.md`](engineering-handoff.md)。路线图与字号候选的调查顺序见 [`PROJECT_PLAN.md`](PROJECT_PLAN.md)。
+本文是**相对稳定的项目总览与计划索引**，不新增 Active，也不把候选工作写成已批准实现目标。构建命令、代码入口、Windows 测试拆分与平台注意见 [`engineering-handoff.md`](engineering-handoff.md)。路线图与字号候选的调查顺序见 [`PROJECT_PLAN.md`](PROJECT_PLAN.md)。负责人、当前进度、安排、阻碍与移交日志见可变快照 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)（与本文分开维护；恢复或回到原团队前先对账并更新该快照）。
 
 ## 1. 起始提交与已核实证据
 
@@ -88,8 +88,9 @@
 
 | 路径 | 用途 |
 |------|------|
-| [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md) | 本文件：项目总览、基线证据、能力边界 |
+| [`PROJECT_HANDOFF.md`](PROJECT_HANDOFF.md) | 本文件：相对稳定的项目总览、基线证据、能力边界 |
 | [`PROJECT_PLAN.md`](PROJECT_PLAN.md) | 已批准 vs 提议的计划、字号调查顺序 |
+| [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | 可变运作快照：接手人、进度、安排、阻碍、移交/回归日志 |
 | [`engineering-handoff.md`](engineering-handoff.md) | 工程接手：阅读顺序、代码入口、构建与平台注意 |
 | [`architecture.md`](architecture.md) | 分层架构与历史 Closed 摘记（注意过时行） |
 | [`api-contracts.md`](api-contracts.md) | 对外 API 冻结与产品约束 |
@@ -155,6 +156,6 @@ CI 在 Linux 上等价地使用 `-C Release`、`--timeout 120`，并设置 `S100
 ## 10. 接手后的第一步
 
 1. `git fetch` 并核对远端 `main` 是否仍为本文第 1 节的 SHA（或已有更新）。
-2. 阅读本文、[`PROJECT_PLAN.md`](PROJECT_PLAN.md)、[`engineering-handoff.md`](engineering-handoff.md)，再按后者第 3 节的顺序读架构 / API 合同 / case-id / 最近 Closed 合同。
+2. 阅读 [`PROJECT_STATUS.md`](PROJECT_STATUS.md)（先对账再动手）、本文、[`PROJECT_PLAN.md`](PROJECT_PLAN.md)、[`engineering-handoff.md`](engineering-handoff.md)，再按工程接手第 3 节的顺序读架构 / API 合同 / case-id / 最近 Closed 合同。
 3. 在干净构建目录按 README / CI / 工程交接复现构建与测试（本文未代替你做这次复现）。
 4. 向项目所有者确认下一项；在明确批准（若是字号，须先完成单位调查而不是直接改绘制）之前，不启动功能改动。

@@ -3,7 +3,7 @@
 Cross-platform S-100 chart system: **C++17 + CMake + Qt6**, Linux / Windows.
 Owner: **SoftwareArchitecture**. Scope/plan: Research&Planner. Implementation: SoftwareEngineer. Acceptance: SoftwareTester.
 
-Project handoff / plan (Chinese, for a new agent continuing from this repo alone): `docs/PROJECT_HANDOFF.md`, `docs/PROJECT_PLAN.md`. Engineering build and code entry: `docs/engineering-handoff.md`.
+Project handoff / plan (Chinese, for a new agent continuing from this repo alone): `docs/PROJECT_HANDOFF.md`, `docs/PROJECT_PLAN.md`. Mutable operational status (assignee, progress, transfer log): `docs/PROJECT_STATUS.md`. Engineering build and code entry: `docs/engineering-handoff.md`.
 
 ## Goals
 
