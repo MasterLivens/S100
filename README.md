@@ -2,6 +2,13 @@
 
 Cross-platform S-100 nautical chart system (Linux / Windows) — **C++17 + CMake + Qt6**.
 
+## Docs
+
+- Project handoff (Chinese): [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md) — purpose, baseline evidence, capabilities, doc map
+- Project plan (Chinese): [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) — approved vs proposed work; FontSize is proposed only
+- Engineering handoff (Chinese): [`docs/engineering-handoff.md`](docs/engineering-handoff.md) — build, code entry points, platform caveats
+- Architecture: [`docs/architecture.md`](docs/architecture.md)
+
 ## Scope (MVP)
 
 - **P0**: S-101 ENC load (ISO 8211 `.000`), vector preview, LAND/DEPARE toggles, WGS84 pick (≤ 1e-5°)
